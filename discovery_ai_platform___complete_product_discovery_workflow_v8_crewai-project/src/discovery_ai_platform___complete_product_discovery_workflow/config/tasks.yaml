@@ -1,0 +1,89 @@
+---
+build_d_o_r_framework:
+  description: 'Create comprehensive Definition of Ready (D.O.R.) framework for {discovery_id}.
+    Process discovery intake inputs: {title}, {objective}, {problem}, {owners}, {users},
+    {stakeholders}, {certainties}, {assumptions}, {open_questions}. Establish clear
+    criteria, success metrics, and governance checkpoints to ensure discovery readiness
+    before proceeding with research execution.'
+  expected_output: 'JSON object: {"discovery_id": "string", "dor_status": "COMPLETED
+    | PARTIALLY_COMPLETED | INSUFFICIENT_INFORMATION", "title": "string", "objective":
+    "string", "problem": "string", "owners": [], "users": [], "stakeholders": [],
+    "certainties": [], "assumptions": [], "open_questions": [], "deadline": null,
+    "attached_files": [],  "completeness_score": 0, "missing_required_fields": [],
+    "clarification_required": true, "clarification_questions": []}'
+  agent: d_o_r_builder
+validate_discovery_readiness:
+  description: 'Avaliar se uma solicitação de descoberta estruturada está pronta para
+    avançar para a definição da metodologia. Analisar os resultados da DOR. Avaliar:
+    clareza do problema, clareza do objetivo, definição do usuário, abrangência das
+    partes interessadas, maturidade das evidências, enquadramento das incertezas,
+    qualidade das premissas, ausência de contexto crítico. Responsabilidades: avaliar
+    a prontidão, classificar o nível de prontidão, identificar obstáculos, gerar requisitos
+    de esclarecimento, encaminhar o fluxo de trabalho. NÃO: definir a metodologia,
+    elaborar o plano de pesquisa, gerar oportunidades. Do not read the file at this
+    point'
+  expected_output: 'JSON object: {"discovery_id": "string", "readiness_status": "READY
+    | PARTIALLY_READY | NOT_READY", "readiness_score": 0, "strengths": [], "critical_gaps":
+    [], "blockers": [], "clarification_required": true, "clarification_questions":
+    [], "uncertainty_profile": {"problem_uncertainty": "LOW | MEDIUM | HIGH", "user_uncertainty":
+    "LOW | MEDIUM | HIGH", "validation_uncertainty": "LOW | MEDIUM | HIGH"}'
+  agent: discovery_readiness_specialist
+  context:
+  - build_d_o_r_framework
+define_discovery_methodology:
+  description: 'Defina a metodologia de descoberta mais adequada para a investigação
+    atual. Considere os resultados da análise de prontidão e o contexto do DOR. Avalie:
+    tipo de incerteza, urgência comercial, evidências disponíveis, objetivo da investigação,
+    tipo de decisão, nível de risco. Responsabilidades: recomendar a abordagem de
+    investigação, definir a fundamentação da metodologia, propor a sequência de etapas,
+    definir os limites metodológicos. Tipos de método: GENERATIVO, AVALIATIVO, VALIDATIVO,
+    MISTO. NÃO: elabore um plano operacional de investigação, defina os participantes,
+    execute a investigação. Do not read the file at this point'
+  expected_output: 'JSON object: {"discovery_id": "string", "methodology_status":
+    "DEFINED", "recommended_methodology": "GENERATIVE | EVALUATIVE | VALIDATIVE |
+    MIXED", "methodology_summary": "string", "method_rationale": [], "recommended_methods":
+    [], "sequencing_recommendation": [], "constraints": [], "risks": []}'
+  agent: discovery_methodology_strategist
+  context:
+  - validate_discovery_readiness
+prioritize_discovery_scope:
+  description: 'Defina o escopo de descoberta mais relevante do ponto de vista estratégico
+    e realisticamente exequível. Utilize os resultados da metodologia. Responsabilidades:
+    definir os limites do escopo, priorizar temas de pesquisa, identificar questões
+    que devem ser respondidas, reduzir a exploração desnecessária, alinhar o escopo
+    com o objetivo. NÃO: criar um plano de execução, definir a logística. Do not read
+    the file at this point'
+  expected_output: 'JSON object: {"discovery_id": "string", "scope_status": "DEFINED",
+    "scope_statement": "string", "priority_questions": [], "out_of_scope": [], "must_answer_questions":
+    [], "strategic_focus_areas": [], "workflow_recommendation": "PROCEED_TO_RESEARCH_PLANNING"}'
+  agent: discovery_scope_prioritization_specialist
+  context:
+  - define_discovery_methodology
+get_insights_from_file:
+  description: Get design thinking insights from url {link} using your firecrawl tools
+    you should scan it and then synthesize it's content into useful insights about
+    design thinking, limit the insights to 5 only
+  expected_output: |-
+    A JSON object
+    {
+    "insights":[{"insight_number":1, "insight":""}]
+    }
+  agent: insights_agent
+  context:
+  - prioritize_discovery_scope
+create_research_execution_plan:
+  description: Defina se todo o trabalho feito pelos agentes anteriores é o suficiente
+    para iniciar um discovery, entenda o que foi feito pelos últimos agentes e sintetize
+    isso em uma decisão final, caso seja o suficiente emita um positivo para seguir
+    em frente, caso não retorne para o usuário que o conteúdo é insuficiente. Do not
+    read the file at this point
+  expected_output: |-
+    Um objeto JSON:
+    {
+    "discovery_ready": "yes"|"no",
+    "reasoning":""
+    "insights":[]
+    }
+  agent: research_planning_strategist
+  context:
+  - get_insights_from_file

@@ -1,0 +1,1432 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Discovery IA</title>
+    <link rel="stylesheet" href="./styles.css" />
+    <script defer src="./demo-config.js"></script>
+    <script defer src="./app.js"></script>
+  </head>
+  <body>
+    <div class="app-shell">
+      <header class="topbar">
+        <div class="brand">
+          <a class="app-brand" href="#home" data-route-link="home" aria-label="Ir para início">
+            <img
+              class="app-brand-logo"
+              src="./assets/brand/logo_circ.png"
+              alt="Discovery AI"
+              width="36"
+              height="36"
+              loading="eager"
+              decoding="async"
+              onerror="this.hidden=true; this.nextElementSibling.hidden=false;"
+            />
+            <span class="app-brand-fallback" hidden>D</span>
+          </a>
+          <a class="brand-name" href="#home" data-route-link="home">Discovery IA</a>
+        </div>
+        <span class="api-mode-badge" data-api-mode-badge></span>
+
+        <div class="topbar-actions" aria-label="Ações da conta">
+          <a class="back-products-link" href="#products" data-route-link="products" hidden data-product-back>
+            <svg aria-hidden="true" viewBox="0 0 24 24">
+              <path d="m15 18-6-6 6-6" />
+            </svg>
+            Voltar para todos os produtos
+          </a>
+          <button class="icon-button notification-button" type="button" aria-label="Notificações">
+            <svg aria-hidden="true" viewBox="0 0 24 24">
+              <path d="M6 8a6 6 0 0 1 12 0c0 7 3 7 3 9H3c0-2 3-2 3-9" />
+              <path d="M10.3 21a1.94 1.94 0 0 0 3.4 0" />
+            </svg>
+            <span class="notification-dot" aria-hidden="true"></span>
+          </button>
+          <button class="avatar-button" type="button" aria-label="Perfil">
+            <svg aria-hidden="true" viewBox="0 0 24 24">
+              <path d="M18 20a6 6 0 0 0-12 0" />
+              <circle cx="12" cy="10" r="4" />
+            </svg>
+          </button>
+        </div>
+      </header>
+
+      <aside class="sidebar" data-sidebar>
+        <button class="collapse-button" type="button" data-action="toggle-sidebar" aria-label="Recolher menu">
+          <svg aria-hidden="true" viewBox="0 0 24 24">
+            <path d="m15 18-6-6 6-6" />
+            <path d="m20 18-6-6 6-6" />
+          </svg>
+        </button>
+
+        <nav class="side-nav" aria-label="Navegação principal">
+          <section class="nav-section" aria-labelledby="produtos-title">
+            <h2 id="produtos-title">Produtos</h2>
+            <a href="#products" class="nav-link" data-route-link="products">Lista de produtos</a>
+            <div class="favorite-products-menu" data-favorite-products-menu></div>
+          </section>
+
+          <section class="nav-section nav-section-bordered" aria-labelledby="discovery-title">
+            <h2 id="discovery-title">Discovery</h2>
+            <div class="favorite-discoveries-menu" data-favorite-discoveries-menu></div>
+          </section>
+        </nav>
+      </aside>
+
+      <main class="workspace">
+        <div class="view" data-view="home">
+        <section class="page-heading" aria-labelledby="page-title">
+          <h1 id="page-title">Repositório de Pesquisa</h1>
+          <p>Sistema centralizado para organização, busca e rastreabilidade de discoveries. Navegue por produto, filtre por metadados e encontre pesquisas anteriores rapidamente.</p>
+        </section>
+
+        <section class="assistant-panel" aria-labelledby="assistant-title">
+          <div class="assistant-header">
+            <div class="assistant-title-group">
+              <span class="assistant-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24">
+                  <rect x="4" y="8" width="16" height="10" rx="2" />
+                  <path d="M8 8V5h8v3" />
+                  <path d="M9 13h.01" />
+                  <path d="M15 13h.01" />
+                </svg>
+              </span>
+              <div>
+                <h2 id="assistant-title">Assistente de Pesquisa</h2>
+                <p>Discovery guiado para localizar aprendizados, riscos e próximos passos.</p>
+              </div>
+            </div>
+            <div class="assistant-status" aria-label="Status do assistente">
+              <span></span>
+              Online
+            </div>
+          </div>
+
+          <div class="quick-prompts" aria-label="Sugestões de perguntas">
+            <button type="button" data-prompt="Quais discoveries estão em etapa final?">Etapa final</button>
+            <button type="button" data-prompt="Resuma os insights sobre Cora Preços">Insights Cora Preços</button>
+            <button type="button" data-prompt="Criar um novo discovery de onboarding">Novo discovery</button>
+            <button type="button" data-prompt="Quais riscos aparecem nos pagamentos?">Riscos</button>
+          </div>
+
+          <div class="chat-window" data-chat-log aria-live="polite" aria-label="Conversa com o assistente">
+            <article class="message-row bot">
+              <span class="message-avatar" aria-hidden="true">
+                <svg viewBox="0 0 24 24">
+                  <rect x="4" y="8" width="16" height="10" rx="2" />
+                  <path d="M8 8V5h8v3" />
+                  <path d="M9 13h.01" />
+                  <path d="M15 13h.01" />
+                </svg>
+              </span>
+              <div class="message-bubble">
+                <p>Olá! Sou seu assistente de pesquisa. Posso te ajudar a encontrar discoveries, analisar insights ou responder perguntas sobre o repositório.</p>
+                <time datetime="2026-05-12T14:52">14:52</time>
+              </div>
+            </article>
+          </div>
+
+          <form class="composer" data-chat-form>
+            <label class="visually-hidden" for="chat-input">Digite sua pergunta</label>
+            <input id="chat-input" name="message" type="text" autocomplete="off" placeholder="Digite sua pergunta..." data-chat-input />
+            <button type="submit" aria-label="Enviar pergunta">
+              <svg aria-hidden="true" viewBox="0 0 24 24">
+                <path d="m22 2-7 20-4-9-9-4Z" />
+                <path d="M22 2 11 13" />
+              </svg>
+            </button>
+          </form>
+        </section>
+
+        <section class="recent-section" aria-labelledby="recent-title">
+          <div class="section-heading">
+            <h2 id="recent-title">Discovery recente</h2>
+            <div class="filter-group" role="group" aria-label="Filtrar discoveries">
+              <button class="active" type="button" data-filter="all">Todos</button>
+              <button type="button" data-filter="progress">Em andamento</button>
+              <button type="button" data-filter="done">Finalizados</button>
+            </div>
+          </div>
+
+          <div class="discovery-grid" data-discovery-grid>
+            <article class="discovery-card" data-status="progress" data-title="Dashboard operacional" data-product="Cora Preços" data-prompt="Abrir resumo do discovery Dashboard operacional">
+              <div class="card-topline">
+                <button class="star-button active" type="button" aria-label="Favoritar Dashboard operacional">
+                  <svg aria-hidden="true" viewBox="0 0 24 24">
+                    <polygon points="12 2 15.1 8.3 22 9.3 17 14.2 18.2 21 12 17.8 5.8 21 7 14.2 2 9.3 8.9 8.3 12 2" />
+                  </svg>
+                </button>
+                <span class="status-pill blue">
+                  <svg aria-hidden="true" viewBox="0 0 24 24">
+                    <circle cx="12" cy="12" r="10" />
+                    <path d="M12 8v5" />
+                    <path d="M12 16h.01" />
+                  </svg>
+                  1/3 concluídos
+                </span>
+              </div>
+              <h3>Dashboard operacional</h3>
+              <p>Métricas em tempo real para acompanhar desvios de preço e demanda.</p>
+              <button class="text-action" type="button">Continuar <span aria-hidden="true">›</span></button>
+            </article>
+
+            <article class="discovery-card" data-status="progress" data-title="Cora Transportes" data-product="Logística" data-prompt="O que falta no discovery Cora Transportes?">
+              <div class="card-topline">
+                <button class="star-button active" type="button" aria-label="Favoritar Cora Transportes">
+                  <svg aria-hidden="true" viewBox="0 0 24 24">
+                    <polygon points="12 2 15.1 8.3 22 9.3 17 14.2 18.2 21 12 17.8 5.8 21 7 14.2 2 9.3 8.9 8.3 12 2" />
+                  </svg>
+                </button>
+                <span class="status-pill blue">
+                  <svg aria-hidden="true" viewBox="0 0 24 24">
+                    <circle cx="12" cy="12" r="10" />
+                    <path d="M12 8v5" />
+                    <path d="M12 16h.01" />
+                  </svg>
+                  2/3 concluídos
+                </span>
+              </div>
+              <h3>Cora Transportes</h3>
+              <p>Mapeamento de gargalos em rotas, SLA e comunicação operacional.</p>
+              <button class="text-action" type="button">Continuar <span aria-hidden="true">›</span></button>
+            </article>
+
+            <article class="discovery-card" data-status="done" data-title="Conciliação de pagamentos" data-product="Pagamentos" data-prompt="Ver detalhes de Conciliação de pagamentos">
+              <div class="card-topline">
+                <button class="star-button active" type="button" aria-label="Favoritar Conciliação de pagamentos">
+                  <svg aria-hidden="true" viewBox="0 0 24 24">
+                    <polygon points="12 2 15.1 8.3 22 9.3 17 14.2 18.2 21 12 17.8 5.8 21 7 14.2 2 9.3 8.9 8.3 12 2" />
+                  </svg>
+                </button>
+                <span class="status-pill green">
+                  <svg aria-hidden="true" viewBox="0 0 24 24">
+                    <path d="M20 6 9 17l-5-5" />
+                  </svg>
+                  3/3 concluídos
+                </span>
+              </div>
+              <h3>Conciliação de pagamentos</h3>
+              <p>Validação de hipóteses para reduzir retrabalho no fechamento.</p>
+              <button class="text-action" type="button">Ver detalhes <span aria-hidden="true">›</span></button>
+            </article>
+
+            <article class="discovery-card" data-status="progress" data-title="Alertas inteligentes" data-product="Operações" data-prompt="Resuma os achados de Alertas inteligentes">
+              <div class="card-topline">
+                <button class="star-button active" type="button" aria-label="Favoritar Alertas inteligentes">
+                  <svg aria-hidden="true" viewBox="0 0 24 24">
+                    <polygon points="12 2 15.1 8.3 22 9.3 17 14.2 18.2 21 12 17.8 5.8 21 7 14.2 2 9.3 8.9 8.3 12 2" />
+                  </svg>
+                </button>
+                <span class="status-pill blue">
+                  <svg aria-hidden="true" viewBox="0 0 24 24">
+                    <circle cx="12" cy="12" r="10" />
+                    <path d="M12 8v5" />
+                    <path d="M12 16h.01" />
+                  </svg>
+                  1/3 concluídos
+                </span>
+              </div>
+              <h3>Alertas inteligentes</h3>
+              <p>Priorização de alertas para analistas com base em impacto e urgência.</p>
+              <button class="text-action" type="button">Continuar <span aria-hidden="true">›</span></button>
+            </article>
+
+            <article class="discovery-card" data-status="progress" data-title="Onboarding de produto" data-product="Growth" data-prompt="Quais próximos passos para Onboarding de produto?">
+              <div class="card-topline">
+                <button class="star-button" type="button" aria-label="Favoritar Onboarding de produto">
+                  <svg aria-hidden="true" viewBox="0 0 24 24">
+                    <polygon points="12 2 15.1 8.3 22 9.3 17 14.2 18.2 21 12 17.8 5.8 21 7 14.2 2 9.3 8.9 8.3 12 2" />
+                  </svg>
+                </button>
+                <span class="status-pill amber">
+                  <svg aria-hidden="true" viewBox="0 0 24 24">
+                    <path d="M12 6v6l4 2" />
+                    <circle cx="12" cy="12" r="10" />
+                  </svg>
+                  0/3 concluídos
+                </span>
+              </div>
+              <h3>Onboarding de produto</h3>
+              <p>Entrevistas iniciais sobre ativação, primeira tarefa e fricções.</p>
+              <button class="text-action" type="button">Continuar <span aria-hidden="true">›</span></button>
+            </article>
+
+            <article class="discovery-card" data-status="done" data-title="Relatório de repasses" data-product="Financeiro" data-prompt="Ver detalhes de Relatório de repasses">
+              <div class="card-topline">
+                <button class="star-button active" type="button" aria-label="Favoritar Relatório de repasses">
+                  <svg aria-hidden="true" viewBox="0 0 24 24">
+                    <polygon points="12 2 15.1 8.3 22 9.3 17 14.2 18.2 21 12 17.8 5.8 21 7 14.2 2 9.3 8.9 8.3 12 2" />
+                  </svg>
+                </button>
+                <span class="status-pill green">
+                  <svg aria-hidden="true" viewBox="0 0 24 24">
+                    <path d="M20 6 9 17l-5-5" />
+                  </svg>
+                  3/3 concluídos
+                </span>
+              </div>
+              <h3>Relatório de repasses</h3>
+              <p>Síntese de necessidades para rastrear divergências de repasse.</p>
+              <button class="text-action" type="button">Ver detalhes <span aria-hidden="true">›</span></button>
+            </article>
+          </div>
+        </section>
+        </div>
+
+        <div class="view" data-view="products" hidden>
+          <section class="products-page" aria-labelledby="products-page-title">
+            <nav class="breadcrumb" aria-label="Caminho">
+              <a href="#home" data-route-link="home">Início</a>
+              <svg aria-hidden="true" viewBox="0 0 24 24">
+                <path d="m9 18 6-6-6-6" />
+              </svg>
+              <span>Produtos</span>
+            </nav>
+
+            <div class="products-header">
+              <h1 id="products-page-title">Produtos</h1>
+              <label class="search-box">
+                <span class="visually-hidden">Buscar produto</span>
+                <svg aria-hidden="true" viewBox="0 0 24 24">
+                  <circle cx="11" cy="11" r="8" />
+                  <path d="m21 21-4.3-4.3" />
+                </svg>
+                <input type="search" placeholder="Buscar..." data-product-search />
+              </label>
+            </div>
+
+            <div class="product-stats" aria-label="Resumo dos produtos">
+              <article class="stat-card yellow">
+                <div>
+                  <strong data-stat-total>7</strong>
+                  <span>Total de Discoveries</span>
+                </div>
+                <svg aria-hidden="true" viewBox="0 0 24 24">
+                  <path d="M4 19V5" />
+                  <path d="M8 19v-6" />
+                  <path d="M12 19v-9" />
+                  <path d="M16 19V7" />
+                  <path d="M20 19H3" />
+                </svg>
+              </article>
+              <article class="stat-card green">
+                <div>
+                  <strong data-stat-done>4</strong>
+                  <span>Concluídos</span>
+                </div>
+                <svg aria-hidden="true" viewBox="0 0 24 24">
+                  <path d="m4 14 5-5 4 4 7-7" />
+                  <path d="M20 6v6h-6" />
+                </svg>
+              </article>
+              <article class="stat-card orange">
+                <div>
+                  <strong data-stat-progress>2</strong>
+                  <span>Em Execução</span>
+                </div>
+                <svg aria-hidden="true" viewBox="0 0 24 24">
+                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z" />
+                  <path d="M14 2v6h6" />
+                  <path d="M9 13h6" />
+                  <path d="M9 17h6" />
+                </svg>
+              </article>
+            </div>
+
+            <section class="selected-product" data-product-detail hidden aria-live="polite">
+              <div>
+                <p>Produto selecionado</p>
+                <h2 data-product-detail-title></h2>
+                <span data-product-detail-copy></span>
+              </div>
+              <div class="selected-actions">
+                <button type="button" data-product-detail-open>Abrir produto</button>
+                <button type="button" data-product-detail-chat>Perguntar ao assistente</button>
+                <button type="button" data-product-detail-clear aria-label="Fechar resumo">
+                  <svg aria-hidden="true" viewBox="0 0 24 24">
+                    <path d="M18 6 6 18" />
+                    <path d="m6 6 12 12" />
+                  </svg>
+                </button>
+              </div>
+            </section>
+
+            <section class="product-list" data-product-list aria-label="Lista de produtos"></section>
+
+            <div class="empty-state" data-product-empty hidden>
+              <strong>Nenhum produto encontrado</strong>
+              <span>Revise a busca ou selecione um produto pelo menu lateral.</span>
+            </div>
+          </section>
+        </div>
+
+        <div class="view" data-view="product" hidden>
+          <section class="product-page" aria-labelledby="product-page-title">
+            <nav class="breadcrumb" aria-label="Caminho">
+              <a href="#home" data-route-link="home">Início</a>
+              <svg aria-hidden="true" viewBox="0 0 24 24">
+                <path d="m9 18 6-6-6-6" />
+              </svg>
+              <a href="#products" data-route-link="products">Produtos</a>
+              <svg aria-hidden="true" viewBox="0 0 24 24">
+                <path d="m9 18 6-6-6-6" />
+              </svg>
+              <span data-current-product-name>Product name 1</span>
+            </nav>
+
+            <section class="product-hero card-surface">
+              <div class="product-hero-copy">
+                <h1 id="product-page-title" data-product-page-title>Product name 1</h1>
+                <span class="product-category-pill" data-product-page-category>Cora Transportes</span>
+                <p data-product-page-about>Teste A/B de elementos de gamificação para aumentar engajamento com promoções.</p>
+                <span class="product-status-pill" data-product-page-status>Monitorado</span>
+              </div>
+
+              <div class="product-hero-actions page-header-actions">
+                <button class="btn btn-primary primary-action new-discovery-product-button" type="button" data-product-new-discovery>
+                  <svg aria-hidden="true" viewBox="0 0 24 24">
+                    <circle cx="12" cy="12" r="10" />
+                    <path d="M8 12h8" />
+                    <path d="M12 8v8" />
+                  </svg>
+                  Novo discovery
+                </button>
+                <a class="btn btn-secondary outline-action" href="#product/cora-precos/audience" data-product-audience-manage-link>Gerenciar pessoas do produto</a>
+              </div>
+            </section>
+
+            <section class="product-kpi-grid" data-product-kpi-grid aria-label="Resumo do produto"></section>
+
+            <div class="product-dashboard-layout">
+              <div class="product-dashboard-main">
+                <section class="product-discoveries card-surface" aria-labelledby="product-discoveries-title">
+                  <div class="product-section-header">
+                    <div>
+                      <span>Prioridade</span>
+                      <h2 id="product-discoveries-title">Discoveries ativos</h2>
+                    </div>
+                    <label class="search-box compact">
+                      <span class="visually-hidden">Buscar discovery</span>
+                      <svg aria-hidden="true" viewBox="0 0 24 24">
+                        <circle cx="11" cy="11" r="8" />
+                        <path d="m21 21-4.3-4.3" />
+                      </svg>
+                      <input type="search" placeholder="Buscar..." data-product-discovery-search />
+                    </label>
+                  </div>
+
+                  <div class="product-discovery-grid" data-product-discovery-grid></div>
+                  <div class="empty-state" data-product-discovery-empty hidden>
+                    <strong>Nenhum discovery encontrado</strong>
+                    <span>Revise a busca ou abra outro produto.</span>
+                  </div>
+                </section>
+
+                <section class="product-learning-summary card-surface" data-product-learning-summary aria-labelledby="product-learning-title"></section>
+              </div>
+
+              <aside class="product-dashboard-side">
+                <section class="product-audience-summary card-surface" data-product-audience-summary aria-labelledby="product-audience-summary-title"></section>
+
+                <section class="product-info-grid product-metadata-card info-card" aria-labelledby="product-metadata-title">
+                  <h2 id="product-metadata-title">Metadados</h2>
+                  <dl>
+                    <div>
+                      <dt>Squad</dt>
+                      <dd data-product-squad>Growth Squad</dd>
+                    </div>
+                    <div>
+                      <dt>Participantes de pesquisa</dt>
+                      <dd data-product-participants>Bruno Lima, Camila Rocha</dd>
+                    </div>
+                    <div>
+                      <dt>Período</dt>
+                      <dd><span data-product-start>25/04/2026</span> - <span data-product-end>20/05/2026</span></dd>
+                    </div>
+                  </dl>
+                </section>
+
+                <section class="product-quick-actions quick-actions-grid card-surface" aria-labelledby="product-actions-title">
+                  <h2 id="product-actions-title">Ações rápidas</h2>
+                  <button class="btn btn-secondary secondary-action" type="button" data-team-button>Ver metadados</button>
+                  <a class="btn btn-secondary secondary-action" href="#product/cora-precos/audience" data-product-audience-manage-link-secondary>Gerenciar pessoas</a>
+                </section>
+
+                <section class="artifacts-panel product-support-artifacts card-surface" aria-labelledby="artifacts-title">
+                  <h2 id="artifacts-title">Materiais</h2>
+                  <div data-product-artifacts></div>
+                </section>
+              </aside>
+            </div>
+          </section>
+        </div>
+
+        <div class="view" data-view="product-audience" hidden>
+          <section class="product-audience-page" data-product-audience-page aria-labelledby="product-audience-page-title"></section>
+        </div>
+
+        <div class="view" data-view="discovery" hidden>
+          <section class="discovery-page" data-discovery-page aria-labelledby="discovery-page-title">
+            <nav class="breadcrumb" aria-label="Caminho">
+              <a href="#home" data-route-link="home">Início</a>
+              <svg aria-hidden="true" viewBox="0 0 24 24">
+                <path d="m9 18 6-6-6-6" />
+              </svg>
+              <a href="#products" data-discovery-product-link>Cora Promoções</a>
+              <svg aria-hidden="true" viewBox="0 0 24 24">
+                <path d="m9 18 6-6-6-6" />
+              </svg>
+              <span data-discovery-page-name>Nome do Discovery</span>
+            </nav>
+
+            <div class="discovery-layout">
+              <div class="discovery-main discovery-main-grid">
+                <section class="discovery-summary card-surface">
+                  <div class="discovery-title-row">
+                    <div>
+                      <h1 id="discovery-page-title" data-discovery-product-name>Nome de produto</h1>
+                      <div class="discovery-status-row">
+                        <span class="execution-status" data-discovery-readiness-status>
+                          <span></span>
+                          Em Execução
+                        </span>
+                      </div>
+                    </div>
+                    <div class="discovery-header-side">
+                      <button class="star-button discovery-detail-favorite" type="button" aria-label="Favoritar discovery" aria-pressed="false" data-discovery-detail-favorite>
+                        <svg aria-hidden="true" viewBox="0 0 24 24">
+                          <polygon points="12 2 15.1 8.3 22 9.3 17 14.2 18.2 21 12 17.8 5.8 21 7 14.2 2 9.3 8.9 8.3 12 2" />
+                        </svg>
+                      </button>
+                      <span class="discovery-id">ID-20251108-007</span>
+                    </div>
+                  </div>
+
+                  <h2>Problema</h2>
+                  <p data-discovery-problem>Problema ainda não informado.</p>
+
+                  <h2>Objetivo</h2>
+                  <p data-discovery-objective>Teste A/B de elementos de gamificação para aumentar engajamento com promoções.</p>
+
+                  <div data-discovery-crew-summary hidden>
+                    <h2>Resumo Executivo</h2>
+                    <p data-discovery-reasoning></p>
+                  </div>
+                </section>
+
+                <div class="discovery-info-grid">
+                  <section class="info-card" aria-labelledby="team-card-title">
+                    <h2 id="team-card-title">
+                      <svg aria-hidden="true" viewBox="0 0 24 24">
+                        <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+                        <circle cx="9" cy="7" r="4" />
+                        <path d="M22 21v-2a4 4 0 0 0-3-3.87" />
+                      </svg>
+                      Equipe
+                    </h2>
+                    <dl>
+                      <div>
+                        <dt>Squad</dt>
+                        <dd data-discovery-squad>Growth Squad</dd>
+                      </div>
+                      <div>
+                        <dt>Participantes</dt>
+                        <dd data-discovery-participants>Bruno Lima, Camila Rocha</dd>
+                      </div>
+                    </dl>
+                  </section>
+
+                  <section class="info-card" aria-labelledby="timeline-card-title">
+                    <h2 id="timeline-card-title">
+                      <svg aria-hidden="true" viewBox="0 0 24 24">
+                        <path d="M8 2v4" />
+                        <path d="M16 2v4" />
+                        <rect x="3" y="4" width="18" height="18" rx="2" />
+                        <path d="M3 10h18" />
+                      </svg>
+                      <span data-discovery-timeline-title>Cronograma</span>
+                    </h2>
+                    <dl>
+                      <div>
+                        <dt>Início</dt>
+                        <dd data-discovery-start>25/04/2026</dd>
+                      </div>
+                      <div>
+                        <dt>Fim</dt>
+                        <dd data-discovery-end>20/05/2026</dd>
+                      </div>
+                    </dl>
+                  </section>
+
+                  <section class="discovery-insights-card card-surface" aria-labelledby="discovery-insights-title">
+                    <h2 id="discovery-insights-title" data-discovery-insights-title>Principais Insights</h2>
+                    <ul class="insight-list" data-discovery-insights></ul>
+                  </section>
+
+                  <section class="info-card" aria-labelledby="lgpd-card-title">
+                    <h2 id="lgpd-card-title">
+                      <svg aria-hidden="true" viewBox="0 0 24 24">
+                        <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10" />
+                      </svg>
+                      LGPD & Governança
+                    </h2>
+                    <dl>
+                      <div>
+                        <dt>Sensibilidade</dt>
+                        <dd>interno</dd>
+                      </div>
+                      <div>
+                        <dt>Retenção</dt>
+                        <dd>365 dias</dd>
+                      </div>
+                      <div>
+                        <dt>Consentimento</dt>
+                        <dd>× Pendente</dd>
+                      </div>
+                    </dl>
+                  </section>
+                </div>
+
+                <section class="method-card card-surface">
+                  <h2>Amostra & Método</h2>
+                  <div class="method-grid">
+                    <div>
+                      <span>Tamanho da amostra</span>
+                      <strong>n = 5000</strong>
+                    </div>
+                    <div>
+                      <span>Segmentos</span>
+                      <strong>promotores ativos, gerentes de loja</strong>
+                    </div>
+                    <div>
+                      <span>Critérios</span>
+                      <strong>Usuários ativos nos últimos 30 dias</strong>
+                    </div>
+                  </div>
+                </section>
+
+                <section class="artifacts-panel card-surface" aria-labelledby="discovery-artifacts-title">
+                  <h2 id="discovery-artifacts-title">
+                    <svg aria-hidden="true" viewBox="0 0 24 24">
+                      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z" />
+                      <path d="M14 2v6h6" />
+                    </svg>
+                    Artefatos
+                  </h2>
+                  <div data-discovery-artifacts></div>
+                </section>
+              </div>
+
+              <aside class="discovery-aside">
+                <section class="discovery-chat-panel card-surface" aria-labelledby="discovery-chat-title">
+                  <h2 id="discovery-chat-title">
+                    <svg aria-hidden="true" viewBox="0 0 24 24">
+                      <rect x="4" y="8" width="16" height="10" rx="2" />
+                      <path d="M8 8V5h8v3" />
+                      <path d="M9 13h.01" />
+                      <path d="M15 13h.01" />
+                    </svg>
+                    Chat do Discovery
+                  </h2>
+                  <div class="discovery-chat-log" data-discovery-chat-log aria-live="polite"></div>
+                  <form class="discovery-chat-form" data-discovery-chat-form>
+                    <label class="visually-hidden" for="discovery-chat-input">Mensagem para o chat do discovery</label>
+                    <input id="discovery-chat-input" type="text" placeholder="Converse sobre este discovery..." data-discovery-chat-input />
+                    <input
+                      id="discovery-attachment-input"
+                      class="visually-hidden"
+                      type="file"
+                      multiple
+                      accept="image/*,.pdf,.txt,.csv,.xls,.xlsx,.doc,.docx,application/pdf,text/plain,text/csv,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                      data-discovery-attachment-input
+                    />
+                    <button class="attach-button" type="button" aria-label="Anexar arquivo" data-discovery-attach-button>
+                      <svg aria-hidden="true" viewBox="0 0 24 24">
+                        <path d="m21.4 11.6-8.5 8.5a6 6 0 0 1-8.5-8.5l9.2-9.2a4 4 0 0 1 5.7 5.7l-9.2 9.2a2 2 0 0 1-2.8-2.8l8.5-8.5" />
+                      </svg>
+                    </button>
+                    <button type="submit" aria-label="Enviar mensagem">
+                      <svg aria-hidden="true" viewBox="0 0 24 24">
+                        <path d="m22 2-7 20-4-9-9-4Z" />
+                        <path d="M22 2 11 13" />
+                      </svg>
+                    </button>
+                    <div class="discovery-attachment-list" data-discovery-attachment-list hidden></div>
+                  </form>
+                </section>
+
+                <section class="methodology-panel card-surface" data-methodology-panel aria-labelledby="methodology-title">
+                  <h2 id="methodology-title">
+                    <svg aria-hidden="true" viewBox="0 0 24 24">
+                      <path d="m4 14 5-5 4 4 7-7" />
+                      <path d="M20 6v6h-6" />
+                    </svg>
+                    Metodologia
+                  </h2>
+                  <div data-methodology-list></div>
+                </section>
+
+                <section class="evidence-panel card-surface" aria-labelledby="evidence-title">
+                  <h2 id="evidence-title">
+                    <svg aria-hidden="true" viewBox="0 0 24 24">
+                      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z" />
+                      <path d="M14 2v6h6" />
+                    </svg>
+                    Evidências Destacadas
+                  </h2>
+                  <div class="evidence-list" data-evidence-list></div>
+                </section>
+              </aside>
+            </div>
+          </section>
+        </div>
+
+        <div class="view" data-view="synthesis" hidden>
+          <section class="synthesis-page" data-synthesis-page aria-labelledby="synthesis-page-title"></section>
+        </div>
+
+        <div class="view" data-view="interview" hidden>
+          <section class="interview-detail" aria-labelledby="interview-detail-title">
+            <nav class="breadcrumb" aria-label="Caminho">
+              <a href="#home" data-route-link="home">Início</a>
+              <svg aria-hidden="true" viewBox="0 0 24 24">
+                <path d="m9 18 6-6-6-6" />
+              </svg>
+              <a href="#product/cora-precos" data-interview-back>Cora Preços</a>
+              <svg aria-hidden="true" viewBox="0 0 24 24">
+                <path d="m9 18 6-6-6-6" />
+              </svg>
+              <span data-interview-discovery-name>Discovery</span>
+            </nav>
+
+            <section class="interview-hero card-surface">
+              <div class="interview-hero-main">
+                <span class="eyebrow-label">In-Depth Interview</span>
+                <h1 id="interview-detail-title" data-interview-title>Entrevistas em Profundidade | Checkout Experience</h1>
+                <div class="interview-objective">
+                  <span>Objetivo da pesquisa</span>
+                  <p data-interview-objective>Validar quais incentivos e sinais aumentam a confiança durante o checkout e reduzem fricções operacionais.</p>
+                </div>
+                <div class="interview-personas">
+                  <span>Usuários-alvo</span>
+                  <strong data-interview-personas>Analista de Topline, Especialista Trade Price, Analista de vendas</strong>
+                </div>
+              </div>
+
+              <aside class="recruitment-overview" aria-label="Status de recrutamento">
+                <span>Status geral do recrutamento</span>
+                <strong><span data-interview-confirmed>3</span>/<span data-interview-target>8</span> confirmados</strong>
+                <div class="progress-track">
+                  <div class="progress-bar" data-interview-recruitment-bar style="width: 37.5%"></div>
+                </div>
+                <p data-interview-recruitment-summary>5 confirmações restantes para completar a amostra.</p>
+              </aside>
+            </section>
+
+            <div class="interview-content" data-interview-content>
+              <section class="recruitment-panel card-surface" aria-labelledby="recruitment-title">
+                <div class="panel-heading">
+                  <div>
+                    <span class="eyebrow-label">Research Ops</span>
+                    <h2 id="recruitment-title">Recrutamento de participantes</h2>
+                    <p>Selecione usuários sugeridos e simule o envio de convites por Teams ou Outlook.</p>
+                  </div>
+                  <div class="selected-counter">
+                    <span data-interview-selected-count>0</span>
+                    selecionados
+                  </div>
+                </div>
+
+                <div class="recruitment-feedback" data-interview-feedback hidden></div>
+
+                <div class="table-shell">
+                  <table class="recruitment-table">
+                    <thead>
+                      <tr>
+                        <th>
+                          <input type="checkbox" aria-label="Selecionar todos" data-interview-select-all />
+                        </th>
+                        <th>Nome</th>
+                        <th>E-mail</th>
+                        <th>Cargo / função</th>
+                        <th>Empresa</th>
+                        <th>Status</th>
+                        <th>Ações</th>
+                      </tr>
+                    </thead>
+                    <tbody data-interview-participants-body></tbody>
+                  </table>
+                </div>
+
+                <footer class="recruitment-actions">
+                  <button class="secondary-action teams-action" type="button" data-interview-recruit-teams>
+                    <svg aria-hidden="true" viewBox="0 0 24 24">
+                      <rect x="3" y="4" width="18" height="14" rx="3" />
+                      <path d="M8 20h8" />
+                      <path d="M12 18v2" />
+                    </svg>
+                    Recrutar via Microsoft Teams
+                  </button>
+                  <button class="primary-action outlook-action" type="button" data-interview-recruit-outlook>
+                    <svg aria-hidden="true" viewBox="0 0 24 24">
+                      <rect x="3" y="5" width="18" height="14" rx="2" />
+                      <path d="m3 7 9 6 9-6" />
+                    </svg>
+                    Recrutar via Outlook
+                  </button>
+                </footer>
+              </section>
+
+              <section class="interview-guide-panel card-surface" aria-labelledby="guide-title">
+                <div class="panel-heading">
+                  <div>
+                    <span class="eyebrow-label">Roteiro gerado</span>
+                    <h2 id="guide-title">Roteiro da entrevista</h2>
+                    <p>Lista única com 10 perguntas essenciais para conduzir a entrevista com consistência.</p>
+                  </div>
+                </div>
+                <div class="guide-blocks" data-interview-route-blocks></div>
+              </section>
+            </div>
+
+            <div class="interview-skeleton" data-interview-skeleton hidden aria-hidden="true">
+              <div></div>
+              <div></div>
+              <div></div>
+            </div>
+          </section>
+        </div>
+
+        <div class="view" data-view="interview-session" hidden>
+          <section class="participant-interview-detail" aria-labelledby="participant-interview-title">
+            <nav class="breadcrumb" aria-label="Caminho">
+              <a href="#home" data-route-link="home">Início</a>
+              <svg aria-hidden="true" viewBox="0 0 24 24">
+                <path d="m9 18 6-6-6-6" />
+              </svg>
+              <a href="#interview/entrevista-em-profundidade/discovery-1/cora-precos" data-participant-interview-back>Entrevistas em Profundidade</a>
+              <svg aria-hidden="true" viewBox="0 0 24 24">
+                <path d="m9 18 6-6-6-6" />
+              </svg>
+              <span data-participant-interview-breadcrumb>Participante</span>
+            </nav>
+
+            <section class="participant-interview-hero card-surface">
+              <div class="participant-avatar" data-participant-avatar>AM</div>
+              <div class="participant-interview-heading">
+                <span class="eyebrow-label">Entrevista individual</span>
+                <h1 id="participant-interview-title" data-participant-interview-name>Ana Martins</h1>
+                <p><span data-participant-interview-role>Analista de Topline</span> · <span data-participant-interview-company>Ambev</span></p>
+              </div>
+              <div class="participant-session-meta">
+                <div>
+                  <span>Data da entrevista</span>
+                  <strong data-participant-interview-date>14/05/2026</strong>
+                </div>
+                <div>
+                  <span>Duração</span>
+                  <strong data-participant-interview-duration>52 min</strong>
+                </div>
+                <div>
+                  <span>Status</span>
+                  <strong class="session-status">Concluída</strong>
+                </div>
+              </div>
+            </section>
+
+            <section class="insights-panel card-surface" aria-labelledby="participant-insights-title">
+              <div class="panel-heading">
+                <div>
+                  <span class="eyebrow-label">Síntese</span>
+                  <h2 id="participant-insights-title">Principais insights</h2>
+                  <p>Leitura consolidada da conversa, com dores, comportamentos, expectativas e oportunidades.</p>
+                </div>
+              </div>
+              <div class="participant-insight-grid" data-participant-insights></div>
+            </section>
+
+            <section class="transcript-panel card-surface">
+              <button class="accordion-trigger" type="button" aria-expanded="false" data-transcript-toggle>
+                <span>Transcrição completa</span>
+                <svg aria-hidden="true" viewBox="0 0 24 24">
+                  <path d="m6 9 6 6 6-6" />
+                </svg>
+              </button>
+              <div class="transcript-content" data-transcript-content hidden></div>
+            </section>
+
+            <section class="recording-panel card-surface" aria-labelledby="recording-title">
+              <div>
+                <span class="eyebrow-label">Gravação</span>
+                <h2 id="recording-title">Sessão gravada</h2>
+                <p data-recording-summary>Entrevista completa disponível para revisão do time.</p>
+              </div>
+              <button class="primary-action recording-action" type="button" data-watch-recording>
+                <svg aria-hidden="true" viewBox="0 0 24 24">
+                  <polygon points="6 3 20 12 6 21 6 3" />
+                </svg>
+                Assistir gravação
+              </button>
+            </section>
+          </section>
+        </div>
+      </main>
+
+      <div class="modal-backdrop recording-backdrop" data-recording-modal hidden>
+        <section class="recording-modal card-surface" role="dialog" aria-modal="true" aria-labelledby="recording-modal-title">
+          <header class="recording-modal-header">
+            <div>
+              <span class="eyebrow-label">Gravação da entrevista</span>
+              <h2 id="recording-modal-title" data-recording-modal-title>Entrevista individual</h2>
+              <p data-recording-modal-duration>52 min</p>
+            </div>
+            <button class="modal-close" type="button" aria-label="Fechar gravação" data-recording-close>
+              <svg aria-hidden="true" viewBox="0 0 24 24">
+                <path d="M18 6 6 18" />
+                <path d="m6 6 12 12" />
+              </svg>
+            </button>
+          </header>
+          <div class="mock-video-player">
+            <div class="video-frame">
+              <button class="video-play-button" type="button" data-video-play aria-label="Reproduzir ou pausar gravação">
+                <svg aria-hidden="true" viewBox="0 0 24 24">
+                  <polygon points="8 5 19 12 8 19 8 5" />
+                </svg>
+              </button>
+              <span data-video-state>Pronto para reproduzir</span>
+            </div>
+            <div class="video-controls">
+              <span>00:00</span>
+              <div class="video-progress"><span data-video-progress></span></div>
+              <span data-video-duration>52:00</span>
+            </div>
+          </div>
+        </section>
+      </div>
+
+      <div class="modal-backdrop audience-confirm-backdrop" data-audience-confirm-modal hidden>
+        <section class="audience-confirm-modal card-surface" role="dialog" aria-modal="true" aria-labelledby="audience-confirm-title">
+          <header class="audience-confirm-header">
+            <div>
+              <span data-audience-confirm-kicker>Pessoas do produto</span>
+              <h2 id="audience-confirm-title" data-audience-confirm-title>Confirmar exclusão</h2>
+            </div>
+            <button class="modal-close" type="button" aria-label="Cancelar exclusão" data-audience-confirm-cancel>
+              <svg aria-hidden="true" viewBox="0 0 24 24">
+                <path d="M18 6 6 18" />
+                <path d="m6 6 12 12" />
+              </svg>
+            </button>
+          </header>
+          <div class="audience-confirm-body">
+            <p data-audience-confirm-message></p>
+          </div>
+          <footer class="audience-confirm-actions modal-actions">
+            <button class="btn btn-secondary secondary-action" type="button" data-audience-confirm-action="cancel">Cancelar</button>
+            <button class="btn btn-secondary secondary-action" type="button" data-audience-confirm-action="archive">Arquivar</button>
+            <button class="btn btn-danger primary-action danger-action" type="button" data-audience-confirm-action="delete">Excluir mesmo assim</button>
+          </footer>
+        </section>
+      </div>
+
+      <div class="modal-backdrop product-audience-preview-backdrop" data-product-audience-preview-modal hidden>
+        <section class="product-audience-preview-modal card-surface" role="dialog" aria-modal="true" aria-labelledby="product-audience-preview-title">
+          <header class="product-audience-preview-header">
+            <div>
+              <span>Pessoas do produto</span>
+              <h2 id="product-audience-preview-title">Personas e stakeholders do produto</h2>
+            </div>
+            <button class="modal-close" type="button" aria-label="Fechar pessoas do produto" data-product-audience-preview-close>
+              <svg aria-hidden="true" viewBox="0 0 24 24">
+                <path d="M18 6 6 18" />
+                <path d="m6 6 12 12" />
+              </svg>
+            </button>
+          </header>
+          <div class="product-audience-preview-body" data-product-audience-preview-body></div>
+        </section>
+      </div>
+
+      <div class="modal-backdrop discovery-people-backdrop" data-discovery-people-preview-modal hidden>
+        <section class="discovery-people-modal card-surface" role="dialog" aria-modal="true" aria-labelledby="discovery-people-preview-title">
+          <header class="discovery-people-modal-header">
+            <div>
+              <span>Pessoas relacionadas</span>
+              <h2 id="discovery-people-preview-title">Pessoas relacionadas ao discovery</h2>
+            </div>
+            <button class="modal-close" type="button" aria-label="Fechar preview" data-discovery-people-preview-close>
+              <svg aria-hidden="true" viewBox="0 0 24 24">
+                <path d="M18 6 6 18" />
+                <path d="m6 6 12 12" />
+              </svg>
+            </button>
+          </header>
+          <div class="discovery-people-modal-body" data-discovery-people-preview-body></div>
+        </section>
+      </div>
+
+      <div class="modal-backdrop discovery-people-backdrop" data-discovery-people-edit-modal hidden>
+        <section class="discovery-people-modal card-surface" role="dialog" aria-modal="true" aria-labelledby="discovery-people-edit-title">
+          <header class="discovery-people-modal-header">
+            <div>
+              <span>Pessoas relacionadas</span>
+              <h2 id="discovery-people-edit-title">Editar pessoas relacionadas ao discovery</h2>
+            </div>
+            <button class="modal-close" type="button" aria-label="Fechar edição de pessoas" data-discovery-people-edit-close>
+              <svg aria-hidden="true" viewBox="0 0 24 24">
+                <path d="M18 6 6 18" />
+                <path d="m6 6 12 12" />
+              </svg>
+            </button>
+          </header>
+          <div class="discovery-people-modal-body" data-discovery-people-edit-body></div>
+          <footer class="discovery-people-modal-actions modal-actions">
+            <button class="btn btn-secondary secondary-action" type="button" data-discovery-people-edit-cancel>Cancelar</button>
+            <button class="btn btn-primary primary-action" type="button" data-discovery-people-edit-save>Salvar seleção</button>
+          </footer>
+        </section>
+      </div>
+
+      <div class="modal-backdrop csd-modal-overlay" data-csd-modal hidden>
+        <section class="csd-modal" role="dialog" aria-modal="true" aria-labelledby="csd-modal-title">
+          <header class="csd-modal-header">
+            <div class="csd-modal-heading">
+              <div>
+                <span>Método de discovery</span>
+                <h2 id="csd-modal-title">Matriz CSD</h2>
+              </div>
+              <strong class="csd-validation-badge" data-csd-validation-badge>0% validado</strong>
+            </div>
+            <p>Gerencie as certezas, suposições e dúvidas do discovery.</p>
+            <button class="modal-close csd-modal-close" type="button" aria-label="Fechar Matriz CSD" data-csd-modal-close>
+              <svg aria-hidden="true" viewBox="0 0 24 24">
+                <path d="M18 6 6 18" />
+                <path d="m6 6 12 12" />
+              </svg>
+            </button>
+          </header>
+
+          <div class="csd-modal-body" data-csd-modal-body></div>
+
+          <footer class="csd-modal-footer">
+            <span data-csd-last-updated>Última atualização: --</span>
+            <div class="modal-actions">
+              <button class="btn btn-secondary secondary-action" type="button" data-csd-cancel>Cancelar</button>
+              <button class="btn btn-primary primary-action" type="button" data-csd-save>Salvar matriz</button>
+            </div>
+          </footer>
+        </section>
+      </div>
+
+      <div class="modal-backdrop method-entry-backdrop" data-method-entry-modal hidden>
+        <form class="method-entry-drawer" data-method-entry-form role="dialog" aria-modal="true" aria-labelledby="method-entry-title">
+          <header class="method-entry-header">
+            <div>
+              <span>Metodologia</span>
+              <h2 id="method-entry-title" data-method-entry-title>Metodologia</h2>
+              <p>Registre as informações coletadas e materiais de apoio desta etapa.</p>
+            </div>
+            <button class="modal-close" type="button" aria-label="Fechar drawer" data-method-entry-close>
+              <svg aria-hidden="true" viewBox="0 0 24 24">
+                <path d="M18 6 6 18" />
+                <path d="m6 6 12 12" />
+              </svg>
+            </button>
+          </header>
+
+          <label class="method-entry-field">
+            <span>Informações</span>
+            <textarea rows="7" placeholder="Insira observações, aprendizados, plano de execução ou síntese desta metodologia..." data-method-entry-text></textarea>
+          </label>
+
+          <div class="method-entry-field">
+            <span>Arquivos</span>
+            <input
+              class="visually-hidden"
+              type="file"
+              multiple
+              accept="image/*,.pdf,.txt,.csv,.xls,.xlsx,.doc,.docx,application/pdf,text/plain,text/csv,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+              data-method-entry-file
+            />
+            <button class="support-file-button" type="button" data-method-entry-file-button>
+              <strong>Select file</strong>
+              <span data-method-entry-file-label>Nenhum arquivo selecionado</span>
+            </button>
+            <div class="method-entry-file-list" data-method-entry-file-list hidden></div>
+          </div>
+
+          <footer class="method-entry-actions modal-actions">
+            <button type="button" class="btn btn-secondary secondary-action" data-method-entry-cancel>Cancelar</button>
+            <button type="submit" class="btn btn-primary primary-action">Salvar</button>
+          </footer>
+        </form>
+      </div>
+
+      <div class="modal-backdrop new-discovery-flow" data-new-discovery-modal hidden>
+        <section class="new-discovery-modal" role="dialog" aria-modal="true" aria-labelledby="new-discovery-title">
+          <header class="flow-header">
+            <h2 id="new-discovery-title">Novo discovery</h2>
+            <button class="modal-close" type="button" aria-label="Fechar modal" data-close-new-discovery>
+              <svg aria-hidden="true" viewBox="0 0 24 24">
+                <path d="M18 6 6 18" />
+                <path d="m6 6 12 12" />
+              </svg>
+            </button>
+          </header>
+
+          <form class="new-discovery-setup" data-new-discovery-setup-form>
+            <div class="setup-card card-surface">
+              <div class="setup-heading">
+                <span>Etapa 1</span>
+                <h3>Título, problema e objetivo</h3>
+                <p>Defina o ponto de partida do discovery antes de escolher como seguir.</p>
+              </div>
+
+              <label>
+                <span>Título</span>
+                <input type="text" placeholder="Ex.: Engajamento em promoções" required data-new-discovery-setup-title />
+              </label>
+
+              <label>
+                <span>Problema</span>
+                <textarea rows="4" placeholder="Descreva o problema que precisa ser investigado..." required data-new-discovery-setup-problem></textarea>
+              </label>
+
+              <label>
+                <span>Objetivo</span>
+                <textarea rows="4" placeholder="Descreva o que este discovery precisa entender, validar ou decidir..." required data-new-discovery-setup-objective></textarea>
+              </label>
+
+              <div class="setup-actions form-actions">
+                <button type="button" class="btn btn-secondary secondary-action" data-cancel-new-discovery>Cancelar</button>
+                <button type="submit" class="btn btn-primary primary-action">Avançar</button>
+              </div>
+            </div>
+          </form>
+
+          <div class="flow-progress" aria-label="Progresso do novo discovery" hidden>
+            <span class="flow-progress-track"><span data-new-discovery-progress></span></span>
+            <strong data-new-discovery-progress-label>0%</strong>
+          </div>
+
+          <form class="new-discovery-participants" data-new-discovery-participants-form hidden>
+            <div class="flow-body">
+              <section class="setup-card participants-card card-surface">
+                <div class="setup-heading">
+                  <span>Etapa 2</span>
+                  <h3>Participantes de pesquisa</h3>
+                  <p>Responsáveis e perfis que podem participar da etapa de pesquisa.</p>
+                </div>
+
+                <div class="participant-field custom-select">
+                  <span>Responsáveis</span>
+                  <button class="select-simulated custom-select-trigger active" type="button" data-flow-select="responsaveis">
+                    <span data-flow-select-label="responsaveis">1 selected</span>
+                    <span aria-hidden="true">⌄</span>
+                  </button>
+                </div>
+
+                <div class="participant-grid">
+                  <div class="participant-field custom-select">
+                    <span>Perfis de pesquisa</span>
+                    <button class="select-simulated custom-select-trigger active" type="button" data-flow-select="personas">
+                      <span data-flow-select-label="personas">1 selected</span>
+                      <span aria-hidden="true">⌄</span>
+                    </button>
+                  </div>
+
+                  <div class="participant-field custom-select">
+                    <span>Stakeholders para pesquisa</span>
+                    <button class="select-simulated custom-select-trigger" type="button" data-flow-select="stakeholders">
+                      <span data-flow-select-label="stakeholders">Selecione os stakeholders</span>
+                      <span aria-hidden="true">⌄</span>
+                    </button>
+                  </div>
+                </div>
+              </section>
+
+              <section class="setup-card participants-card related-people-card card-surface">
+                <div class="setup-heading">
+                  <span>Produto</span>
+                  <h3>Pessoas relacionadas ao discovery</h3>
+                  <p>Selecione as personas impactadas e os stakeholders envolvidos neste discovery.</p>
+                </div>
+
+                <div class="related-people-selection" data-new-discovery-product-people></div>
+              </section>
+
+              <section class="setup-card participants-card card-surface">
+                <div class="setup-heading">
+                  <h3>Informações complementares</h3>
+                  <p>Todos os campos desta seção são opcionais.</p>
+                </div>
+
+                <label>
+                  <span>Prazo (opcional)</span>
+                  <input type="text" placeholder="DD/MM/YYYY" data-new-discovery-deadline />
+                </label>
+
+                <label>
+                  <span>Evidências e materiais de apoio (opcional)</span>
+                  <input class="visually-hidden" type="file" multiple data-new-discovery-support-file />
+                  <button class="support-file-button" type="button" data-new-discovery-support-file-button>
+                    <strong>Select file</strong>
+                    <span data-new-discovery-support-file-label>Selecione seu arquivo</span>
+                  </button>
+                </label>
+
+                <div class="flow-links-field">
+                  <span>Link</span>
+                  <div data-new-discovery-support-links>
+                    <input type="url" placeholder="Insira aqui seu link" data-support-link-input />
+                  </div>
+                  <button class="add-inline-button" type="button" data-add-support-link>
+                    <span aria-hidden="true">⊕</span>
+                    Adicionar mais links
+                  </button>
+                </div>
+              </section>
+            </div>
+
+            <footer class="flow-footer">
+              <button type="button" class="flow-cancel" data-cancel-new-discovery>
+                <span aria-hidden="true">‹</span>
+                Cancelar
+              </button>
+              <div class="flow-footer-actions form-actions">
+                <button type="button" class="btn btn-secondary secondary-action" data-new-discovery-participants-back>Voltar</button>
+                <button type="submit" class="btn btn-primary primary-action">Avançar</button>
+              </div>
+            </footer>
+          </form>
+
+          <form class="new-discovery-csd" data-new-discovery-csd-form hidden>
+            <div class="flow-body csd-body">
+              <section class="csd-card card-surface" data-csd-column="certezas">
+                <h3>
+                  <svg aria-hidden="true" viewBox="0 0 24 24">
+                    <path d="M9 12l2 2 4-4" />
+                    <circle cx="12" cy="12" r="9" />
+                  </svg>
+                  Certezas
+                </h3>
+                <div class="csd-list" data-csd-list="certezas">
+                  <div class="csd-row"><input type="text" placeholder="Placeholder" /><button type="button" data-csd-remove aria-label="Remover certeza">⌫</button></div>
+                  <div class="csd-row"><input type="text" placeholder="Placeholder" /><button type="button" data-csd-remove aria-label="Remover certeza">⌫</button></div>
+                  <div class="csd-row"><input type="text" placeholder="Placeholder" /><button type="button" data-csd-remove aria-label="Remover certeza">⌫</button></div>
+                </div>
+                <button class="add-inline-button" type="button" data-csd-add="certezas">
+                  <span aria-hidden="true">⊕</span>
+                  Adicionar
+                </button>
+              </section>
+
+              <section class="csd-card card-surface" data-csd-column="suposicoes">
+                <h3>
+                  <svg aria-hidden="true" viewBox="0 0 24 24">
+                    <path d="M4 12h.01" />
+                    <path d="M12 12h.01" />
+                    <path d="M20 12h.01" />
+                  </svg>
+                  Suposições
+                </h3>
+                <div class="csd-list" data-csd-list="suposicoes">
+                  <div class="csd-row"><input type="text" placeholder="Placeholder" /><button type="button" data-csd-remove aria-label="Remover suposição">⌫</button></div>
+                  <div class="csd-row"><input type="text" placeholder="Placeholder" /><button type="button" data-csd-remove aria-label="Remover suposição">⌫</button></div>
+                  <div class="csd-row"><input type="text" placeholder="Placeholder" /><button type="button" data-csd-remove aria-label="Remover suposição">⌫</button></div>
+                </div>
+                <button class="add-inline-button" type="button" data-csd-add="suposicoes">
+                  <span aria-hidden="true">⊕</span>
+                  Adicionar
+                </button>
+              </section>
+
+              <section class="csd-card card-surface" data-csd-column="duvidas">
+                <h3>
+                  <svg aria-hidden="true" viewBox="0 0 24 24">
+                    <circle cx="12" cy="12" r="9" />
+                    <path d="M9.5 9a2.5 2.5 0 0 1 5 0c0 2-2.5 2-2.5 4" />
+                    <path d="M12 17h.01" />
+                  </svg>
+                  Dúvidas
+                </h3>
+                <div class="csd-list" data-csd-list="duvidas">
+                  <div class="csd-row"><input type="text" placeholder="Placeholder" /><button type="button" data-csd-remove aria-label="Remover dúvida">⌫</button></div>
+                  <div class="csd-row"><input type="text" placeholder="Placeholder" /><button type="button" data-csd-remove aria-label="Remover dúvida">⌫</button></div>
+                  <div class="csd-row"><input type="text" placeholder="Placeholder" /><button type="button" data-csd-remove aria-label="Remover dúvida">⌫</button></div>
+                </div>
+                <button class="add-inline-button" type="button" data-csd-add="duvidas">
+                  <span aria-hidden="true">⊕</span>
+                  Adicionar
+                </button>
+              </section>
+            </div>
+
+            <footer class="flow-footer">
+              <button type="button" class="flow-cancel" data-cancel-new-discovery>
+                <span aria-hidden="true">‹</span>
+                Cancelar
+              </button>
+              <div class="flow-footer-actions form-actions">
+                <button type="button" class="btn btn-secondary secondary-action" data-new-discovery-csd-back>Voltar</button>
+                <button type="submit" class="btn btn-primary primary-action">Avançar</button>
+              </div>
+            </footer>
+          </form>
+
+          <form class="new-discovery-methodology" data-new-discovery-methodology-form hidden>
+            <div class="flow-body methodology-choice-body">
+              <p class="methodology-choice-intro">Escolha a abordagem que melhor se adequa ao seu projeto e prazo disponível.</p>
+
+              <button class="methodology-choice-card active" type="button" data-methodology-option="optimized" aria-pressed="true">
+                <span class="methodology-radio" aria-hidden="true"></span>
+                <div class="methodology-card-content">
+                  <h3>Discovery Otimizado</h3>
+                  <p>Abordagem ágil focada em validações essenciais</p>
+                  <span class="methodology-duration"><strong>Duração total:</strong> 3-4 semanas</span>
+
+                  <h4>Metodologias Incluídas (3)</h4>
+                  <div class="methodology-method-list">
+                    <article class="methodology-method-item">
+                      <div>
+                        <strong>Pesquisa em Profundidade</strong>
+                        <mark>1-2 semanas</mark>
+                      </div>
+                      <p>Entrevistas qualitativas com usuários-chave para entender contexto, dores e necessidades</p>
+                      <small><strong>Amostra:</strong> 8-12 participantes</small>
+                    </article>
+
+                    <article class="methodology-method-item">
+                      <div>
+                        <strong>Survey</strong>
+                        <mark>1 semana</mark>
+                      </div>
+                      <p>Questionário online para validação quantitativa de hipóteses e priorização</p>
+                      <small><strong>Amostra:</strong> 50-100+ respostas</small>
+                    </article>
+
+                    <article class="methodology-method-item">
+                      <div>
+                        <strong>Teste de Usabilidade</strong>
+                        <mark>1 semana</mark>
+                      </div>
+                      <p>Validação de protótipos com usuários reais para identificar problemas de interação</p>
+                      <small><strong>Amostra:</strong> 5-8 participantes</small>
+                    </article>
+                  </div>
+                </div>
+              </button>
+
+              <button class="methodology-choice-card" type="button" data-methodology-option="complete" aria-pressed="false">
+                <span class="methodology-radio" aria-hidden="true"></span>
+                <div class="methodology-card-content">
+                  <h3>Discovery Completo</h3>
+                  <p>Processo aprofundado com múltiplas camadas de validação</p>
+                  <span class="methodology-duration"><strong>Duração total:</strong> 6-8 semanas</span>
+
+                  <h4>Metodologias Incluídas (6)</h4>
+                  <div class="methodology-method-list">
+                    <article class="methodology-method-item">
+                      <div>
+                        <strong>Pesquisa em Profundidade</strong>
+                        <mark>2-3 semanas</mark>
+                      </div>
+                      <p>Entrevistas qualitativas detalhadas com diferentes perfis de usuários e stakeholders</p>
+                      <small><strong>Amostra:</strong> 15-20 participantes</small>
+                    </article>
+
+                    <article class="methodology-method-item">
+                      <div>
+                        <strong>Desk Research</strong>
+                        <mark>1 semana</mark>
+                      </div>
+                      <p>Análise de mercado, concorrência, tendências e dados secundários disponíveis</p>
+                      <small><strong>Amostra:</strong> N/A - Análise documental</small>
+                    </article>
+
+                    <article class="methodology-method-item">
+                      <div>
+                        <strong>Survey</strong>
+                        <mark>1-2 semanas</mark>
+                      </div>
+                      <p>Pesquisa quantitativa ampla para validação estatística e segmentação de público</p>
+                      <small><strong>Amostra:</strong> 200+ respostas</small>
+                    </article>
+
+                    <article class="methodology-method-item">
+                      <div>
+                        <strong>Shadowing</strong>
+                        <mark>1 semana</mark>
+                      </div>
+                      <p>Observação contextual de usuários em seu ambiente natural de uso</p>
+                      <small><strong>Amostra:</strong> 5-8 sessões</small>
+                    </article>
+
+                    <article class="methodology-method-item">
+                      <div>
+                        <strong>Card Sorting</strong>
+                        <mark>1 semana</mark>
+                      </div>
+                      <p>Organização colaborativa de informações para definir arquitetura de informação</p>
+                      <small><strong>Amostra:</strong> 15-20 participantes</small>
+                    </article>
+
+                    <article class="methodology-method-item">
+                      <div>
+                        <strong>Teste de Usabilidade</strong>
+                        <mark>1-2 semanas</mark>
+                      </div>
+                      <p>Testes iterativos de protótipos com diferentes níveis de fidelidade</p>
+                      <small><strong>Amostra:</strong> 8-12 participantes</small>
+                    </article>
+                  </div>
+                </div>
+              </button>
+            </div>
+
+            <section class="crew-kickoff-panel" data-crew-kickoff-panel aria-labelledby="crew-kickoff-title" hidden>
+              <div class="crew-kickoff-header">
+                <div>
+                  <h3 id="crew-kickoff-title">Acompanhamento do Kickoff</h3>
+                  <p data-crew-kickoff-summary>Preparando integração com a CrewAI.</p>
+                </div>
+                <span data-crew-kickoff-phase>Preparando</span>
+              </div>
+
+              <dl class="crew-kickoff-meta">
+                <div>
+                  <dt>Chamada</dt>
+                  <dd>POST /kickoff</dd>
+                </div>
+                <div>
+                  <dt>Kickoff ID</dt>
+                  <dd data-crew-kickoff-id>Aguardando...</dd>
+                </div>
+                <div>
+                  <dt>Tempo</dt>
+                  <dd data-crew-kickoff-elapsed>0s</dd>
+                </div>
+              </dl>
+
+              <ol class="crew-kickoff-log" data-crew-kickoff-log></ol>
+            </section>
+
+            <footer class="flow-footer">
+              <button type="button" class="flow-cancel" data-cancel-new-discovery>
+                <span aria-hidden="true">‹</span>
+                Cancelar
+              </button>
+              <p class="flow-status-message" data-new-discovery-status role="status" hidden></p>
+              <div class="flow-footer-actions form-actions">
+                <button type="button" class="btn btn-secondary secondary-action" data-new-discovery-methodology-back>Voltar</button>
+                <button type="submit" class="btn btn-primary primary-action" data-new-discovery-create>Criar discovery</button>
+              </div>
+            </footer>
+          </form>
+        </section>
+      </div>
+    </div>
+  </body>
+</html>

@@ -1,0 +1,15 @@
+{
+  "name": "discovery-ia-prototype",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js",
+    "preview": "node server.js",
+    "build:static": "npm run check && rm -rf dist && mkdir -p dist && cp index.html styles.css app.js demo-config.js dist/ && cp -R assets dist/ && find dist -name .DS_Store -delete",
+    "check": "node --check app.js && node --check server.js"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

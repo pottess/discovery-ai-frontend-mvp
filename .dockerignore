@@ -1,0 +1,6 @@
+.env
+.git
+.DS_Store
+node_modules
+npm-debug.log*
+azure_document_processing_automation_v2_crewai-project
