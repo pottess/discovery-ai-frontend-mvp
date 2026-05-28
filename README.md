@@ -130,9 +130,9 @@ The global header, sidebar and new discovery flow are shared across routes.
 
 Static demo mode:
 
-1. Publish `index.html`, `styles.css`, `app.js` and `assets/` to a static host.
+1. Publish `index.html`, `styles.css`, `app.js`, `config.vercel.js` and `assets/` to a static host.
 2. Use relative asset paths so GitHub Pages subpaths work.
-3. Open with `?apiMode=mock` for a credentials-free demo.
+3. Open normally for a credentials-free demo; `config.vercel.js` sets mock mode for static deploys.
 4. API proxy routes such as `/api/crewai/*` are not available in pure static hosting.
 
 To prepare a static publish folder:
@@ -141,7 +141,9 @@ To prepare a static publish folder:
 npm run build:static
 ```
 
-This creates `dist/` with the static demo files, including `demo-config.js`, which defaults direct static opens to mock mode when no explicit API mode is set.
+This creates `dist/` with the static demo files, including `config.vercel.js`, which defaults static deploys to mock mode.
+
+For Vercel static deployment, see `docs/VERCEL_DEPLOYMENT.md`.
 
 Node server mode:
 

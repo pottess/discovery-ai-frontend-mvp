@@ -247,6 +247,27 @@ const DISCOVERY_FRONTEND_API_MODES = Object.freeze({
 });
 const LEGACY_LOCAL_MOCK_API_MODE = "local_mock";
 const DEMO_MODE_MESSAGE = "Modo demo: esta ação será simulada localmente.";
+const SAFE_DISCOVERY_FRONTEND_CONFIG = Object.freeze({
+  apiMode: DISCOVERY_FRONTEND_API_MODES.LOCAL_MOCK,
+  agentMode: "mock",
+  mvpMode: true,
+  agentWorkflowEnabled: true,
+  conversationalAssistantEnabled: false,
+  externalIntegrationsEnabled: false,
+  deploymentTarget: "static-demo",
+});
+const STATIC_DISCOVERY_FRONTEND_CONFIG = (
+  window.DISCOVERY_FRONTEND_CONFIG
+  && typeof window.DISCOVERY_FRONTEND_CONFIG === "object"
+)
+  ? window.DISCOVERY_FRONTEND_CONFIG
+  : {};
+const HAS_STATIC_DISCOVERY_FRONTEND_CONFIG = Object.keys(STATIC_DISCOVERY_FRONTEND_CONFIG).length > 0;
+const DISCOVERY_FRONTEND_CONFIG = Object.freeze({
+  ...SAFE_DISCOVERY_FRONTEND_CONFIG,
+  ...STATIC_DISCOVERY_FRONTEND_CONFIG,
+});
+window.DISCOVERY_FRONTEND_CONFIG = DISCOVERY_FRONTEND_CONFIG;
 
 function getStoredFrontendApiMode() {
   try {
@@ -268,7 +289,10 @@ function normalizeDiscoveryFrontendApiMode(mode = "") {
 function getRequestedDiscoveryFrontendApiMode() {
   const params = new URLSearchParams(window.location.search);
   return normalizeDiscoveryFrontendApiMode(
-    window.DISCOVERY_FRONTEND_API_MODE
+    STATIC_DISCOVERY_FRONTEND_CONFIG.apiMode
+    || STATIC_DISCOVERY_FRONTEND_CONFIG.frontendApiMode
+    || STATIC_DISCOVERY_FRONTEND_CONFIG.discoveryFrontendApiMode
+    || window.DISCOVERY_FRONTEND_API_MODE
     || params.get("apiMode")
     || params.get("discoveryApiMode")
     || getStoredFrontendApiMode(),
@@ -638,8 +662,10 @@ const CURRENT_USER_PROFILE = {
   name: "Perfil Ambev",
   productIds: ["cora-precos", "cora-promocoes", "cora-transportes", "cora-agreements"],
 };
-const CONVERSATIONAL_ASSISTANT_ENABLED = false;
-const AGENT_WORKFLOW_ENABLED = true;
+const MVP_MODE_ENABLED = DISCOVERY_FRONTEND_CONFIG.mvpMode !== false;
+const CONVERSATIONAL_ASSISTANT_ENABLED = DISCOVERY_FRONTEND_CONFIG.conversationalAssistantEnabled === true;
+const AGENT_WORKFLOW_ENABLED = DISCOVERY_FRONTEND_CONFIG.agentWorkflowEnabled !== false;
+const EXTERNAL_INTEGRATIONS_ENABLED = DISCOVERY_FRONTEND_CONFIG.externalIntegrationsEnabled === true;
 const CREATED_DISCOVERIES_STORAGE_KEY = "discoveryIa.createdDiscoveries";
 const PRODUCT_FAVORITES_STORAGE_KEY = "discoveryIa.productFavoritesByUser";
 const FAVORITE_DISCOVERIES_STORAGE_KEY = "discoveryIa.favoriteDiscoveryIds";
@@ -12815,7 +12841,7 @@ appShell?.classList.toggle("sidebar-pinned", isSidebarPinned);
 setSidebarOpen(isSidebarPinned, { saveSection: false });
 setRoute(getCurrentRoute(), getCurrentProductId(), getCurrentDiscoveryId(), getCurrentInterviewMethodId(), getCurrentInterviewParticipantId());
 refreshDiscoveryFavoriteControls();
-if (!isLocalMockApiMode()) {
+if (!HAS_STATIC_DISCOVERY_FRONTEND_CONFIG && (!isLocalMockApiMode() || !getRequestedDiscoveryFrontendApiMode())) {
   loadFrontendApiModeFromConfig().then((modeChanged) => {
     if (!modeChanged) {
       return;

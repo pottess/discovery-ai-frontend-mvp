@@ -6,8 +6,9 @@
     "start": "node server.js",
     "dev": "node server.js",
     "preview": "node server.js",
-    "build:static": "npm run check && rm -rf dist && mkdir -p dist && cp index.html styles.css app.js demo-config.js dist/ && cp -R assets dist/ && find dist -name .DS_Store -delete",
-    "check": "node --check app.js && node --check server.js"
+    "build:static": "npm run check && rm -rf dist && mkdir -p dist && cp index.html styles.css app.js config.vercel.js demo-config.js vercel.json dist/ && cp -R assets dist/ && find dist -name .DS_Store -delete",
+    "check": "node --check app.js && node --check server.js",
+    "vercel:check": "npm run check"
   },
   "engines": {
     "node": ">=20"
