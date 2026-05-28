@@ -85,15 +85,15 @@ const interviewConfirmed = document.querySelector("[data-interview-confirmed]");
 const interviewTarget = document.querySelector("[data-interview-target]");
 const interviewRecruitmentBar = document.querySelector("[data-interview-recruitment-bar]");
 const interviewRecruitmentSummary = document.querySelector("[data-interview-recruitment-summary]");
-const interviewSelectedCount = document.querySelector("[data-interview-selected-count]");
+const interviewUsersImport = document.querySelector("[data-interview-users-import]");
+const interviewUsersFile = document.querySelector("[data-interview-users-file]");
 const interviewParticipantsBody = document.querySelector("[data-interview-participants-body]");
-const interviewSelectAll = document.querySelector("[data-interview-select-all]");
-const interviewRecruitTeams = document.querySelector("[data-interview-recruit-teams]");
-const interviewRecruitOutlook = document.querySelector("[data-interview-recruit-outlook]");
 const interviewFeedback = document.querySelector("[data-interview-feedback]");
 const interviewSkeleton = document.querySelector("[data-interview-skeleton]");
 const interviewContent = document.querySelector("[data-interview-content]");
 const interviewRouteBlocks = document.querySelector("[data-interview-route-blocks]");
+const interviewGuideTitle = document.querySelector("[data-interview-guide-title]");
+const interviewGuideDescription = document.querySelector("[data-interview-guide-description]");
 const participantInterviewBack = document.querySelector("[data-participant-interview-back]");
 const participantInterviewBreadcrumb = document.querySelector("[data-participant-interview-breadcrumb]");
 const participantAvatar = document.querySelector("[data-participant-avatar]");
@@ -202,8 +202,8 @@ let discoveryAttachments = [];
 let activeMethodEntryIndex = null;
 let methodEntryFiles = [];
 let interviewParticipants = [];
-let selectedInterviewParticipantIds = new Set();
-let isRecruitingInterviewParticipants = false;
+let currentResearchActivityScope = null;
+let activeInterviewStatusMenuParticipantId = null;
 let selectedInterviewParticipantId = "ana-martins";
 let activeRecordingParticipant = null;
 let isMockVideoPlaying = false;
@@ -646,6 +646,7 @@ const FAVORITE_DISCOVERIES_STORAGE_KEY = "discoveryIa.favoriteDiscoveryIds";
 const SIDEBAR_PINNED_STORAGE_KEY = "discoveryIa.sidebarPinned";
 const SIDEBAR_SELECTED_SECTION_STORAGE_KEY = "discoveryIa.sidebarSelectedSection";
 const PRODUCT_AUDIENCE_STORAGE_KEY = "discoveryIa.productAudienceByProduct";
+const RESEARCH_ACTIVITY_USERS_STORAGE_KEY = "discoveryIa.researchActivityUsers";
 const LOCAL_MOCK_RUNS_STORAGE_KEY = "discoveryIa.localMockRuns";
 const DEFAULT_AUDIENCE_TIMESTAMP = "2026-05-25T12:00:00.000Z";
 
@@ -1352,6 +1353,48 @@ const interviewGuideQuestions = [
   "Quando há divergência de preço, margem ou condição, como você descobre a causa?",
   "Se a experiência ideal existisse, o que ela mostraria primeiro para você?",
   "Existe algo importante sobre esse processo que não perguntamos e que deveríamos considerar?",
+];
+
+const usabilityGuideQuestions = [
+  "Posso gravar esta sessão apenas para análise interna e uso agregado dos aprendizados?",
+  "Qual é seu contexto com este fluxo, produto ou tarefa antes de começarmos?",
+  "Observe a tela inicial e conte o que você entende que pode fazer aqui.",
+  "Execute a tarefa principal em voz alta, explicando o que espera que aconteça a cada passo.",
+  "Em qual ponto você ficou em dúvida, hesitou ou precisou procurar ajuda?",
+  "O que pareceu fácil, difícil ou desnecessário durante a tarefa?",
+  "Que informação, sinal ou ação faltou para você seguir com confiança?",
+  "Se algo deu errado, como você tentou se recuperar?",
+  "De 1 a 5, quão confiante você estaria para usar este fluxo sem ajuda?",
+  "O que você mudaria primeiro para tornar a experiência mais clara?",
+];
+
+const RESEARCH_USER_STATUSES = Object.freeze({
+  PENDENTE: {
+    value: "PENDENTE",
+    label: "Pendente",
+    className: "pending",
+  },
+  ENVIADO: {
+    value: "ENVIADO",
+    label: "Enviado",
+    className: "sent",
+  },
+  CONFIRMADO: {
+    value: "CONFIRMADO",
+    label: "Confirmado",
+    className: "confirmed",
+  },
+  RECUSADO: {
+    value: "RECUSADO",
+    label: "Recusado",
+    className: "declined",
+  },
+});
+
+const RESEARCH_USER_STATUS_OPTIONS = [
+  RESEARCH_USER_STATUSES.ENVIADO,
+  RESEARCH_USER_STATUSES.CONFIRMADO,
+  RESEARCH_USER_STATUSES.RECUSADO,
 ];
 
 const participantInterviewDetails = {
@@ -7318,6 +7361,10 @@ function isInterviewMethod(methodName = "") {
   return normalized.includes("entrevista em profundidade") || normalized.includes("pesquisa em profundidade");
 }
 
+function isUsabilityMethod(methodName = "") {
+  return normalizeText(methodName).replace(/[^a-z0-9]+/g, " ").includes("teste de usabilidade");
+}
+
 function isCsdMethod(methodName = "") {
   return normalizeText(methodName || "").includes("matriz csd");
 }
@@ -10655,18 +10702,91 @@ function saveMethodEntry() {
   closeMethodEntryModal();
 }
 
-function resetInterviewParticipants(activeDiscovery = discoveryTemplate) {
-  const startsEmpty = String(activeDiscovery.id || "").startsWith("draft-")
-    || (activeDiscovery.methods || []).every((method) => Number(method.progress) === 0);
-  interviewParticipants = interviewParticipantSeed.map((participant) => ({
-    ...participant,
-    status: startsEmpty ? "Pendente" : participant.status,
-  }));
-  selectedInterviewParticipantIds = new Set(interviewParticipants.slice(0, 8).map((participant) => participant.id));
+function getResearchActivityType(methodIdOrName = "") {
+  return isUsabilityMethod(methodIdOrName) ? "usability_test" : "in_depth_interview";
+}
+
+function getResearchActivityScopeKey(scope = currentResearchActivityScope) {
+  if (!scope) {
+    return "";
+  }
+
+  return [
+    scope.discoveryId,
+    scope.methodId,
+    scope.activityType,
+  ].map((part) => slugify(part || "default")).join("::");
+}
+
+function loadResearchActivityUsersTable() {
+  try {
+    const stored = window.localStorage.getItem(RESEARCH_ACTIVITY_USERS_STORAGE_KEY);
+    if (!stored) {
+      return {};
+    }
+
+    const parsed = JSON.parse(stored);
+    return parsed && typeof parsed === "object" && !Array.isArray(parsed) ? parsed : {};
+  } catch (error) {
+    return {};
+  }
+}
+
+function saveResearchActivityUsersTable(table = {}) {
+  try {
+    window.localStorage.setItem(RESEARCH_ACTIVITY_USERS_STORAGE_KEY, JSON.stringify(table));
+  } catch (error) {
+    // Local persistence is best-effort in the static prototype.
+  }
+}
+
+function loadResearchActivityUsers(scope = currentResearchActivityScope) {
+  const key = getResearchActivityScopeKey(scope);
+  if (!key) {
+    return [];
+  }
+
+  const table = loadResearchActivityUsersTable();
+  const users = Array.isArray(table[key]) ? table[key] : [];
+  return users.filter((user) => user && typeof user === "object");
+}
+
+function saveResearchActivityUsers(scope = currentResearchActivityScope, users = []) {
+  const key = getResearchActivityScopeKey(scope);
+  if (!key) {
+    return;
+  }
+
+  const table = loadResearchActivityUsersTable();
+  table[key] = users;
+  saveResearchActivityUsersTable(table);
+}
+
+function hydrateResearchActivityUsers(scope = currentResearchActivityScope) {
+  interviewParticipants = loadResearchActivityUsers(scope);
+}
+
+function normalizeResearchUserStatus(status = "") {
+  const normalized = normalizeText(status).replace(/[^a-z0-9]+/g, "_").replace(/^_+|_+$/g, "");
+  if (["confirmado", "confirmed"].includes(normalized)) {
+    return RESEARCH_USER_STATUSES.CONFIRMADO.value;
+  }
+  if (["recusado", "declined", "rejeitado"].includes(normalized)) {
+    return RESEARCH_USER_STATUSES.RECUSADO.value;
+  }
+  if (["enviado", "sent"].includes(normalized)) {
+    return RESEARCH_USER_STATUSES.ENVIADO.value;
+  }
+  return RESEARCH_USER_STATUSES.PENDENTE.value;
+}
+
+function getResearchUserStatusMeta(status = "") {
+  const normalizedStatus = normalizeResearchUserStatus(status);
+  return RESEARCH_USER_STATUSES[normalizedStatus] || RESEARCH_USER_STATUSES.PENDENTE;
 }
 
 function getInterviewConfirmedCount() {
-  return interviewParticipants.filter((participant) => participant.status === "Confirmado").length;
+  return interviewParticipants.filter((participant) => normalizeResearchUserStatus(participant.status) === RESEARCH_USER_STATUSES.CONFIRMADO.value).length;
 }
 
 function getInterviewPersonas(activeDiscovery) {
@@ -10679,66 +10799,73 @@ function getInterviewPersonas(activeDiscovery) {
 }
 
 function getRecruitmentStatusClass(status = "") {
-  const normalized = normalizeText(status);
-  if (normalized.includes("confirmado")) {
-    return "confirmed";
-  }
-  if (normalized.includes("recusado")) {
-    return "declined";
-  }
-  if (normalized.includes("enviado")) {
-    return "sent";
-  }
-  return "pending";
+  return getResearchUserStatusMeta(status).className;
 }
 
 function updateInterviewOverview() {
-  const target = 8;
-  const confirmed = getInterviewConfirmedCount();
-  const selectedCount = selectedInterviewParticipantIds.size;
-  const percent = Math.min(100, (confirmed / target) * 100);
+  const target = currentResearchActivityScope?.activityType === "usability_test" ? 5 : 8;
+  const importedCount = interviewParticipants.length;
+  const percent = target ? Math.min(100, (importedCount / target) * 100) : 0;
 
-  interviewConfirmed.textContent = confirmed;
+  interviewConfirmed.textContent = importedCount;
   interviewTarget.textContent = target;
   interviewRecruitmentBar.style.width = `${percent}%`;
-  interviewRecruitmentSummary.textContent = confirmed >= target
-    ? "Amostra mínima completa. Você já pode seguir para agendamento e condução."
-    : `${target - confirmed} confirmações restantes para completar a amostra.`;
-  interviewSelectedCount.textContent = selectedCount;
-  interviewSelectAll.checked = selectedCount === interviewParticipants.length;
-  interviewSelectAll.indeterminate = selectedCount > 0 && selectedCount < interviewParticipants.length;
+  interviewRecruitmentSummary.textContent = importedCount
+    ? `${importedCount} usuário${importedCount === 1 ? "" : "s"} importado${importedCount === 1 ? "" : "s"} por CSV.`
+    : "Importe um CSV para preencher a tabela desta atividade.";
 }
 
 function renderInterviewParticipants() {
+  if (!interviewParticipants.length) {
+    interviewParticipantsBody.innerHTML = `
+      <tr class="recruitment-table-empty">
+        <td colspan="6">Nenhum usuário importado ainda. Importe uma planilha CSV para preencher esta tabela.</td>
+      </tr>
+    `;
+    updateInterviewOverview();
+    return;
+  }
+
   interviewParticipantsBody.innerHTML = interviewParticipants.map((participant) => {
-    const checked = selectedInterviewParticipantIds.has(participant.id) ? "checked" : "";
-    const statusClass = getRecruitmentStatusClass(participant.status);
-    const canViewInterview = normalizeText(participant.status) === "confirmado";
-    const disabledView = canViewInterview ? "" : "disabled";
-    const viewTitle = canViewInterview
-      ? `Visualizar entrevista de ${participant.name}`
-      : "Disponível após confirmação do participante";
+    const statusMeta = getResearchUserStatusMeta(participant.status);
+    const viewTitle = `Ver detalhes de ${participant.name}`;
+    const profile = participant.persona || participant.profile || participant.role || "-";
+    const companySegment = [participant.company, participant.segment].filter(Boolean).join(" / ") || "-";
+    const uploadTitle = participant.resultUpload?.fileName
+      ? `Resultado importado: ${participant.resultUpload.fileName}`
+      : `Upload resultado de ${participant.name}`;
 
     return `
       <tr data-participant-id="${participant.id}">
-        <td><input type="checkbox" aria-label="Selecionar ${escapeHTML(participant.name)}" data-interview-participant="${participant.id}" ${checked} /></td>
         <td>
           <div class="participant-cell">
             <strong>${escapeHTML(participant.name)}</strong>
-            <span>${escapeHTML(participant.role)}</span>
+            <span>${escapeHTML(participant.phone || participant.notes || "")}</span>
           </div>
         </td>
-        <td>${escapeHTML(participant.email)}</td>
-        <td>${escapeHTML(participant.role)}</td>
-        <td>${escapeHTML(participant.company)}</td>
-        <td><span class="recruitment-chip ${statusClass}">${escapeHTML(participant.status)}</span></td>
+        <td>${escapeHTML(participant.email || "-")}</td>
+        <td>${escapeHTML(profile)}</td>
+        <td>${escapeHTML(companySegment)}</td>
+        <td><span class="recruitment-chip ${statusMeta.className}">${escapeHTML(statusMeta.label)}</span></td>
         <td>
-          <button class="row-icon-button" type="button" data-interview-view="${participant.id}" aria-label="${escapeHTML(viewTitle)}" title="${escapeHTML(viewTitle)}" ${disabledView}>
-            <svg aria-hidden="true" viewBox="0 0 24 24">
-              <path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6-10-6-10-6Z" />
-              <circle cx="12" cy="12" r="3" />
-            </svg>
-          </button>
+          <div class="research-row-actions">
+            <button class="row-icon-button" type="button" data-interview-view="${participant.id}" aria-label="${escapeHTML(viewTitle)}" title="${escapeHTML(viewTitle)}">
+              <svg aria-hidden="true" viewBox="0 0 24 24">
+                <path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6-10-6-10-6Z" />
+                <circle cx="12" cy="12" r="3" />
+              </svg>
+            </button>
+            <button class="row-icon-button" type="button" data-interview-upload-result="${participant.id}" aria-label="${escapeHTML(uploadTitle)}" title="${escapeHTML(uploadTitle)}">
+              <svg aria-hidden="true" viewBox="0 0 24 24">
+                <path d="M12 3v12" />
+                <path d="m7 8 5-5 5 5" />
+                <path d="M5 21h14" />
+              </svg>
+            </button>
+            <button class="row-icon-button row-more-button" type="button" data-interview-status-menu="${participant.id}" aria-label="Alterar status do usuário" title="Alterar status do usuário" aria-haspopup="menu" aria-expanded="${activeInterviewStatusMenuParticipantId === participant.id ? "true" : "false"}">
+              <span aria-hidden="true">⋯</span>
+            </button>
+          </div>
         </td>
       </tr>
     `;
@@ -10746,11 +10873,107 @@ function renderInterviewParticipants() {
   updateInterviewOverview();
 }
 
-function renderInterviewGuide() {
+function closeInterviewStatusMenu() {
+  activeInterviewStatusMenuParticipantId = null;
+  document.querySelector("[data-interview-status-dropdown]")?.remove();
+  document.querySelectorAll("[data-interview-status-menu]").forEach((button) => {
+    button.setAttribute("aria-expanded", "false");
+  });
+}
+
+function updateResearchActivityUser(participantId, patch = {}) {
+  if (!participantId) {
+    return;
+  }
+
+  interviewParticipants = interviewParticipants.map((participant) => (
+    participant.id === participantId
+      ? { ...participant, ...patch }
+      : participant
+  ));
+  saveResearchActivityUsers(currentResearchActivityScope, interviewParticipants);
+}
+
+function updateResearchUserStatus(participantId, status) {
+  if (!participantId) {
+    closeInterviewStatusMenu();
+    return;
+  }
+
+  updateResearchActivityUser(participantId, { status: normalizeResearchUserStatus(status) });
+  closeInterviewStatusMenu();
+  renderInterviewParticipants();
+}
+
+function openInterviewStatusMenu(participantId, anchorButton) {
+  if (!participantId || !anchorButton) {
+    return;
+  }
+
+  closeInterviewStatusMenu();
+  activeInterviewStatusMenuParticipantId = participantId;
+  anchorButton.setAttribute("aria-expanded", "true");
+
+  const rect = anchorButton.getBoundingClientRect();
+  const dropdown = document.createElement("div");
+  dropdown.className = "research-status-dropdown";
+  dropdown.dataset.interviewStatusDropdown = participantId;
+  dropdown.setAttribute("role", "menu");
+  dropdown.style.top = `${rect.bottom + window.scrollY + 6}px`;
+  dropdown.style.left = `${Math.max(12, rect.right + window.scrollX - 176)}px`;
+  dropdown.innerHTML = RESEARCH_USER_STATUS_OPTIONS.map((option) => `
+    <button type="button" role="menuitem" data-interview-status-option="${option.value}">
+      ${escapeHTML(option.label)}
+    </button>
+  `).join("");
+  document.body.appendChild(dropdown);
+}
+
+function uploadResearchUserResult(participantId) {
+  const participant = getParticipantById(participantId);
+  if (!participant) {
+    return;
+  }
+
+  const input = document.createElement("input");
+  input.type = "file";
+  input.accept = ".csv,.txt,.pdf,.doc,.docx,.mp3,.mp4,.mov,text/csv,text/plain,application/pdf";
+  input.addEventListener("change", () => {
+    const [file] = input.files || [];
+    if (!file) {
+      return;
+    }
+
+    updateResearchActivityUser(participantId, {
+      resultUpload: {
+        fileName: file.name,
+        fileSize: file.size,
+        fileType: file.type || "application/octet-stream",
+        uploadedAt: new Date().toISOString(),
+      },
+    });
+    renderInterviewParticipants();
+    setInterviewFeedback(`Resultado de ${participant.name} anexado: ${file.name}.`, "success");
+  }, { once: true });
+  input.click();
+}
+
+function renderInterviewGuide(activityType = currentResearchActivityScope?.activityType || "in_depth_interview") {
+  const isUsability = activityType === "usability_test";
+  const questions = isUsability ? usabilityGuideQuestions : interviewGuideQuestions;
+  if (interviewGuideTitle) {
+    interviewGuideTitle.textContent = isUsability ? "Roteiro do teste de usabilidade" : "Roteiro da entrevista";
+  }
+  if (interviewGuideDescription) {
+    interviewGuideDescription.textContent = isUsability
+      ? "Lista com tarefas e perguntas essenciais para conduzir o teste com consistência."
+      : "Lista única com 10 perguntas essenciais para conduzir a entrevista com consistência.";
+  }
+
   interviewRouteBlocks.innerHTML = `
     <article class="guide-single-card">
       <ol class="guide-question-list">
-        ${interviewGuideQuestions.map((question, index) => `
+        ${questions.map((question, index) => `
           <li>
             <span>${String(index + 1).padStart(2, "0")}</span>
             <p>${escapeHTML(question)}</p>
@@ -10777,21 +11000,31 @@ function renderInterviewDetailPage(productId, discoveryId, methodId = "entrevist
   }
 
   const discoveryName = activeDiscovery.name || "Checkout Experience";
+  const activityType = getResearchActivityType(methodId);
+  const isUsabilityActivity = activityType === "usability_test";
+  currentResearchActivityScope = {
+    productId: product.id,
+    discoveryId: discoveryId || activeDiscovery.id || discoveryTemplate.id,
+    methodId: slugify(methodId || (isUsabilityActivity ? "teste-de-usabilidade" : "entrevista-em-profundidade")),
+    activityType,
+  };
 
   interviewContent.hidden = true;
   interviewSkeleton.hidden = false;
   interviewBackLink.href = `#discovery/${discoveryId}/${product.id}`;
   interviewBackLink.textContent = product.category || product.name;
   interviewDiscoveryName.textContent = discoveryName;
-  interviewTitle.textContent = "Entrevistas em Profundidade | Checkout Experience";
-  interviewObjective.textContent = activeDiscovery.objective || "Validar quais incentivos e sinais aumentam a confiança durante o checkout e reduzem fricções operacionais.";
+  interviewTitle.textContent = isUsabilityActivity ? "Teste de Usabilidade | Checkout Experience" : "Entrevistas em Profundidade | Checkout Experience";
+  interviewObjective.textContent = activeDiscovery.objective || (isUsabilityActivity
+    ? "Validar se usuários conseguem concluir as principais tarefas do fluxo com clareza e confiança."
+    : "Validar quais incentivos e sinais aumentam a confiança durante o checkout e reduzem fricções operacionais.");
   interviewPersonas.textContent = getInterviewPersonas(activeDiscovery);
   interviewFeedback.hidden = true;
   interviewFeedback.textContent = "";
 
-  resetInterviewParticipants(activeDiscovery);
+  hydrateResearchActivityUsers(currentResearchActivityScope);
   renderInterviewParticipants();
-  renderInterviewGuide();
+  renderInterviewGuide(activityType);
 
   window.setTimeout(() => {
     interviewSkeleton.hidden = true;
@@ -10799,72 +11032,198 @@ function renderInterviewDetailPage(productId, discoveryId, methodId = "entrevist
   }, 420);
 }
 
-function simulateRecruitment(channel = "Teams") {
-  if (isRecruitingInterviewParticipants) {
-    return;
-  }
+function countCsvDelimiter(line = "", delimiter = ",") {
+  let count = 0;
+  let inQuotes = false;
 
-  const selectedIds = [...selectedInterviewParticipantIds];
-  if (!selectedIds.length) {
-    interviewFeedback.hidden = false;
-    interviewFeedback.className = "recruitment-feedback warning";
-    interviewFeedback.textContent = "Selecione ao menos um participante antes de acionar o recrutamento.";
-    return;
-  }
+  for (let index = 0; index < line.length; index += 1) {
+    const char = line[index];
+    const nextChar = line[index + 1];
 
-  isRecruitingInterviewParticipants = true;
-  [interviewRecruitTeams, interviewRecruitOutlook].forEach((button) => {
-    button.disabled = true;
-    button.classList.add("is-loading");
-  });
-  interviewFeedback.hidden = false;
-  interviewFeedback.className = "recruitment-feedback";
-  interviewFeedback.textContent = `Enviando convites via ${channel}...`;
-
-  window.setTimeout(() => {
-    let pendingPromoted = 0;
-    let sentConfirmed = 0;
-    let declinedApplied = false;
-
-    interviewParticipants = interviewParticipants.map((participant) => {
-      if (!selectedInterviewParticipantIds.has(participant.id)) {
-        return participant;
-      }
-
-      if (participant.status === "Pendente" && !declinedApplied) {
-        declinedApplied = true;
-        return { ...participant, status: "Recusado" };
-      }
-
-      if (participant.status === "Pendente" && pendingPromoted < 4) {
-        pendingPromoted += 1;
-        return { ...participant, status: "Enviado" };
-      }
-
-      if (participant.status === "Enviado" && sentConfirmed < 2) {
-        sentConfirmed += 1;
-        return { ...participant, status: "Confirmado" };
-      }
-
-      return participant;
-    });
-
-    if (!interviewParticipants.some((participant) => participant.status === "Recusado")) {
-      const fallback = interviewParticipants.find((participant) => selectedInterviewParticipantIds.has(participant.id) && participant.status !== "Confirmado");
-      if (fallback) {
-        fallback.status = "Recusado";
-      }
+    if (char === '"' && inQuotes && nextChar === '"') {
+      index += 1;
+      continue;
     }
 
-    renderInterviewParticipants();
-    isRecruitingInterviewParticipants = false;
-    [interviewRecruitTeams, interviewRecruitOutlook].forEach((button) => {
-      button.disabled = false;
-      button.classList.remove("is-loading");
+    if (char === '"') {
+      inQuotes = !inQuotes;
+      continue;
+    }
+
+    if (char === delimiter && !inQuotes) {
+      count += 1;
+    }
+  }
+
+  return count;
+}
+
+function detectCsvDelimiter(text = "") {
+  const sampleLine = String(text).split(/\r?\n/).find((line) => line.trim()) || "";
+  return countCsvDelimiter(sampleLine, ";") > countCsvDelimiter(sampleLine, ",") ? ";" : ",";
+}
+
+function parseCsvRows(text = "", delimiter = ",") {
+  const rows = [];
+  let row = [];
+  let cell = "";
+  let inQuotes = false;
+
+  for (let index = 0; index < text.length; index += 1) {
+    const char = text[index];
+    const nextChar = text[index + 1];
+
+    if (char === '"' && inQuotes && nextChar === '"') {
+      cell += '"';
+      index += 1;
+      continue;
+    }
+
+    if (char === '"') {
+      inQuotes = !inQuotes;
+      continue;
+    }
+
+    if (char === delimiter && !inQuotes) {
+      row.push(cell.trim());
+      cell = "";
+      continue;
+    }
+
+    if ((char === "\n" || char === "\r") && !inQuotes) {
+      if (char === "\r" && nextChar === "\n") {
+        index += 1;
+      }
+      row.push(cell.trim());
+      rows.push(row);
+      row = [];
+      cell = "";
+      continue;
+    }
+
+    cell += char;
+  }
+
+  row.push(cell.trim());
+  rows.push(row);
+  return rows;
+}
+
+function normalizeCsvHeader(header = "") {
+  return normalizeText(header).replace(/[^a-z0-9]+/g, "_").replace(/^_+|_+$/g, "");
+}
+
+function getCsvValue(record = {}, keys = []) {
+  const normalizedKeys = keys.map(normalizeCsvHeader);
+  const foundKey = normalizedKeys.find((key) => Object.prototype.hasOwnProperty.call(record, key));
+  return foundKey ? String(record[foundKey] || "").trim() : "";
+}
+
+function createImportedUserId(user = {}, index = 0) {
+  const base = slugify(user.email || user.name || user.phone || `usuario-${index + 1}`) || `usuario-${index + 1}`;
+  return `${base}-${index + 1}`;
+}
+
+function normalizeImportedUser(record = {}, index = 0, fileName = "") {
+  const email = getCsvValue(record, ["email", "e-mail", "mail"]);
+  const name = getCsvValue(record, ["nome", "name"]) || email;
+  const phone = getCsvValue(record, ["telefone", "phone", "celular", "mobile"]);
+  const role = getCsvValue(record, ["cargo", "role", "funcao", "função"]);
+  const company = getCsvValue(record, ["empresa", "company"]);
+  const segment = getCsvValue(record, ["segmento", "segment"]);
+  const persona = getCsvValue(record, ["persona", "perfil", "profile"]);
+  const notes = getCsvValue(record, ["observacoes", "observações", "notes", "notas"]);
+
+  if (![name, email, phone, role, company, segment, persona, notes].some(Boolean)) {
+    return null;
+  }
+
+  return {
+    id: createImportedUserId({ name, email, phone }, index),
+    name,
+    email,
+    phone,
+    role,
+    company,
+    segment,
+    persona,
+    perfil: persona,
+    notes,
+    status: "PENDENTE",
+    source: "csv_upload",
+    importedAt: new Date().toISOString(),
+    sourceFileName: fileName,
+    resultUpload: null,
+  };
+}
+
+function parseResearchUsersCsv(text = "", fileName = "") {
+  const rows = parseCsvRows(text, detectCsvDelimiter(text));
+  const headerIndex = rows.findIndex((row) => row.some((value) => String(value || "").trim()));
+  if (headerIndex < 0) {
+    return { users: [], ignoredRows: rows.length || 1 };
+  }
+
+  const headers = rows[headerIndex].map(normalizeCsvHeader);
+  let ignoredRows = 0;
+  const users = rows.slice(headerIndex + 1).map((row, index) => {
+    if (!row.some((value) => String(value || "").trim())) {
+      ignoredRows += 1;
+      return null;
+    }
+
+    const record = {};
+    headers.forEach((header, headerIndex) => {
+      if (header) {
+        record[header] = row[headerIndex] || "";
+      }
     });
-    interviewFeedback.className = "recruitment-feedback success";
-    interviewFeedback.textContent = `${channel}: convites simulados. Status atualizados e contador recalculado automaticamente.`;
-  }, 850);
+
+    const user = normalizeImportedUser(record, index, fileName);
+    if (!user) {
+      ignoredRows += 1;
+    }
+    return user;
+  }).filter(Boolean);
+
+  return { users, ignoredRows };
+}
+
+function setInterviewFeedback(message = "", type = "info") {
+  if (!interviewFeedback) {
+    return;
+  }
+
+  interviewFeedback.hidden = !message;
+  interviewFeedback.className = `recruitment-feedback${type && type !== "info" ? ` ${type}` : ""}`;
+  interviewFeedback.textContent = message;
+}
+
+function importResearchUsersFromFile(file) {
+  if (!file || !currentResearchActivityScope) {
+    return;
+  }
+
+  if (!/\.csv$/i.test(file.name) && file.type !== "text/csv") {
+    setInterviewFeedback("Envie um arquivo CSV para importar usuários.", "error");
+    return;
+  }
+
+  const reader = new FileReader();
+  reader.onload = () => {
+    const { users, ignoredRows } = parseResearchUsersCsv(String(reader.result || ""), file.name);
+    interviewParticipants = users;
+    saveResearchActivityUsers(currentResearchActivityScope, users);
+    renderInterviewParticipants();
+
+    const countMessage = `${users.length} usuário${users.length === 1 ? "" : "s"} importado${users.length === 1 ? "" : "s"}`;
+    const ignoredMessage = ignoredRows ? ` ${ignoredRows} linha${ignoredRows === 1 ? "" : "s"} vazia${ignoredRows === 1 ? " foi" : "s foram"} ignorada${ignoredRows === 1 ? "" : "s"}.` : "";
+    setInterviewFeedback(`${countMessage}.${ignoredMessage}`, ignoredRows ? "warning" : "success");
+  };
+  reader.onerror = () => {
+    setInterviewFeedback("Não foi possível ler o arquivo CSV.", "error");
+  };
+  reader.readAsText(file);
 }
 
 function getParticipantById(participantId) {
@@ -10961,6 +11320,13 @@ function renderTranscript(participant, detail) {
 
 function renderParticipantInterviewPage(productId, discoveryId, methodId, participantId) {
   const product = products.find((item) => item.id === productId) || products[0];
+  currentResearchActivityScope = {
+    productId: product.id,
+    discoveryId: discoveryId || selectedDiscoveryId || discoveryTemplate.id,
+    methodId: slugify(methodId || "entrevista-em-profundidade"),
+    activityType: getResearchActivityType(methodId),
+  };
+  hydrateResearchActivityUsers(currentResearchActivityScope);
   const participant = getParticipantById(participantId);
   const detail = getParticipantInterviewDetail(participant.id);
 
@@ -11694,7 +12060,7 @@ methodologyList.addEventListener("click", (event) => {
     return;
   }
 
-  if (isInterviewMethod(method.name)) {
+  if (isInterviewMethod(method.name) || isUsabilityMethod(method.name)) {
     openInterviewDetail(method);
     return;
   }
@@ -11708,13 +12074,25 @@ methodologyList.addEventListener("click", (event) => {
 });
 
 interviewParticipantsBody.addEventListener("click", (event) => {
+  const statusMenuButton = event.target.closest("[data-interview-status-menu]");
+  if (statusMenuButton) {
+    openInterviewStatusMenu(statusMenuButton.dataset.interviewStatusMenu, statusMenuButton);
+    return;
+  }
+
+  const uploadResultButton = event.target.closest("[data-interview-upload-result]");
+  if (uploadResultButton) {
+    uploadResearchUserResult(uploadResultButton.dataset.interviewUploadResult);
+    return;
+  }
+
   const viewButton = event.target.closest("[data-interview-view]");
   if (!viewButton) {
     return;
   }
 
   const participant = getParticipantById(viewButton.dataset.interviewView);
-  if (viewButton.disabled || normalizeText(participant.status) !== "confirmado") {
+  if (viewButton.disabled || !participant) {
     return;
   }
 
@@ -11727,34 +12105,34 @@ interviewParticipantsBody.addEventListener("click", (event) => {
   );
 });
 
-interviewParticipantsBody.addEventListener("change", (event) => {
-  const checkbox = event.target.closest("[data-interview-participant]");
-  if (!checkbox) {
+document.addEventListener("click", (event) => {
+  const statusOption = event.target.closest("[data-interview-status-option]");
+  if (statusOption) {
+    const dropdown = statusOption.closest("[data-interview-status-dropdown]");
+    updateResearchUserStatus(dropdown?.dataset.interviewStatusDropdown, statusOption.dataset.interviewStatusOption);
     return;
   }
 
-  if (checkbox.checked) {
-    selectedInterviewParticipantIds.add(checkbox.dataset.interviewParticipant);
-  } else {
-    selectedInterviewParticipantIds.delete(checkbox.dataset.interviewParticipant);
+  if (
+    event.target.closest("[data-interview-status-dropdown]")
+    || event.target.closest("[data-interview-status-menu]")
+  ) {
+    return;
   }
 
-  renderInterviewParticipants();
+  closeInterviewStatusMenu();
 });
 
-interviewSelectAll.addEventListener("change", () => {
-  selectedInterviewParticipantIds = interviewSelectAll.checked
-    ? new Set(interviewParticipants.map((participant) => participant.id))
-    : new Set();
-  renderInterviewParticipants();
+window.addEventListener("resize", closeInterviewStatusMenu);
+
+interviewUsersImport?.addEventListener("click", () => {
+  interviewUsersFile?.click();
 });
 
-interviewRecruitTeams.addEventListener("click", () => {
-  simulateRecruitment("Microsoft Teams");
-});
-
-interviewRecruitOutlook.addEventListener("click", () => {
-  simulateRecruitment("Outlook");
+interviewUsersFile?.addEventListener("change", () => {
+  const [file] = interviewUsersFile.files || [];
+  importResearchUsersFromFile(file);
+  interviewUsersFile.value = "";
 });
 
 transcriptToggle.addEventListener("click", () => {

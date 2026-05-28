@@ -603,13 +603,13 @@
                 </div>
               </div>
 
-              <aside class="recruitment-overview" aria-label="Status de recrutamento">
-                <span>Status geral do recrutamento</span>
-                <strong><span data-interview-confirmed>3</span>/<span data-interview-target>8</span> confirmados</strong>
+              <aside class="recruitment-overview" aria-label="Usuários importados">
+                <span>Usuários importados</span>
+                <strong><span data-interview-confirmed>0</span>/<span data-interview-target>8</span></strong>
                 <div class="progress-track">
-                  <div class="progress-bar" data-interview-recruitment-bar style="width: 37.5%"></div>
+                  <div class="progress-bar" data-interview-recruitment-bar style="width: 0%"></div>
                 </div>
-                <p data-interview-recruitment-summary>5 confirmações restantes para completar a amostra.</p>
+                <p data-interview-recruitment-summary>Importe um CSV para preencher a tabela desta atividade.</p>
               </aside>
             </section>
 
@@ -618,12 +618,14 @@
                 <div class="panel-heading">
                   <div>
                     <span class="eyebrow-label">Research Ops</span>
-                    <h2 id="recruitment-title">Recrutamento de participantes</h2>
-                    <p>Selecione usuários sugeridos e simule o envio de convites por Teams ou Outlook.</p>
+                    <h2 id="recruitment-title">Usuários da pesquisa</h2>
+                    <p>Importe uma planilha CSV para preencher a tabela de usuários desta atividade.</p>
                   </div>
-                  <div class="selected-counter">
-                    <span data-interview-selected-count>0</span>
-                    selecionados
+                  <div class="import-users-control">
+                    <input class="visually-hidden" type="file" accept=".csv,text/csv" data-interview-users-file />
+                    <button class="secondary-action" type="button" data-interview-users-import>
+                      Importar usuários
+                    </button>
                   </div>
                 </div>
 
@@ -633,13 +635,10 @@
                   <table class="recruitment-table">
                     <thead>
                       <tr>
-                        <th>
-                          <input type="checkbox" aria-label="Selecionar todos" data-interview-select-all />
-                        </th>
                         <th>Nome</th>
                         <th>E-mail</th>
-                        <th>Cargo / função</th>
-                        <th>Empresa</th>
+                        <th>Perfil/Cargo</th>
+                        <th>Empresa/Segmento</th>
                         <th>Status</th>
                         <th>Ações</th>
                       </tr>
@@ -647,32 +646,14 @@
                     <tbody data-interview-participants-body></tbody>
                   </table>
                 </div>
-
-                <footer class="recruitment-actions">
-                  <button class="secondary-action teams-action" type="button" data-interview-recruit-teams>
-                    <svg aria-hidden="true" viewBox="0 0 24 24">
-                      <rect x="3" y="4" width="18" height="14" rx="3" />
-                      <path d="M8 20h8" />
-                      <path d="M12 18v2" />
-                    </svg>
-                    Recrutar via Microsoft Teams
-                  </button>
-                  <button class="primary-action outlook-action" type="button" data-interview-recruit-outlook>
-                    <svg aria-hidden="true" viewBox="0 0 24 24">
-                      <rect x="3" y="5" width="18" height="14" rx="2" />
-                      <path d="m3 7 9 6 9-6" />
-                    </svg>
-                    Recrutar via Outlook
-                  </button>
-                </footer>
               </section>
 
               <section class="interview-guide-panel card-surface" aria-labelledby="guide-title">
                 <div class="panel-heading">
                   <div>
                     <span class="eyebrow-label">Roteiro gerado</span>
-                    <h2 id="guide-title">Roteiro da entrevista</h2>
-                    <p>Lista única com 10 perguntas essenciais para conduzir a entrevista com consistência.</p>
+                    <h2 id="guide-title" data-interview-guide-title>Roteiro da entrevista</h2>
+                    <p data-interview-guide-description>Lista única com 10 perguntas essenciais para conduzir a entrevista com consistência.</p>
                   </div>
                 </div>
                 <div class="guide-blocks" data-interview-route-blocks></div>
