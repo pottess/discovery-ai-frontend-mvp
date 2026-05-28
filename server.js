@@ -34,7 +34,7 @@ const MOCK_AGENT_STATUSES = {
   WAITING_FOR_HUMAN: "waiting_for_human",
   COMPLETED: "completed",
 };
-const PUBLIC_FILE_PATHS = new Set(["/index.html", "/styles.css", "/app.js", "/demo-config.js"]);
+const PUBLIC_FILE_PATHS = new Set(["/index.html", "/styles.css", "/app.js", "/config.vercel.js", "/demo-config.js"]);
 const PUBLIC_ASSET_DIRS = ["/assets/"];
 const MIME_TYPES = {
   ".html": "text/html; charset=utf-8",
