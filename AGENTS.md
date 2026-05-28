@@ -4,6 +4,25 @@
 
 Este projeto é um protótipo estático de frontend para um repositório de discoveries, com um pequeno proxy Node local para integrar com a CrewAI sem expor o bearer token no navegador.
 
+## Correção de Arquitetura do MVP
+
+Agentes estão no MVP. O processamento CrewAI e a inteligência de discovery são parte central do Discovery AI, enquanto o frontend permanece como camada de interação do workflow.
+
+O assistente conversacional de pesquisa é futuro. Integrações externas e conectores de automação são futuro. O workflow de agentes, os estados de processamento, os contratos de output, os outputs estruturados e as aprovações humanas continuam no MVP.
+
+The MVP validates the agent-driven discovery workflow without depending on enterprise integrations.
+
+Integrações externas podem ser simuladas no MVP usando:
+
+- input manual;
+- upload de arquivos;
+- dados mockados;
+- fixture outputs;
+- `localStorage`;
+- respostas mockadas do backend.
+
+Ficam fora do MVP: Teams, Outlook, Tech Metrics, DataDog, bases de produto, plataformas de analytics, repositórios de pesquisa, Jira/Linear, notificações Slack/Teams, SSO/permissões, dashboards avançados, assistente conversacional e recuperação automatizada de dados externos.
+
 Arquivos principais:
 
 - `index.html`: estrutura das telas e modais.
@@ -232,6 +251,8 @@ Variáveis esperadas pela Crew:
 - `SERPER_API_KEY`, se o `SerperDevTool` for usado em execução real.
 
 Apesar do nome do projeto mencionar Azure e o prompt do agente de pesquisa primária falar em Azure Blob Storage, não há SDK, ferramenta ou integração Azure implementada no código atual. Hoje isso é apenas uma expectativa descrita no prompt/output da tarefa.
+
+Essa ausência de integração Azure não remove a CrewAI do MVP. Ela significa apenas que armazenamento externo e conectores corporativos devem ser simulados ou tratados manualmente durante o MVP.
 
 ### Sequência de Tarefas
 

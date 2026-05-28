@@ -52,26 +52,12 @@
         </div>
       </header>
 
-      <aside class="sidebar" data-sidebar>
-        <button class="collapse-button" type="button" data-action="toggle-sidebar" aria-label="Recolher menu">
-          <svg aria-hidden="true" viewBox="0 0 24 24">
-            <path d="m15 18-6-6 6-6" />
-            <path d="m20 18-6-6 6-6" />
-          </svg>
+      <aside class="sidebar app-sidebar" data-sidebar>
+        <nav class="sidebar-rail" aria-label="Navegação principal" data-sidebar-rail></nav>
+        <nav class="sidebar-panel" aria-label="Submenu" data-sidebar-panel></nav>
+        <button class="collapse-button sidebar-toggle" type="button" data-action="toggle-sidebar" aria-label="Recolher menu" aria-expanded="true">
+          <span aria-hidden="true" data-sidebar-toggle-icon>«</span>
         </button>
-
-        <nav class="side-nav" aria-label="Navegação principal">
-          <section class="nav-section" aria-labelledby="produtos-title">
-            <h2 id="produtos-title">Produtos</h2>
-            <a href="#products" class="nav-link" data-route-link="products">Lista de produtos</a>
-            <div class="favorite-products-menu" data-favorite-products-menu></div>
-          </section>
-
-          <section class="nav-section nav-section-bordered" aria-labelledby="discovery-title">
-            <h2 id="discovery-title">Discovery</h2>
-            <div class="favorite-discoveries-menu" data-favorite-discoveries-menu></div>
-          </section>
-        </nav>
       </aside>
 
       <main class="workspace">
@@ -81,67 +67,19 @@
           <p>Sistema centralizado para organização, busca e rastreabilidade de discoveries. Navegue por produto, filtre por metadados e encontre pesquisas anteriores rapidamente.</p>
         </section>
 
-        <section class="assistant-panel" aria-labelledby="assistant-title">
-          <div class="assistant-header">
-            <div class="assistant-title-group">
-              <span class="assistant-icon" aria-hidden="true">
-                <svg viewBox="0 0 24 24">
-                  <rect x="4" y="8" width="16" height="10" rx="2" />
-                  <path d="M8 8V5h8v3" />
-                  <path d="M9 13h.01" />
-                  <path d="M15 13h.01" />
-                </svg>
-              </span>
-              <div>
-                <h2 id="assistant-title">Assistente de Pesquisa</h2>
-                <p>Discovery guiado para localizar aprendizados, riscos e próximos passos.</p>
-              </div>
-            </div>
-            <div class="assistant-status" aria-label="Status do assistente">
-              <span></span>
-              Online
+        <section class="home-products-section" aria-labelledby="home-products-title">
+          <div class="section-heading">
+            <div>
+              <h2 id="home-products-title">Meus produtos</h2>
+              <p>Discoveries são processados por agentes de IA a partir do intake, evidências e aprovações.</p>
             </div>
           </div>
-
-          <div class="quick-prompts" aria-label="Sugestões de perguntas">
-            <button type="button" data-prompt="Quais discoveries estão em etapa final?">Etapa final</button>
-            <button type="button" data-prompt="Resuma os insights sobre Cora Preços">Insights Cora Preços</button>
-            <button type="button" data-prompt="Criar um novo discovery de onboarding">Novo discovery</button>
-            <button type="button" data-prompt="Quais riscos aparecem nos pagamentos?">Riscos</button>
-          </div>
-
-          <div class="chat-window" data-chat-log aria-live="polite" aria-label="Conversa com o assistente">
-            <article class="message-row bot">
-              <span class="message-avatar" aria-hidden="true">
-                <svg viewBox="0 0 24 24">
-                  <rect x="4" y="8" width="16" height="10" rx="2" />
-                  <path d="M8 8V5h8v3" />
-                  <path d="M9 13h.01" />
-                  <path d="M15 13h.01" />
-                </svg>
-              </span>
-              <div class="message-bubble">
-                <p>Olá! Sou seu assistente de pesquisa. Posso te ajudar a encontrar discoveries, analisar insights ou responder perguntas sobre o repositório.</p>
-                <time datetime="2026-05-12T14:52">14:52</time>
-              </div>
-            </article>
-          </div>
-
-          <form class="composer" data-chat-form>
-            <label class="visually-hidden" for="chat-input">Digite sua pergunta</label>
-            <input id="chat-input" name="message" type="text" autocomplete="off" placeholder="Digite sua pergunta..." data-chat-input />
-            <button type="submit" aria-label="Enviar pergunta">
-              <svg aria-hidden="true" viewBox="0 0 24 24">
-                <path d="m22 2-7 20-4-9-9-4Z" />
-                <path d="M22 2 11 13" />
-              </svg>
-            </button>
-          </form>
+          <div class="home-product-bar" data-home-product-bar></div>
         </section>
 
         <section class="recent-section" aria-labelledby="recent-title">
           <div class="section-heading">
-            <h2 id="recent-title">Discovery recente</h2>
+            <h2 id="recent-title">Discoveries recentes</h2>
             <div class="filter-group" role="group" aria-label="Filtrar discoveries">
               <button class="active" type="button" data-filter="all">Todos</button>
               <button type="button" data-filter="progress">Em andamento</button>
@@ -150,7 +88,7 @@
           </div>
 
           <div class="discovery-grid" data-discovery-grid>
-            <article class="discovery-card" data-status="progress" data-title="Dashboard operacional" data-product="Cora Preços" data-prompt="Abrir resumo do discovery Dashboard operacional">
+            <article class="discovery-card" data-status="progress" data-title="Dashboard operacional" data-product="Cora Preços">
               <div class="card-topline">
                 <button class="star-button active" type="button" aria-label="Favoritar Dashboard operacional">
                   <svg aria-hidden="true" viewBox="0 0 24 24">
@@ -171,7 +109,7 @@
               <button class="text-action" type="button">Continuar <span aria-hidden="true">›</span></button>
             </article>
 
-            <article class="discovery-card" data-status="progress" data-title="Cora Transportes" data-product="Logística" data-prompt="O que falta no discovery Cora Transportes?">
+            <article class="discovery-card" data-status="progress" data-title="Cora Transportes" data-product="Logística">
               <div class="card-topline">
                 <button class="star-button active" type="button" aria-label="Favoritar Cora Transportes">
                   <svg aria-hidden="true" viewBox="0 0 24 24">
@@ -192,7 +130,7 @@
               <button class="text-action" type="button">Continuar <span aria-hidden="true">›</span></button>
             </article>
 
-            <article class="discovery-card" data-status="done" data-title="Conciliação de pagamentos" data-product="Pagamentos" data-prompt="Ver detalhes de Conciliação de pagamentos">
+            <article class="discovery-card" data-status="done" data-title="Conciliação de pagamentos" data-product="Pagamentos">
               <div class="card-topline">
                 <button class="star-button active" type="button" aria-label="Favoritar Conciliação de pagamentos">
                   <svg aria-hidden="true" viewBox="0 0 24 24">
@@ -211,7 +149,7 @@
               <button class="text-action" type="button">Ver detalhes <span aria-hidden="true">›</span></button>
             </article>
 
-            <article class="discovery-card" data-status="progress" data-title="Alertas inteligentes" data-product="Operações" data-prompt="Resuma os achados de Alertas inteligentes">
+            <article class="discovery-card" data-status="progress" data-title="Alertas inteligentes" data-product="Operações">
               <div class="card-topline">
                 <button class="star-button active" type="button" aria-label="Favoritar Alertas inteligentes">
                   <svg aria-hidden="true" viewBox="0 0 24 24">
@@ -232,7 +170,7 @@
               <button class="text-action" type="button">Continuar <span aria-hidden="true">›</span></button>
             </article>
 
-            <article class="discovery-card" data-status="progress" data-title="Onboarding de produto" data-product="Growth" data-prompt="Quais próximos passos para Onboarding de produto?">
+            <article class="discovery-card" data-status="progress" data-title="Onboarding de produto" data-product="Growth">
               <div class="card-topline">
                 <button class="star-button" type="button" aria-label="Favoritar Onboarding de produto">
                   <svg aria-hidden="true" viewBox="0 0 24 24">
@@ -252,7 +190,7 @@
               <button class="text-action" type="button">Continuar <span aria-hidden="true">›</span></button>
             </article>
 
-            <article class="discovery-card" data-status="done" data-title="Relatório de repasses" data-product="Financeiro" data-prompt="Ver detalhes de Relatório de repasses">
+            <article class="discovery-card" data-status="done" data-title="Relatório de repasses" data-product="Financeiro">
               <div class="card-topline">
                 <button class="star-button active" type="button" aria-label="Favoritar Relatório de repasses">
                   <svg aria-hidden="true" viewBox="0 0 24 24">
@@ -342,7 +280,6 @@
               </div>
               <div class="selected-actions">
                 <button type="button" data-product-detail-open>Abrir produto</button>
-                <button type="button" data-product-detail-chat>Perguntar ao assistente</button>
                 <button type="button" data-product-detail-clear aria-label="Fechar resumo">
                   <svg aria-hidden="true" viewBox="0 0 24 24">
                     <path d="M18 6 6 18" />
@@ -381,6 +318,20 @@
                 <span class="product-category-pill" data-product-page-category>Cora Transportes</span>
                 <p data-product-page-about>Teste A/B de elementos de gamificação para aumentar engajamento com promoções.</p>
                 <span class="product-status-pill" data-product-page-status>Monitorado</span>
+                <dl class="product-hero-meta" aria-label="Metadados do produto">
+                  <div>
+                    <dt>Squad</dt>
+                    <dd data-product-squad>Growth Squad</dd>
+                  </div>
+                  <div>
+                    <dt>Participantes</dt>
+                    <dd data-product-participants>Bruno Lima, Camila Rocha</dd>
+                  </div>
+                  <div>
+                    <dt>Período</dt>
+                    <dd><span data-product-start>25/04/2026</span> - <span data-product-end>20/05/2026</span></dd>
+                  </div>
+                </dl>
               </div>
 
               <div class="product-hero-actions page-header-actions">
@@ -398,67 +349,28 @@
 
             <section class="product-kpi-grid" data-product-kpi-grid aria-label="Resumo do produto"></section>
 
-            <div class="product-dashboard-layout">
-              <div class="product-dashboard-main">
-                <section class="product-discoveries card-surface" aria-labelledby="product-discoveries-title">
-                  <div class="product-section-header">
-                    <div>
-                      <span>Prioridade</span>
-                      <h2 id="product-discoveries-title">Discoveries ativos</h2>
-                    </div>
-                    <label class="search-box compact">
-                      <span class="visually-hidden">Buscar discovery</span>
-                      <svg aria-hidden="true" viewBox="0 0 24 24">
-                        <circle cx="11" cy="11" r="8" />
-                        <path d="m21 21-4.3-4.3" />
-                      </svg>
-                      <input type="search" placeholder="Buscar..." data-product-discovery-search />
-                    </label>
-                  </div>
-
-                  <div class="product-discovery-grid" data-product-discovery-grid></div>
-                  <div class="empty-state" data-product-discovery-empty hidden>
-                    <strong>Nenhum discovery encontrado</strong>
-                    <span>Revise a busca ou abra outro produto.</span>
-                  </div>
-                </section>
-
-                <section class="product-learning-summary card-surface" data-product-learning-summary aria-labelledby="product-learning-title"></section>
+            <section class="product-discoveries card-surface" aria-labelledby="product-discoveries-title">
+              <div class="product-section-header">
+                <div>
+                  <span>Prioridade</span>
+                  <h2 id="product-discoveries-title">Discoveries ativos</h2>
+                </div>
+                <label class="search-box compact">
+                  <span class="visually-hidden">Buscar discovery</span>
+                  <svg aria-hidden="true" viewBox="0 0 24 24">
+                    <circle cx="11" cy="11" r="8" />
+                    <path d="m21 21-4.3-4.3" />
+                  </svg>
+                  <input type="search" placeholder="Buscar..." data-product-discovery-search />
+                </label>
               </div>
 
-              <aside class="product-dashboard-side">
-                <section class="product-audience-summary card-surface" data-product-audience-summary aria-labelledby="product-audience-summary-title"></section>
-
-                <section class="product-info-grid product-metadata-card info-card" aria-labelledby="product-metadata-title">
-                  <h2 id="product-metadata-title">Metadados</h2>
-                  <dl>
-                    <div>
-                      <dt>Squad</dt>
-                      <dd data-product-squad>Growth Squad</dd>
-                    </div>
-                    <div>
-                      <dt>Participantes de pesquisa</dt>
-                      <dd data-product-participants>Bruno Lima, Camila Rocha</dd>
-                    </div>
-                    <div>
-                      <dt>Período</dt>
-                      <dd><span data-product-start>25/04/2026</span> - <span data-product-end>20/05/2026</span></dd>
-                    </div>
-                  </dl>
-                </section>
-
-                <section class="product-quick-actions quick-actions-grid card-surface" aria-labelledby="product-actions-title">
-                  <h2 id="product-actions-title">Ações rápidas</h2>
-                  <button class="btn btn-secondary secondary-action" type="button" data-team-button>Ver metadados</button>
-                  <a class="btn btn-secondary secondary-action" href="#product/cora-precos/audience" data-product-audience-manage-link-secondary>Gerenciar pessoas</a>
-                </section>
-
-                <section class="artifacts-panel product-support-artifacts card-surface" aria-labelledby="artifacts-title">
-                  <h2 id="artifacts-title">Materiais</h2>
-                  <div data-product-artifacts></div>
-                </section>
-              </aside>
-            </div>
+              <div class="product-discovery-grid" data-product-discovery-grid></div>
+              <div class="empty-state" data-product-discovery-empty hidden>
+                <strong>Nenhum discovery encontrado</strong>
+                <span>Revise a busca ou abra outro produto.</span>
+              </div>
+            </section>
           </section>
         </div>
 
@@ -485,7 +397,8 @@
                 <section class="discovery-summary card-surface">
                   <div class="discovery-title-row">
                     <div>
-                      <h1 id="discovery-page-title" data-discovery-product-name>Nome de produto</h1>
+                      <span class="discovery-product-kicker" data-discovery-product-name>Cora Promoções</span>
+                      <h1 id="discovery-page-title" data-discovery-page-title>Nome do Discovery</h1>
                       <div class="discovery-status-row">
                         <span class="execution-status" data-discovery-readiness-status>
                           <span></span>
@@ -499,9 +412,28 @@
                           <polygon points="12 2 15.1 8.3 22 9.3 17 14.2 18.2 21 12 17.8 5.8 21 7 14.2 2 9.3 8.9 8.3 12 2" />
                         </svg>
                       </button>
-                      <span class="discovery-id">ID-20251108-007</span>
+                      <span class="discovery-id" data-discovery-header-id>ID-20251108-007</span>
                     </div>
                   </div>
+
+                  <dl class="discovery-header-meta" aria-label="Metadados do discovery">
+                    <div>
+                      <dt>Squad</dt>
+                      <dd data-discovery-squad>Growth Squad</dd>
+                    </div>
+                    <div>
+                      <dt>Participantes</dt>
+                      <dd data-discovery-participants>Bruno Lima, Camila Rocha</dd>
+                    </div>
+                    <div>
+                      <dt>Período</dt>
+                      <dd><span data-discovery-start>25/04/2026</span> - <span data-discovery-end>20/05/2026</span></dd>
+                    </div>
+                    <div>
+                      <dt>Metodologia</dt>
+                      <dd data-discovery-methodology-name>Discovery Otimizado</dd>
+                    </div>
+                  </dl>
 
                   <h2>Problema</h2>
                   <p data-discovery-problem>Problema ainda não informado.</p>
@@ -516,49 +448,6 @@
                 </section>
 
                 <div class="discovery-info-grid">
-                  <section class="info-card" aria-labelledby="team-card-title">
-                    <h2 id="team-card-title">
-                      <svg aria-hidden="true" viewBox="0 0 24 24">
-                        <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
-                        <circle cx="9" cy="7" r="4" />
-                        <path d="M22 21v-2a4 4 0 0 0-3-3.87" />
-                      </svg>
-                      Equipe
-                    </h2>
-                    <dl>
-                      <div>
-                        <dt>Squad</dt>
-                        <dd data-discovery-squad>Growth Squad</dd>
-                      </div>
-                      <div>
-                        <dt>Participantes</dt>
-                        <dd data-discovery-participants>Bruno Lima, Camila Rocha</dd>
-                      </div>
-                    </dl>
-                  </section>
-
-                  <section class="info-card" aria-labelledby="timeline-card-title">
-                    <h2 id="timeline-card-title">
-                      <svg aria-hidden="true" viewBox="0 0 24 24">
-                        <path d="M8 2v4" />
-                        <path d="M16 2v4" />
-                        <rect x="3" y="4" width="18" height="18" rx="2" />
-                        <path d="M3 10h18" />
-                      </svg>
-                      <span data-discovery-timeline-title>Cronograma</span>
-                    </h2>
-                    <dl>
-                      <div>
-                        <dt>Início</dt>
-                        <dd data-discovery-start>25/04/2026</dd>
-                      </div>
-                      <div>
-                        <dt>Fim</dt>
-                        <dd data-discovery-end>20/05/2026</dd>
-                      </div>
-                    </dl>
-                  </section>
-
                   <section class="discovery-insights-card card-surface" aria-labelledby="discovery-insights-title">
                     <h2 id="discovery-insights-title" data-discovery-insights-title>Principais Insights</h2>
                     <ul class="insight-list" data-discovery-insights></ul>

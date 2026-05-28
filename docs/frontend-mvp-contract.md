@@ -4,6 +4,14 @@
 
 This contract describes the target MVP workflow expected by the Discovery AI frontend. It does not change current app behavior. The existing local CrewAI proxy remains in place and can be adapted later to forward to these backend endpoints.
 
+## MVP Architecture Correction
+
+Agents are in MVP. CrewAI processing and discovery intelligence are the intelligence layer of Discovery AI, and the frontend is the workflow interaction layer. The research conversational assistant is future, but the agent workflow, output contracts, agent processing states, structured outputs and human approval gates remain part of MVP.
+
+The MVP validates the agent-driven discovery workflow without depending on enterprise integrations.
+
+External integrations may be simulated in MVP using manual input, file upload, mock data, fixture outputs, local storage and mock backend responses.
+
 Target MVP workflow:
 
 ```text
@@ -31,6 +39,21 @@ Create Discovery
 | `COMPLETED` | Discovery is finalized. | Render read-only discovery, final outputs, artifact groups, and handoff package. | Terminal state. |
 | `FAILED` | Backend run failed. | Render error state, logs/status, and retry/resume options where possible. | Retry kickoff or resume depending on backend support. |
 | `CANCELLED` | Backend run was cancelled. | Render cancelled state and preserve available outputs. | Terminal unless backend supports reopen. |
+
+## 1.1 MVP Agent Scope
+
+The MVP includes:
+
+- core discovery agents;
+- research intelligence agents;
+- strategy/opportunity/recommendation agents;
+- output contracts;
+- agent processing states;
+- human approval gates;
+- manual evidence upload;
+- structured outputs.
+
+Out of MVP are external integrations and automation connectors, including Teams, Outlook, Tech Metrics, DataDog, product databases, analytics platforms, research repositories, Jira/Linear, Slack/Teams notifications, SSO/permissions, advanced dashboards, conversational assistant and automated external data retrieval.
 
 ## 2. Frontend Events
 
@@ -294,8 +317,9 @@ The following behaviors remain mock-only in the current prototype:
 - Participant transcript, recording modal, and playback are mock behavior.
 - Method entry files are local metadata only, not uploaded.
 - New discovery support files are not sent to the backend.
-- Evidence upload endpoint is not implemented in the frontend yet.
-- Human gates do not exist as real backend pauses/resumes yet.
-- `POST /resume`, `GET /outputs/{run_id}`, `GET /runs/{run_id}`, `GET /runs/{run_id}/artifacts`, and `POST /runs/{run_id}/evidence` are target-contract endpoints only; the current proxy does not expose them.
+- Evidence upload is represented through manual input and endpoint contracts; external evidence repositories are future.
+- Human gates are represented in the frontend and can be simulated by the mock agent adapter; durable server-side pause/resume depends on the real backend.
+- `POST /api/discovery/resume`, `GET /api/discovery/outputs/{run_id}`, `GET /api/discovery/runs/{run_id}`, `GET /api/discovery/runs/{run_id}/artifacts`, and `POST /api/discovery/runs/{run_id}/evidence` are exposed by the local proxy and use mock agent outputs when no real backend is configured.
 - CrewAI output rendering is best-effort normalization, not a stable typed schema.
 - Approval decisions, comments, and reviewer identity are not persisted.
+- External integrations are not required for MVP validation and may be simulated through manual input, file upload, mock data, fixture outputs, local storage and mock backend responses.

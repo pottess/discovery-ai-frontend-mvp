@@ -4,7 +4,12 @@ const chatInput = document.querySelector("[data-chat-input]");
 const quickPromptButtons = document.querySelectorAll(".quick-prompts [data-prompt], .nav-link[data-prompt]");
 const filterButtons = document.querySelectorAll("[data-filter]");
 const discoveryGrid = document.querySelector("[data-discovery-grid]");
+const homeProductBar = document.querySelector("[data-home-product-bar]");
 const sidebar = document.querySelector("[data-sidebar]");
+const sidebarRail = document.querySelector("[data-sidebar-rail]");
+const sidebarPanel = document.querySelector("[data-sidebar-panel]");
+const sidebarToggle = document.querySelector("[data-action='toggle-sidebar']");
+const sidebarToggleIcon = document.querySelector("[data-sidebar-toggle-icon]");
 const appShell = document.querySelector(".app-shell");
 const brandName = document.querySelector(".brand-name");
 const apiModeBadge = document.querySelector("[data-api-mode-badge]");
@@ -49,7 +54,9 @@ const discoveryPage = document.querySelector("[data-discovery-page]");
 const synthesisPage = document.querySelector("[data-synthesis-page]");
 const discoveryProductLink = document.querySelector("[data-discovery-product-link]");
 const discoveryPageName = document.querySelector("[data-discovery-page-name]");
+const discoveryPageTitle = document.querySelector("[data-discovery-page-title]");
 const discoveryProductName = document.querySelector("[data-discovery-product-name]");
+const discoveryIdLabel = document.querySelector("[data-discovery-header-id]");
 const discoveryDetailFavorite = document.querySelector("[data-discovery-detail-favorite]");
 const discoveryReadinessStatus = document.querySelector("[data-discovery-readiness-status]");
 const discoveryProblem = document.querySelector("[data-discovery-problem]");
@@ -63,6 +70,7 @@ const discoveryParticipants = document.querySelector("[data-discovery-participan
 const discoveryStart = document.querySelector("[data-discovery-start]");
 const discoveryEnd = document.querySelector("[data-discovery-end]");
 const discoveryTimelineTitle = document.querySelector("[data-discovery-timeline-title]");
+const discoveryMethodologyName = document.querySelector("[data-discovery-methodology-name]");
 const discoveryTags = document.querySelector("[data-discovery-tags]");
 const discoveryArtifacts = document.querySelector("[data-discovery-artifacts]");
 const methodologyPanel = document.querySelector("[data-methodology-panel]");
@@ -182,6 +190,8 @@ const crewKickoffLog = document.querySelector("[data-crew-kickoff-log]");
 let selectedProductId = null;
 let selectedDiscoveryId = "discovery-name-1";
 let selectedInterviewMethodId = "entrevista-em-profundidade";
+let selectedSidebarContext = { type: "home" };
+let isSidebarPinned = false;
 let draftDiscovery = null;
 let activeAudienceTab = "personas";
 let audienceShowArchived = false;
@@ -314,6 +324,17 @@ const RUN_STATUSES = Object.freeze({
   CANCELLED: "CANCELLED",
 });
 
+const AGENT_PROCESSING_STATUSES = Object.freeze({
+  NOT_STARTED: "not_started",
+  PROCESSING: "processing",
+  WAITING_FOR_HUMAN: "waiting_for_human",
+  COMPLETED: "completed",
+  FAILED: "failed",
+});
+
+const AGENT_OUTPUT_EMPTY_MESSAGE = "Agentes ainda não processaram esta etapa.";
+const AGENT_WAITING_MESSAGE = "Aguardando evidências/aprovação para continuar.";
+
 const EVENT_TYPES = Object.freeze({
   START_DISCOVERY: "START_DISCOVERY",
   APPROVE_RESEARCH: "APPROVE_RESEARCH",
@@ -366,79 +387,79 @@ const HUMAN_GATES = Object.freeze({
 const MVP_WORKFLOW_STEPS = Object.freeze([
   {
     state: WORKFLOW_STATES.DISCOVERY_CREATED,
-    label: "Discovery criado",
+    label: "Estruturação do discovery",
     nextAction: "Aguardar análise do DOR",
   },
   {
     state: WORKFLOW_STATES.DOR_ANALYZING,
-    label: "DOR em análise",
+    label: "Estruturação do discovery",
     nextAction: "Aguardar plano de pesquisa",
   },
   {
     state: WORKFLOW_STATES.RESEARCH_APPROVAL_PENDING,
-    label: "Aprovação do plano",
+    label: "Planejamento de pesquisa",
     nextAction: HUMAN_GATES[WORKFLOW_STATES.RESEARCH_APPROVAL_PENDING].primaryAction,
   },
   {
     state: WORKFLOW_STATES.EVIDENCE_UPLOAD_PENDING,
-    label: "Upload de evidências",
+    label: "Processamento de evidências",
     nextAction: HUMAN_GATES[WORKFLOW_STATES.EVIDENCE_UPLOAD_PENDING].primaryAction,
   },
   {
     state: WORKFLOW_STATES.PRIMARY_RESEARCH_PROCESSING,
-    label: "Pesquisa primária em processamento",
+    label: "Processamento de evidências",
     nextAction: "Aguardar revisão de insights",
   },
   {
     state: WORKFLOW_STATES.INSIGHT_REVIEW_PENDING,
-    label: "Revisão de insights",
+    label: "Síntese de insights",
     nextAction: HUMAN_GATES[WORKFLOW_STATES.INSIGHT_REVIEW_PENDING].primaryAction,
   },
   {
     state: WORKFLOW_STATES.OPPORTUNITY_REVIEW_PENDING,
-    label: "Revisão de oportunidades",
+    label: "Mapeamento de oportunidades",
     nextAction: HUMAN_GATES[WORKFLOW_STATES.OPPORTUNITY_REVIEW_PENDING].primaryAction,
   },
   {
     state: WORKFLOW_STATES.RECOMMENDATION_RUNNING,
-    label: "Recomendação em execução",
+    label: "Recomendação estratégica",
     nextAction: "Aguardar handoff",
   },
   {
     state: WORKFLOW_STATES.HANDOFF_RUNNING,
-    label: "Handoff em execução",
+    label: "Handoff",
     nextAction: "Aguardar conclusão",
   },
   {
     state: WORKFLOW_STATES.COMPLETED,
-    label: "Concluído",
+    label: "Handoff",
     nextAction: "Ver handoff final",
   },
 ]);
 
 const MVP_TIMELINE_STEPS = Object.freeze([
   {
-    label: "Discovery Charter",
+    label: "Estruturação do discovery",
     states: [WORKFLOW_STATES.DISCOVERY_CREATED, WORKFLOW_STATES.DOR_ANALYZING],
   },
   {
-    label: "Research Plan",
+    label: "Planejamento de pesquisa",
     states: [WORKFLOW_STATES.RESEARCH_APPROVAL_PENDING],
   },
   {
-    label: "Evidence Upload",
+    label: "Processamento de evidências",
     states: [WORKFLOW_STATES.EVIDENCE_UPLOAD_PENDING, WORKFLOW_STATES.PRIMARY_RESEARCH_PROCESSING],
   },
   {
-    label: "Insights",
+    label: "Síntese de insights",
     states: [WORKFLOW_STATES.INSIGHT_REVIEW_PENDING],
   },
   {
-    label: "Opportunities",
+    label: "Mapeamento de oportunidades",
     states: [WORKFLOW_STATES.OPPORTUNITY_REVIEW_PENDING],
   },
   {
-    label: "Recommendation",
+    label: "Recomendação estratégica",
     states: [WORKFLOW_STATES.RECOMMENDATION_RUNNING],
   },
   {
@@ -565,6 +586,41 @@ function getRunStatusLabel(status = "") {
   return labels[normalizedStatus] || "Status não informado";
 }
 
+function getAgentProcessingStatus(state, status) {
+  const normalizedState = normalizeWorkflowValue(state);
+  const normalizedStatus = normalizeWorkflowValue(status);
+
+  if (normalizedState === WORKFLOW_STATES.FAILED || normalizedStatus === RUN_STATUSES.FAILED) {
+    return AGENT_PROCESSING_STATUSES.FAILED;
+  }
+
+  if (normalizedState === WORKFLOW_STATES.COMPLETED || normalizedStatus === RUN_STATUSES.COMPLETED) {
+    return AGENT_PROCESSING_STATUSES.COMPLETED;
+  }
+
+  if (isWaitingForHuman(normalizedState, normalizedStatus)) {
+    return AGENT_PROCESSING_STATUSES.WAITING_FOR_HUMAN;
+  }
+
+  if (normalizedStatus === RUN_STATUSES.IDLE) {
+    return AGENT_PROCESSING_STATUSES.NOT_STARTED;
+  }
+
+  return AGENT_PROCESSING_STATUSES.PROCESSING;
+}
+
+function getAgentProcessingStatusLabel(status = "") {
+  const labels = {
+    [AGENT_PROCESSING_STATUSES.NOT_STARTED]: "not_started",
+    [AGENT_PROCESSING_STATUSES.PROCESSING]: "processing",
+    [AGENT_PROCESSING_STATUSES.WAITING_FOR_HUMAN]: "waiting_for_human",
+    [AGENT_PROCESSING_STATUSES.COMPLETED]: "completed",
+    [AGENT_PROCESSING_STATUSES.FAILED]: "failed",
+  };
+
+  return labels[status] || AGENT_PROCESSING_STATUSES.PROCESSING;
+}
+
 function getMvpTimelineStepIndex(state) {
   const normalizedState = normalizeWorkflowValue(state);
   const index = MVP_TIMELINE_STEPS.findIndex((step) => step.states.includes(normalizedState));
@@ -580,10 +636,15 @@ let discoveryRunPollingConfigLoaded = false;
 const CURRENT_USER_PROFILE = {
   id: "perfil-ambev-demo",
   name: "Perfil Ambev",
+  productIds: ["cora-precos", "cora-promocoes", "cora-transportes", "cora-agreements"],
 };
+const CONVERSATIONAL_ASSISTANT_ENABLED = false;
+const AGENT_WORKFLOW_ENABLED = true;
 const CREATED_DISCOVERIES_STORAGE_KEY = "discoveryIa.createdDiscoveries";
 const PRODUCT_FAVORITES_STORAGE_KEY = "discoveryIa.productFavoritesByUser";
 const FAVORITE_DISCOVERIES_STORAGE_KEY = "discoveryIa.favoriteDiscoveryIds";
+const SIDEBAR_PINNED_STORAGE_KEY = "discoveryIa.sidebarPinned";
+const SIDEBAR_SELECTED_SECTION_STORAGE_KEY = "discoveryIa.sidebarSelectedSection";
 const PRODUCT_AUDIENCE_STORAGE_KEY = "discoveryIa.productAudienceByProduct";
 const LOCAL_MOCK_RUNS_STORAGE_KEY = "discoveryIa.localMockRuns";
 const DEFAULT_AUDIENCE_TIMESTAMP = "2026-05-25T12:00:00.000Z";
@@ -693,6 +754,10 @@ function normalizeDiscoveryLifecycleFields(discovery = {}) {
     || discovery.workflow_state
     || discovery.state
     || WORKFLOW_STATES.DISCOVERY_CREATED;
+  const runStatus = normalizeRunStatusForWorkflow(discovery.run_status || discovery.runStatus || discovery.status, currentState);
+  const agentProcessingStatus = discovery.agentProcessingStatus
+    || discovery.agent_processing_status
+    || getAgentProcessingStatus(currentState, runStatus);
   const legacyCsd = discovery.csd || {
     certezas: [],
     suposicoes: [],
@@ -704,6 +769,9 @@ function normalizeDiscoveryLifecycleFields(discovery = {}) {
     workflow: discovery.workflow || discovery.workflow_state || currentState,
     currentState,
     current_state: discovery.current_state || currentState,
+    run_status: discovery.run_status || runStatus,
+    agentProcessingStatus,
+    agent_processing_status: agentProcessingStatus,
     updatedAt,
     updated_at: discovery.updated_at || updatedAt,
     csdMatrix: discovery.csdMatrix || discovery.csd_matrix || createCsdMatrixFromLegacyCsd(legacyCsd, { updatedAt }),
@@ -1067,6 +1135,33 @@ function renderFavoriteDiscoveriesMenu(activeDiscoveryId = selectedDiscoveryId) 
     : '<span class="favorite-discoveries-empty">Sem favoritos</span>';
 }
 
+function getSidebarProductsWithFavorites() {
+  const productMap = new Map();
+  const addProduct = (product) => {
+    if (product?.id && !productMap.has(product.id)) {
+      productMap.set(product.id, product);
+    }
+  };
+
+  getUserProducts().forEach(addProduct);
+  getFavoriteProductsForCurrentUser().forEach(addProduct);
+  getFavoriteDiscoveries()
+    .filter((discovery) => discovery && !discovery.missing)
+    .forEach((discovery) => addProduct(getProductById(discovery.productId) || getProductForDiscoverySummary(discovery)));
+
+  return Array.from(productMap.values());
+}
+
+function getFavoriteDiscoveriesForProduct(productId = "") {
+  return getFavoriteDiscoveries()
+    .filter((discovery) => discovery && !discovery.missing && discovery.productId === productId);
+}
+
+function getDiscoveryShortLabel(discovery = {}) {
+  const title = String(discovery.title || discovery.name || "D").trim();
+  return title.split(/\s+/).slice(0, 2).map((part) => part[0] || "").join("").toUpperCase() || "D";
+}
+
 function toggleDiscoveryFavorite(discoveryId = "") {
   const normalizedDiscoveryId = String(discoveryId || "").trim();
   if (!normalizedDiscoveryId) {
@@ -1097,6 +1192,7 @@ function toggleDiscoveryFavorite(discoveryId = "") {
   }
 
   renderFavoriteDiscoveriesMenu(selectedDiscoveryId);
+  renderFavoriteProductsMenu(selectedProductId, getCurrentRoute());
   refreshDiscoveryFavoriteControls();
   syncDiscoveryDetailFavoriteButton(selectedDiscoveryId);
   return nextIsFavorite;
@@ -1114,6 +1210,7 @@ function removeFavoriteDiscovery(discoveryId = "") {
     : discovery);
   saveCreatedDiscoveries();
   renderFavoriteDiscoveriesMenu(selectedDiscoveryId);
+  renderFavoriteProductsMenu(selectedProductId, getCurrentRoute());
   refreshDiscoveryFavoriteControls();
   syncDiscoveryDetailFavoriteButton(selectedDiscoveryId);
 }
@@ -1685,6 +1782,49 @@ const products = [
     artifacts: ["Análise", "Mapa de exceções", "Plano de validação"],
   },
 ];
+
+function getUserProducts() {
+  const userProductIds = Array.isArray(CURRENT_USER_PROFILE.productIds) ? CURRENT_USER_PROFILE.productIds : [];
+  if (!userProductIds.length) {
+    return products.slice(0, 4);
+  }
+
+  const productsById = new Map(products.map((product) => [product.id, product]));
+  return userProductIds.map((productId) => productsById.get(productId)).filter(Boolean);
+}
+
+function getProductAreaLabel(product = {}) {
+  return product.area || product.tribe || product.category || product.tower || "Produto";
+}
+
+function getProductIconLabel(product = {}) {
+  const explicitIcon = String(product.icon || "").trim();
+  if (explicitIcon) {
+    return explicitIcon;
+  }
+
+  const name = String(product.name || "P").trim();
+  return name.split(/\s+/).slice(0, 2).map((part) => part[0] || "").join("").toUpperCase() || "P";
+}
+
+function renderHomeProductBar() {
+  if (!homeProductBar) {
+    return;
+  }
+
+  const userProducts = getUserProducts();
+  homeProductBar.innerHTML = userProducts.length
+    ? userProducts.map((product) => `
+      <button class="home-product-item" type="button" data-home-product-id="${escapeHTML(product.id)}" aria-label="Abrir produto ${escapeHTML(product.name)}">
+        <span class="home-product-icon" aria-hidden="true">${escapeHTML(getProductIconLabel(product))}</span>
+        <span class="home-product-copy">
+          <strong>${escapeHTML(product.name)}</strong>
+          <small>${escapeHTML(getProductAreaLabel(product))}</small>
+        </span>
+      </button>
+    `).join("")
+    : `<p class="home-products-empty">Nenhum produto vinculado ao usuário.</p>`;
+}
 
 const productAudienceMocks = {
   "cora-promocoes": {
@@ -2483,6 +2623,10 @@ function getCurrentTime() {
 }
 
 function scrollChatToEnd() {
+  if (!chatLog) {
+    return;
+  }
+
   chatLog.scrollTop = chatLog.scrollHeight;
 }
 
@@ -2517,6 +2661,10 @@ function buildMetadata(metadata = []) {
 }
 
 function addMessage(role, content, options = {}) {
+  if (!CONVERSATIONAL_ASSISTANT_ENABLED || !chatLog) {
+    return;
+  }
+
   const row = document.createElement("article");
   row.className = `message-row ${role}`;
 
@@ -2603,6 +2751,10 @@ function renderMethodEntryFiles() {
 }
 
 function addTypingIndicator() {
+  if (!CONVERSATIONAL_ASSISTANT_ENABLED || !chatLog) {
+    return;
+  }
+
   const row = document.createElement("article");
   row.className = "message-row bot";
   row.dataset.typing = "true";
@@ -2626,6 +2778,10 @@ function addTypingIndicator() {
 }
 
 function removeTypingIndicator() {
+  if (!chatLog) {
+    return;
+  }
+
   const typing = chatLog.querySelector("[data-typing='true']");
   if (typing) {
     typing.remove();
@@ -2705,6 +2861,10 @@ function createResponse(userMessage) {
 }
 
 function submitMessage(message) {
+  if (!CONVERSATIONAL_ASSISTANT_ENABLED || !chatInput || !chatLog) {
+    return;
+  }
+
   const cleanMessage = message.trim();
   if (!cleanMessage) {
     return;
@@ -5445,7 +5605,7 @@ function setRoute(route, productId = selectedProductId, discoveryId = selectedDi
     link.classList.toggle("active", link.dataset.routeLink === activeView || (isProductAudienceRoute(nextRoute) && link.dataset.routeLink === "product"));
   });
 
-  renderFavoriteProductsMenu(activeProductId, nextRoute);
+  renderFavoriteProductsMenu(activeProductId, nextRoute, activeDiscoveryId);
   renderFavoriteDiscoveriesMenu(activeDiscoveryId);
 
   appShell.classList.toggle("product-mode", nextRoute === "product" || isProductAudienceRoute(nextRoute));
@@ -5466,6 +5626,10 @@ function setRoute(route, productId = selectedProductId, discoveryId = selectedDi
 
   if (nextRoute === "product") {
     renderProductPage(activeProductId);
+  }
+
+  if (nextRoute === "home") {
+    renderHomeProductBar();
   }
 
   if (isProductAudienceRoute(nextRoute)) {
@@ -5544,28 +5708,371 @@ function getFavoriteProductsForCurrentUser() {
     .filter(Boolean);
 }
 
-function renderFavoriteProductsMenu(activeProductId = selectedProductId, activeRoute = getCurrentRoute()) {
-  if (!favoriteProductsMenu) {
+function getFavoriteProducts() {
+  return getFavoriteProductsForCurrentUser();
+}
+
+function isProductFavorite(productId = "") {
+  return isProductFavorited(productId);
+}
+
+function getProductGroupLabel(product = {}) {
+  const tower = product.torre || product.tower || "";
+  const area = product.area || product.tribe || product.category || "";
+  if (tower && area && normalizeText(tower) !== normalizeText(area)) {
+    return `${tower} / ${area}`;
+  }
+  return tower || area || "Outros";
+}
+
+function getProductsGroupedByArea(productItems = products) {
+  return productItems.reduce((groups, product) => {
+    const groupLabel = getProductGroupLabel(product);
+    groups[groupLabel] = [...(groups[groupLabel] || []), product];
+    return groups;
+  }, {});
+}
+
+function getFavoriteDiscoveriesByProduct() {
+  return getFavoriteDiscoveries()
+    .filter((discovery) => discovery && !discovery.missing)
+    .reduce((groups, discovery) => {
+      const productId = discovery.productId || getProductForDiscoverySummary(discovery).id;
+      groups[productId] = [...(groups[productId] || []), discovery];
+      return groups;
+    }, {});
+}
+
+function getRecentDiscoveries(limit = 6) {
+  const createdRecent = createdDiscoveries
+    .filter((discovery) => discovery && !discovery.isAudienceSelectionOverride)
+    .map((discovery) => {
+      const product = getDiscoveryProduct(discovery);
+      return {
+        ...discovery,
+        id: discovery.id,
+        title: discovery.title || discovery.name || "Discovery",
+        productId: product.id,
+        productName: product.name,
+      };
+    });
+  const repositoryRecent = discoveries.map((discovery) => {
+    const product = getProductForDiscoverySummary(discovery);
+    const discoveryId = discovery.id || slugify(discovery.title || "");
+    return {
+      ...discovery,
+      id: discoveryId,
+      productId: product.id,
+      productName: product.name,
+    };
+  });
+
+  return [...createdRecent, ...repositoryRecent]
+    .filter((discovery) => discovery.id)
+    .slice(0, limit);
+}
+
+function navigateToProduct(productId = "") {
+  const product = getProductById(productId);
+  if (!product) {
+    showAppToast("Produto não encontrado.", "error");
+    return false;
+  }
+
+  setRoute("product", product.id);
+  return true;
+}
+
+function loadSidebarPinned() {
+  try {
+    return window.localStorage.getItem(SIDEBAR_PINNED_STORAGE_KEY) === "true";
+  } catch (error) {
+    return false;
+  }
+}
+
+function saveSidebarPinned(isPinned) {
+  try {
+    window.localStorage.setItem(SIDEBAR_PINNED_STORAGE_KEY, String(Boolean(isPinned)));
+  } catch (error) {
+    // Local persistence is best-effort in the static prototype.
+  }
+}
+
+function loadSidebarSelectedSection() {
+  try {
+    const storedSection = window.localStorage.getItem(SIDEBAR_SELECTED_SECTION_STORAGE_KEY);
+    return ["home", "products", "recent", "favorites"].includes(storedSection) ? storedSection : "";
+  } catch (error) {
+    return "";
+  }
+}
+
+function saveSidebarSelectedSection(section = selectedSidebarContext.type) {
+  try {
+    window.localStorage.setItem(SIDEBAR_SELECTED_SECTION_STORAGE_KEY, section);
+  } catch (error) {
+    // Local persistence is best-effort in the static prototype.
+  }
+}
+
+function setSidebarPinned(isPinned) {
+  isSidebarPinned = Boolean(isPinned);
+  appShell?.classList.toggle("sidebar-pinned", isSidebarPinned);
+  saveSidebarPinned(isSidebarPinned);
+  setSidebarOpen(isSidebarPinned || !sidebar?.classList.contains("collapsed"), { persist: false });
+  renderSidebarPanel(selectedSidebarContext, selectedDiscoveryId);
+}
+
+function setSidebarOpen(isOpen, options = {}) {
+  if (!sidebar || !appShell) {
     return;
   }
 
-  const favoriteProducts = getFavoriteProductsForCurrentUser();
-  const isProductContext = ["product", "discovery", "synthesis", "interview", "interview-session"].includes(activeRoute) || isProductAudienceRoute(activeRoute);
+  const shouldOpen = Boolean(isOpen);
+  sidebar.classList.toggle("collapsed", !shouldOpen);
+  sidebar.classList.toggle("is-collapsed", !shouldOpen);
+  sidebar.classList.toggle("is-expanded", shouldOpen);
+  appShell.classList.toggle("sidebar-collapsed", !shouldOpen);
+  if (sidebarToggle) {
+    sidebarToggle.setAttribute("aria-expanded", String(shouldOpen));
+    sidebarToggle.setAttribute("aria-label", shouldOpen ? "Recolher menu" : "Expandir menu");
+  }
+  if (sidebarToggleIcon) {
+    sidebarToggleIcon.textContent = shouldOpen ? "«" : "»";
+  }
+  if (options.saveSection !== false) {
+    saveSidebarSelectedSection(selectedSidebarContext.type);
+  }
+}
 
-  favoriteProductsMenu.innerHTML = favoriteProducts.length
-    ? favoriteProducts.map((product) => {
-      const activeClass = isProductContext && product.id === activeProductId ? " active" : "";
+function toggleSidebarCollapsed() {
+  setSidebarOpen(sidebar?.classList.contains("collapsed"));
+}
 
-      return `
-        <a href="#product/${escapeHTML(product.id)}" class="nav-link nav-link-favorite${activeClass}" data-product-shortcut="${escapeHTML(product.id)}">
-          <span>${escapeHTML(product.name)}</span>
-          <svg aria-hidden="true" viewBox="0 0 24 24">
-            <polygon points="12 2 15.1 8.3 22 9.3 17 14.2 18.2 21 12 17.8 5.8 21 7 14.2 2 9.3 8.9 8.3 12 2"></polygon>
-          </svg>
-        </a>
-      `;
-    }).join("")
-    : '<span class="favorite-products-empty">Sem favoritos</span>';
+function closeSidebarPanelIfTemporary() {
+  if (!isSidebarPinned) {
+    setSidebarOpen(false, { saveSection: false });
+  }
+}
+
+function selectSidebarContext(context = {}) {
+  selectedSidebarContext = {
+    type: context.type || "home",
+  };
+  saveSidebarSelectedSection(selectedSidebarContext.type);
+}
+
+function getRouteSidebarSection(activeRoute = getCurrentRoute()) {
+  if (activeRoute === "products" || activeRoute === "product" || isProductAudienceRoute(activeRoute)) {
+    return "products";
+  }
+  if (["discovery", "synthesis", "interview", "interview-session"].includes(activeRoute)) {
+    return selectedSidebarContext.type === "favorites" ? "favorites" : "recent";
+  }
+  return "home";
+}
+
+function getSidebarContext(activeProductId = selectedProductId, activeRoute = getCurrentRoute()) {
+  const storedSection = selectedSidebarContext.type || loadSidebarSelectedSection();
+  if ((isSidebarPinned || !sidebar?.classList.contains("collapsed")) && ["home", "products", "recent", "favorites"].includes(storedSection)) {
+    return { type: storedSection };
+  }
+  return { type: getRouteSidebarSection(activeRoute) };
+}
+
+function renderSidebar(activeProductId = selectedProductId, activeRoute = getCurrentRoute(), activeDiscoveryId = selectedDiscoveryId) {
+  if (!sidebarRail || !sidebarPanel) {
+    return;
+  }
+
+  const context = getSidebarContext(activeProductId, activeRoute);
+  selectSidebarContext(context);
+  renderSidebarRail(context);
+  renderSidebarPanel(context, activeDiscoveryId);
+}
+
+function renderSidebarRail(context = selectedSidebarContext) {
+  const isActive = (type) => context.type === type;
+
+  sidebarRail.innerHTML = `
+    <div class="sidebar-rail-section">
+      <button class="sidebar-rail-item${isActive("home") ? " active" : ""}" type="button" data-sidebar-context="home" title="Início" aria-label="Ir para início">
+        <span class="sidebar-rail-icon" aria-hidden="true">${getSidebarSvgIcon("home")}</span>
+        <span class="sidebar-rail-label">Início</span>
+      </button>
+      <button class="sidebar-rail-item${isActive("products") ? " active" : ""}" type="button" data-sidebar-context="products" title="Produtos" aria-label="Abrir lista de produtos">
+        <span class="sidebar-rail-icon" aria-hidden="true">${getSidebarSvgIcon("products")}</span>
+        <span class="sidebar-rail-label">Produtos</span>
+      </button>
+      <button class="sidebar-rail-item${isActive("recent") ? " active" : ""}" type="button" data-sidebar-context="recent" title="Discoveries recentes" aria-label="Abrir discoveries recentes">
+        <span class="sidebar-rail-icon" aria-hidden="true">${getSidebarSvgIcon("recent")}</span>
+        <span class="sidebar-rail-label">Recentes</span>
+      </button>
+      <button class="sidebar-rail-item${isActive("favorites") ? " active" : ""}" type="button" data-sidebar-context="favorites" title="Favoritos" aria-label="Abrir favoritos">
+        <span class="sidebar-rail-icon" aria-hidden="true">${getSidebarSvgIcon("favorites")}</span>
+        <span class="sidebar-rail-label">Favoritos</span>
+      </button>
+    </div>
+  `;
+}
+
+function getSidebarSvgIcon(type = "home") {
+  const icons = {
+    home: '<svg viewBox="0 0 24 24"><path d="m3 11 9-8 9 8" /><path d="M5 10v10h14V10" /><path d="M9 20v-6h6v6" /></svg>',
+    products: '<svg viewBox="0 0 24 24"><rect x="3" y="4" width="7" height="7" rx="1" /><rect x="14" y="4" width="7" height="7" rx="1" /><rect x="3" y="15" width="7" height="5" rx="1" /><rect x="14" y="15" width="7" height="5" rx="1" /></svg>',
+    recent: '<svg viewBox="0 0 24 24"><path d="M12 8v5l3 2" /><path d="M3.05 11a9 9 0 1 1 2.64 6.36" /><path d="M3 17v-6h6" /></svg>',
+    favorites: '<svg viewBox="0 0 24 24"><polygon points="12 2 15.1 8.3 22 9.3 17 14.2 18.2 21 12 17.8 5.8 21 7 14.2 2 9.3 8.9 8.3 12 2" /></svg>',
+  };
+  return icons[type] || icons.home;
+}
+
+function renderSidebarPanel(context = selectedSidebarContext, activeDiscoveryId = selectedDiscoveryId) {
+  if (context.type === "recent") {
+    renderRecentDiscoveriesPanel(activeDiscoveryId);
+    return;
+  }
+  if (context.type === "products") {
+    renderProductsSidebarPanel();
+    return;
+  }
+  if (context.type === "favorites") {
+    renderFavoritesSidebarPanel(activeDiscoveryId);
+    return;
+  }
+  renderHomeSidebarPanel();
+}
+
+function renderSidebarPanelHeader(kicker = "", title = "", copy = "") {
+  return `
+    <header class="sidebar-panel-header">
+      <div>
+        <span class="sidebar-panel-kicker">${escapeHTML(kicker)}</span>
+        <h2 class="sidebar-panel-title">${escapeHTML(title)}</h2>
+        ${copy ? `<p class="sidebar-panel-copy">${escapeHTML(copy)}</p>` : ""}
+      </div>
+      <button class="sidebar-pin-button${isSidebarPinned ? " active" : ""}" type="button" data-sidebar-pin aria-pressed="${String(isSidebarPinned)}" aria-label="${isSidebarPinned ? "Desafixar menu" : "Fixar menu"}" title="${isSidebarPinned ? "Desafixar menu" : "Fixar menu"}">
+        ${isSidebarPinned ? "Fixado" : "Fixar"}
+      </button>
+    </header>
+  `;
+}
+
+function renderHomeSidebarPanel() {
+  sidebarPanel.innerHTML = `
+    ${renderSidebarPanelHeader("Navegação", "Início", "Acesse seus produtos e discoveries recentes.")}
+    <div class="sidebar-submenu">
+      <button class="sidebar-submenu-link active" type="button" data-sidebar-context="home">Página inicial</button>
+      <button class="sidebar-submenu-link" type="button" data-sidebar-context="products">Todos os produtos</button>
+      <button class="sidebar-submenu-link" type="button" data-sidebar-context="recent">Discoveries recentes</button>
+    </div>
+  `;
+}
+
+function renderProductsSidebarPanel() {
+  const favoriteProducts = getFavoriteProducts();
+  const favoriteProductIds = new Set(favoriteProducts.map((product) => product.id));
+  const groupedProducts = getProductsGroupedByArea(products.filter((product) => !favoriteProductIds.has(product.id)));
+  sidebarPanel.innerHTML = `
+    ${renderSidebarPanelHeader("Produtos", "Produtos", "Produtos que você acompanha.")}
+    <div class="sidebar-submenu">
+      ${favoriteProducts.length ? `
+        <div class="sidebar-submenu-section">
+          <span class="sidebar-submenu-heading">Favoritos</span>
+          <div class="sidebar-list">${favoriteProducts.map((product) => renderSidebarProductRow(product)).join("")}</div>
+        </div>
+      ` : ""}
+      ${Object.entries(groupedProducts).map(([groupLabel, groupProducts]) => `
+        <div class="sidebar-submenu-section">
+          <span class="sidebar-submenu-heading">${escapeHTML(groupLabel)}</span>
+          <div class="sidebar-list">${groupProducts.map((product) => renderSidebarProductRow(product)).join("")}</div>
+        </div>
+      `).join("")}
+    </div>
+  `;
+}
+
+function renderSidebarProductRow(product = {}) {
+  const isFavorite = isProductFavorite(product.id);
+  return `
+    <div class="sidebar-product-row" role="button" tabindex="0" data-sidebar-product="${escapeHTML(product.id)}" title="${escapeHTML(product.name)}">
+      <span class="sidebar-product-copy">
+        <strong>${escapeHTML(product.name)}</strong>
+        <small>${escapeHTML(getProductGroupLabel(product))}</small>
+      </span>
+      <button class="sidebar-favorite-button${isFavorite ? " is-favorite" : ""}" type="button" data-sidebar-product-favorite="${escapeHTML(product.id)}" aria-label="${isFavorite ? "Remover produto dos favoritos" : "Favoritar produto"}" aria-pressed="${String(isFavorite)}" title="${isFavorite ? "Remover dos favoritos" : "Favoritar"}">
+        ★
+      </button>
+    </div>
+  `;
+}
+
+function renderFavoritesSidebarPanel(activeDiscoveryId = selectedDiscoveryId) {
+  const favoriteProducts = getFavoriteProducts();
+  const favoriteDiscoveriesByProduct = getFavoriteDiscoveriesByProduct();
+  const favoriteDiscoveryEntries = Object.entries(favoriteDiscoveriesByProduct);
+  const hasFavorites = favoriteProducts.length || favoriteDiscoveryEntries.length;
+
+  sidebarPanel.innerHTML = `
+    ${renderSidebarPanelHeader("Favoritos", "Favoritos", "Produtos e discoveries salvos para acesso rápido.")}
+    <div class="sidebar-submenu">
+      ${!hasFavorites ? '<p class="sidebar-empty">Nenhum favorito ainda.</p>' : ""}
+      ${favoriteProducts.length ? `
+        <div class="sidebar-submenu-section">
+          <span class="sidebar-submenu-heading">Produtos favoritos</span>
+          <div class="sidebar-list">${favoriteProducts.map((product) => renderSidebarProductRow(product)).join("")}</div>
+        </div>
+      ` : ""}
+      ${favoriteDiscoveryEntries.length ? `
+        <div class="sidebar-submenu-section">
+          <span class="sidebar-submenu-heading">Discoveries favoritos</span>
+          ${favoriteDiscoveryEntries.map(([productId, productDiscoveries]) => {
+            const product = getProductById(productId) || getProductForDiscoverySummary(productDiscoveries[0]);
+            return `
+              <div class="sidebar-list-group">
+                <span class="sidebar-list-group-title">${escapeHTML(product.name || "Produto")}</span>
+                <div class="sidebar-list">
+                  ${productDiscoveries.map((discovery) => renderSidebarDiscoveryRow(discovery, activeDiscoveryId, true)).join("")}
+                </div>
+              </div>
+            `;
+          }).join("")}
+        </div>
+      ` : ""}
+    </div>
+  `;
+}
+
+function renderRecentDiscoveriesPanel(activeDiscoveryId = selectedDiscoveryId) {
+  const recentItems = getRecentDiscoveries(8);
+  sidebarPanel.innerHTML = `
+    ${renderSidebarPanelHeader("Discovery", "Recentes", "Acesse rapidamente os discoveries atualizados por produto.")}
+    <div class="sidebar-submenu">
+      <div class="sidebar-recent-list">
+        ${recentItems.length
+          ? recentItems.map((discovery) => renderSidebarDiscoveryRow(discovery, activeDiscoveryId)).join("")
+          : '<p class="sidebar-empty">Nenhum discovery recente.</p>'}
+      </div>
+    </div>
+  `;
+}
+
+function renderSidebarDiscoveryRow(discovery = {}, activeDiscoveryId = selectedDiscoveryId, isFavorite = false) {
+  const title = discovery.title || discovery.name || "Discovery";
+  const product = getProductById(discovery.productId) || getProductForDiscoverySummary(discovery);
+  const status = discovery.status || discovery.workflow || discovery.currentState || discovery.progressLabel || "";
+  return `
+    <button class="sidebar-discovery-row${discovery.id === activeDiscoveryId ? " active" : ""}" type="button" ${isFavorite ? `data-favorite-discovery-shortcut="${escapeHTML(discovery.id)}"` : `data-sidebar-discovery="${escapeHTML(discovery.id)}"`} data-sidebar-discovery-product="${escapeHTML(product.id)}" title="${escapeHTML(title)}">
+      <span class="sidebar-discovery-copy">
+        <strong>${escapeHTML(title)}</strong>
+        <small>${escapeHTML(product.name || discovery.productName || "")}${status ? ` · ${escapeHTML(status)}` : ""}</small>
+      </span>
+    </button>
+  `;
+}
+
+function renderFavoriteProductsMenu(activeProductId = selectedProductId, activeRoute = getCurrentRoute(), activeDiscoveryId = selectedDiscoveryId) {
+  renderSidebar(activeProductId, activeRoute, activeDiscoveryId);
 }
 
 function updateProductStats(visibleProducts) {
@@ -5797,7 +6304,7 @@ function createDiscoveryCard(discovery, index, product = getProductById(selected
   const statusType = isDone ? "green" : discovery.statusType || "blue";
 
   return `
-    <article class="discovery-card product-discovery-card" data-product-discovery-index="${index}" data-product-discovery-id="${escapeHTML(discoveryId)}" data-product-discovery-route="${escapeHTML(route)}" data-prompt="${escapeHTML(discovery.action)} ${escapeHTML(discovery.title)}">
+    <article class="discovery-card product-discovery-card" data-product-discovery-index="${index}" data-product-discovery-id="${escapeHTML(discoveryId)}" data-product-discovery-route="${escapeHTML(route)}">
       <div class="discovery-card-top card-topline">
         <button class="star-button discovery-card-favorite${favoriteClass}" type="button" aria-label="${escapeHTML(favoriteLabel)}" aria-pressed="${String(isDiscoveryFavorite(discoveryId))}" data-discovery-favorite="${escapeHTML(discoveryId)}" data-discovery-product-id="${escapeHTML(product.id)}">
           <svg aria-hidden="true" viewBox="0 0 24 24">
@@ -5811,7 +6318,6 @@ function createDiscoveryCard(discovery, index, product = getProductById(selected
       </div>
       <h3 class="discovery-card-title">${escapeHTML(discovery.title)}</h3>
       <p class="discovery-card-description">${escapeHTML(description)}</p>
-      ${renderProductDiscoveryStepIndicator(progress)}
       <footer class="discovery-card-footer">
         <button class="text-action" type="button">Abrir discovery <span aria-hidden="true">›</span></button>
       </footer>
@@ -7781,10 +8287,13 @@ function getDiscoveryWorkflowSnapshot(activeDiscovery = {}) {
     : WORKFLOW_STATES.DISCOVERY_CREATED;
   const currentState = normalizeWorkflowValue(activeDiscovery.current_state || activeDiscovery.workflow_state || activeDiscovery.state || fallbackState);
   const runStatus = normalizeRunStatusForWorkflow(activeDiscovery.run_status || activeDiscovery.status, currentState);
+  const agentProcessingStatus = getAgentProcessingStatus(currentState, runStatus);
 
   return {
     state: currentState,
     status: runStatus,
+    agentProcessingStatus,
+    agentProcessingStatusLabel: getAgentProcessingStatusLabel(agentProcessingStatus),
     stateLabel: getWorkflowStepLabel(currentState),
     statusLabel: getRunStatusLabel(runStatus),
     progress: getWorkflowProgressPercentage(currentState),
@@ -7854,54 +8363,71 @@ function renderWorkflowTimeline(currentState, status) {
   `;
 }
 
+function getDiscoveryProgressSteps(activeDiscovery = {}, snapshot = getDiscoveryWorkflowSnapshot(activeDiscovery)) {
+  const normalizedMethodology = normalizeDiscoveryMethodology(activeDiscovery);
+  const methodSteps = Array.isArray(normalizedMethodology.methods) ? normalizedMethodology.methods.filter(Boolean) : [];
+  if (methodSteps.length) {
+    const completedCount = methodSteps.filter((method) => Number(method.progress) >= 100).length;
+    const currentIndex = Math.min(methodSteps.length - 1, methodSteps.findIndex((method) => Number(method.progress) < 100));
+    const safeCurrentIndex = currentIndex >= 0 ? currentIndex : methodSteps.length - 1;
+    return methodSteps.map((method, index) => ({
+      label: method.name || `Etapa ${index + 1}`,
+      state: index < completedCount || Number(method.progress) >= 100
+        ? "complete"
+        : index === safeCurrentIndex
+          ? "current"
+          : "upcoming",
+    }));
+  }
+
+  const currentIndex = getMvpTimelineStepIndex(snapshot.state);
+  const isComplete = snapshot.state === WORKFLOW_STATES.COMPLETED || snapshot.status === RUN_STATUSES.COMPLETED;
+  return MVP_TIMELINE_STEPS.map((step, index) => ({
+    label: step.label,
+    state: index < currentIndex || isComplete
+      ? "complete"
+      : index === currentIndex
+        ? "current"
+        : "upcoming",
+  }));
+}
+
 function renderWorkflowCockpit(activeDiscovery = {}) {
   const snapshot = getDiscoveryWorkflowSnapshot(activeDiscovery);
-  const nextActions = snapshot.allowedActions.length
-    ? snapshot.allowedActions.map((action) => `
-      <button type="button" data-workflow-action="${escapeHTML(action)}" disabled aria-disabled="true" title="Use o painel do gate abaixo para executar esta ação">${escapeHTML(getWorkflowActionLabel(action, snapshot.state))}</button>
-    `).join("")
-    : '<span class="workflow-empty-action">Nenhuma ação disponível agora</span>';
+  const normalizedMethodology = normalizeDiscoveryMethodology(activeDiscovery);
+  const timelineSteps = getDiscoveryProgressSteps(activeDiscovery, snapshot);
 
   return `
-    <section class="workflow-cockpit card-surface" aria-labelledby="workflow-cockpit-title">
-      <div class="workflow-cockpit-header">
+    <section class="discovery-progress-card card-surface" aria-labelledby="discovery-progress-title">
+      <div class="discovery-progress-header">
         <div>
-          <span>Workflow MVP</span>
-          <h2 id="workflow-cockpit-title">${escapeHTML(snapshot.stateLabel)}</h2>
+          <span>Agentes de discovery</span>
+          <h2 id="discovery-progress-title">Progresso do discovery</h2>
+          <p>Etapa atual: ${escapeHTML(snapshot.stateLabel)}</p>
         </div>
-        <strong>${snapshot.progress}%</strong>
+        <strong class="discovery-progress-percent">${snapshot.progress}%</strong>
       </div>
 
-      <div class="workflow-progress-track" aria-label="Progresso do workflow">
+      <div class="discovery-progress-track" aria-label="Progresso do workflow de agentes">
         <span style="width: ${snapshot.progress}%"></span>
       </div>
 
-      <dl class="workflow-meta">
-        <div>
-          <dt>Estado atual</dt>
-          <dd title="${escapeHTML(snapshot.state)}">${escapeHTML(snapshot.stateLabel)}</dd>
-        </div>
-        <div>
-          <dt>Status da run</dt>
-          <dd title="${escapeHTML(snapshot.status)}">${escapeHTML(snapshot.statusLabel)}</dd>
-        </div>
-        <div>
-          <dt>Última atualização</dt>
-          <dd>${escapeHTML(snapshot.lastUpdated)}</dd>
-        </div>
-        <div>
-          <dt>Gate humano</dt>
-          <dd>${escapeHTML(snapshot.gateLabel || "Nenhum gate pendente")}</dd>
-        </div>
-      </dl>
-
-      <div class="workflow-actions" aria-label="Próximas ações permitidas">
-        ${nextActions}
+      <div class="discovery-progress-meta">
+        <span>${escapeHTML(normalizedMethodology.name)}</span>
+        <span>${escapeHTML(snapshot.statusLabel)}</span>
+        <span>Status dos agentes: ${escapeHTML(snapshot.agentProcessingStatusLabel)}</span>
+        ${snapshot.gateLabel ? `<span>${escapeHTML(snapshot.gateLabel)}</span>` : ""}
       </div>
 
+      <ol class="discovery-timeline" aria-label="Etapas compactas do workflow de agentes">
+        ${timelineSteps.map((step) => `
+          <li class="discovery-timeline-step is-${escapeHTML(step.state)}">
+            <span aria-hidden="true"></span>
+            <strong>${escapeHTML(step.label)}</strong>
+          </li>
+        `).join("")}
+      </ol>
       ${snapshot.errorMessage ? `<p class="workflow-error">${escapeHTML(snapshot.errorMessage)}</p>` : ""}
-
-      ${renderWorkflowTimeline(snapshot.state, snapshot.status)}
     </section>
   `;
 }
@@ -7912,16 +8438,12 @@ function renderDiscoveryWorkflowCockpit(activeDiscovery = {}) {
     existingPanel.remove();
   }
 
-  if (!shouldShowMvpWorkflow(activeDiscovery)) {
-    return;
-  }
-
   const summary = discoveryPage.querySelector(".discovery-summary");
   if (!summary) {
     return;
   }
 
-  summary.insertAdjacentHTML("afterend", renderWorkflowCockpit(activeDiscovery).replace("<section", "<section data-workflow-cockpit"));
+  summary.insertAdjacentHTML("afterend", renderWorkflowCockpit(activeDiscovery).replace("<section", "<section data-workflow-cockpit data-discovery-progress-card"));
 }
 
 function renderDiscoveryArtifactGroups(groups = {}) {
@@ -7957,7 +8479,7 @@ function renderLocalDiscoveryArtifacts(artifacts = []) {
   if (!localArtifacts.length) {
     return renderArtifactsEmptyState(
       "Artefatos ainda não disponíveis",
-      "Quando o backend MVP retornar os pacotes do workflow, eles aparecerão organizados por etapa aqui."
+      AGENT_OUTPUT_EMPTY_MESSAGE
     );
   }
 
@@ -8003,7 +8525,7 @@ function renderDiscoveryArtifactsSection(activeDiscovery = {}) {
       });
       discoveryArtifacts.innerHTML = renderDiscoveryArtifactGroups(groups) || renderArtifactsEmptyState(
         "Artefatos ainda não disponíveis",
-        "A run existe, mas o backend ainda não retornou nenhum pacote de artefatos para renderizar."
+        AGENT_WAITING_MESSAGE
       );
       renderDiscoveryResearchApprovalPanel(updatedDiscovery);
       renderDiscoveryEvidenceUploadPanel(updatedDiscovery);
@@ -8090,11 +8612,11 @@ function getResearchApprovalPanelData(activeDiscovery = {}) {
     plan,
     summary: getArtifactValue(plan, ["summary", "plan_summary", "research_plan_summary", "description", "executive_summary"])
       || activeDiscovery.objective
-      || "Resumo do plano ainda não disponível.",
+      || AGENT_OUTPUT_EMPTY_MESSAGE,
     methodology: getArtifactValue(plan, ["recommended_methodology", "methodology", "methodology_summary", "methodology_name"])
       || selectedMethodology.name
       || activeDiscovery.methodology_name
-      || "Metodologia ainda não informada.",
+      || AGENT_OUTPUT_EMPTY_MESSAGE,
     learningGoals: getArtifactValue(plan, ["learning_goals", "goals", "research_goals", "objectives", "learning_objectives"])
       || activeDiscovery.csd?.duvidas
       || activeDiscovery.open_questions
@@ -8104,9 +8626,9 @@ function getResearchApprovalPanelData(activeDiscovery = {}) {
       || [],
     participantStrategy: getArtifactValue(plan, ["participant_strategy", "participants", "recruitment_strategy", "sample_strategy"])
       || activeDiscovery.participants
-      || "Estratégia de participantes ainda não disponível.",
+      || AGENT_OUTPUT_EMPTY_MESSAGE,
     protocolSummary: getArtifactValue(plan, ["protocol_summary", "protocols", "research_protocols", "scripts", "script_summary"])
-      || "Resumo do protocolo ainda não disponível.",
+      || AGENT_OUTPUT_EMPTY_MESSAGE,
   };
 }
 
@@ -8130,12 +8652,12 @@ function renderResearchApprovalPanel(activeDiscovery = {}) {
       </div>
 
       <div class="research-approval-grid">
-        ${renderResearchApprovalBlock("Resumo do plano", panelData.summary, "Resumo do plano ainda não disponível.")}
-        ${renderResearchApprovalBlock("Metodologia", panelData.methodology, "Metodologia ainda não informada.")}
-        ${renderResearchApprovalBlock("Objetivos de aprendizagem", panelData.learningGoals, "Objetivos de aprendizagem ainda não disponíveis.")}
-        ${renderResearchApprovalBlock("Perguntas de pesquisa", panelData.researchQuestions, "Perguntas de pesquisa ainda não disponíveis.")}
-        ${renderResearchApprovalBlock("Estratégia de participantes", panelData.participantStrategy, "Estratégia de participantes ainda não disponível.")}
-        ${renderResearchApprovalBlock("Resumo do protocolo", panelData.protocolSummary, "Resumo do protocolo ainda não disponível.")}
+        ${renderResearchApprovalBlock("Resumo do plano", panelData.summary, AGENT_OUTPUT_EMPTY_MESSAGE)}
+        ${renderResearchApprovalBlock("Metodologia", panelData.methodology, AGENT_OUTPUT_EMPTY_MESSAGE)}
+        ${renderResearchApprovalBlock("Objetivos de aprendizagem", panelData.learningGoals, AGENT_OUTPUT_EMPTY_MESSAGE)}
+        ${renderResearchApprovalBlock("Perguntas de pesquisa", panelData.researchQuestions, AGENT_OUTPUT_EMPTY_MESSAGE)}
+        ${renderResearchApprovalBlock("Estratégia de participantes", panelData.participantStrategy, AGENT_OUTPUT_EMPTY_MESSAGE)}
+        ${renderResearchApprovalBlock("Resumo do protocolo", panelData.protocolSummary, AGENT_OUTPUT_EMPTY_MESSAGE)}
       </div>
 
       <label class="research-approval-comment">
@@ -8323,7 +8845,7 @@ function getEvidenceInventorySummary(activeDiscovery = {}) {
   const gaps = asArray(getArtifactValue(inventory, ["gaps", "missing_evidence", "missing_items"]));
 
   if (!hasRenderableArtifact(inventory)) {
-    return "Nenhum inventário de evidências retornado pelo backend ainda.";
+    return AGENT_WAITING_MESSAGE;
   }
 
   return [
@@ -8338,7 +8860,7 @@ function renderEvidenceUploadItems(items = []) {
     return `
       <div class="evidence-upload-empty">
         <strong>Nenhuma evidência adicionada</strong>
-        <span>Adicione um ou mais registros em texto antes de submeter para o backend MVP.</span>
+        <span>${AGENT_WAITING_MESSAGE}</span>
       </div>
     `;
   }
@@ -8593,14 +9115,14 @@ function getInsightReviewPanelData(activeDiscovery = {}) {
     insights,
     summary: getArtifactValue(insights, ["synthesis_summary", "summary", "executive_summary", "description"])
       || getDiscoveryInsightTexts(activeDiscovery).join(" ")
-      || "Resumo da síntese ainda não disponível.",
+      || AGENT_OUTPUT_EMPTY_MESSAGE,
     keyPatterns: getArtifactValue(insights, ["key_patterns", "patterns", "themes"])
       || [],
     validatedInsights: getArtifactValue(insights, ["validated_insights", "insights", "key_insights", "updated_insights"])
       || getDiscoveryInsightTexts(activeDiscovery)
       || [],
     evidenceStrength: getArtifactValue(insights, ["evidence_strength", "confidence", "confidence_level", "evidence_confidence", "supporting_evidence"])
-      || "Confiança ainda não informada.",
+      || AGENT_OUTPUT_EMPTY_MESSAGE,
     contradictions: getArtifactValue(insights, ["contradictions", "warnings", "tensions", "risks"])
       || [],
     unsupportedClaims: getArtifactValue(insights, ["unsupported_claims", "unsupported", "weak_claims", "claims_without_evidence"])
@@ -8633,10 +9155,10 @@ function renderInsightReviewPanel(activeDiscovery = {}) {
       </div>
 
       <div class="insight-review-grid">
-        ${renderInsightReviewBlock("Resumo da síntese", panelData.summary, "Resumo da síntese ainda não disponível.")}
-        ${renderInsightReviewBlock("Padrões-chave", panelData.keyPatterns, "Padrões-chave ainda não disponíveis.")}
-        ${renderInsightReviewBlock("Insights validados", panelData.validatedInsights, "Insights validados ainda não disponíveis.")}
-        ${renderInsightReviewBlock("Força da evidência/confiança", panelData.evidenceStrength, "Confiança ainda não informada.")}
+        ${renderInsightReviewBlock("Resumo da síntese", panelData.summary, AGENT_OUTPUT_EMPTY_MESSAGE)}
+        ${renderInsightReviewBlock("Padrões-chave", panelData.keyPatterns, AGENT_OUTPUT_EMPTY_MESSAGE)}
+        ${renderInsightReviewBlock("Insights validados", panelData.validatedInsights, AGENT_OUTPUT_EMPTY_MESSAGE)}
+        ${renderInsightReviewBlock("Força da evidência/confiança", panelData.evidenceStrength, AGENT_OUTPUT_EMPTY_MESSAGE)}
         ${renderInsightReviewBlock("Contradições ou alertas", panelData.contradictions, "Nenhuma contradição ou alerta informado.")}
         ${renderInsightReviewBlock("Claims sem suporte", panelData.unsupportedClaims, "Nenhum claim sem suporte informado.")}
       </div>
@@ -8778,15 +9300,15 @@ function getOpportunityReviewPanelData(activeDiscovery = {}) {
   return {
     opportunityPackage,
     solutionTree: getArtifactValue(opportunityPackage, ["opportunity_solution_tree", "solution_tree", "opportunity_tree", "tree"])
-      || "Árvore de solução ainda não disponível.",
+      || AGENT_OUTPUT_EMPTY_MESSAGE,
     prioritizedOpportunities: getArtifactValue(opportunityPackage, ["prioritized_opportunities", "opportunities", "mapped_opportunities"])
       || [],
     supportingInsights: getArtifactValue(opportunityPackage, ["supporting_insights", "insights", "evidence", "supporting_evidence"])
       || [],
     scores: getOpportunityScores(opportunityPackage)
-      || "Scores ainda não informados.",
+      || AGENT_OUTPUT_EMPTY_MESSAGE,
     recommendedFocusArea: getArtifactValue(opportunityPackage, ["recommended_focus_area", "focus_area", "strategic_focus_area", "focus"])
-      || "Área de foco recomendada ainda não informada.",
+      || AGENT_OUTPUT_EMPTY_MESSAGE,
     deferredOpportunities: getArtifactValue(opportunityPackage, ["deferred_opportunities", "deprioritized_opportunities", "out_of_scope", "parking_lot"])
       || [],
   };
@@ -8817,11 +9339,11 @@ function renderOpportunityReviewPanel(activeDiscovery = {}) {
       </div>
 
       <div class="opportunity-review-grid">
-        ${renderOpportunityReviewBlock("Árvore de solução", panelData.solutionTree, "Árvore de solução ainda não disponível.")}
-        ${renderOpportunityReviewBlock("Oportunidades priorizadas", panelData.prioritizedOpportunities, "Oportunidades priorizadas ainda não disponíveis.")}
-        ${renderOpportunityReviewBlock("Insights de suporte", panelData.supportingInsights, "Insights de suporte ainda não disponíveis.")}
-        ${renderOpportunityReviewBlock("Scores de confiança/impacto/risco", panelData.scores, "Scores ainda não informados.")}
-        ${renderOpportunityReviewBlock("Área de foco recomendada", panelData.recommendedFocusArea, "Área de foco recomendada ainda não informada.")}
+        ${renderOpportunityReviewBlock("Árvore de solução", panelData.solutionTree, AGENT_OUTPUT_EMPTY_MESSAGE)}
+        ${renderOpportunityReviewBlock("Oportunidades priorizadas", panelData.prioritizedOpportunities, AGENT_OUTPUT_EMPTY_MESSAGE)}
+        ${renderOpportunityReviewBlock("Insights de suporte", panelData.supportingInsights, AGENT_OUTPUT_EMPTY_MESSAGE)}
+        ${renderOpportunityReviewBlock("Scores de confiança/impacto/risco", panelData.scores, AGENT_OUTPUT_EMPTY_MESSAGE)}
+        ${renderOpportunityReviewBlock("Área de foco recomendada", panelData.recommendedFocusArea, AGENT_OUTPUT_EMPTY_MESSAGE)}
         ${renderOpportunityReviewBlock("Oportunidades postergadas", panelData.deferredOpportunities, "Nenhuma oportunidade postergada informada.")}
       </div>
 
@@ -8960,14 +9482,14 @@ function getRecommendationHandoffPanelData(activeDiscovery = {}) {
     recommendation,
     handoff,
     recommendationType: getArtifactValue(recommendation, ["recommendation_type", "type", "decision_type", "recommendation_category"])
-      || "Tipo de recomendação ainda não informado.",
+      || AGENT_OUTPUT_EMPTY_MESSAGE,
     executiveSummary: getArtifactValue(recommendation, ["executive_summary", "summary", "recommendation_summary", "description"])
       || getArtifactValue(handoff, ["executive_summary", "summary", "handoff_summary"])
-      || "Resumo executivo ainda não disponível.",
+      || AGENT_OUTPUT_EMPTY_MESSAGE,
     decisionRationale: getArtifactValue(recommendation, ["decision_rationale", "rationale", "reasoning", "evidence_based_rationale"])
-      || "Racional da decisão ainda não disponível.",
+      || AGENT_OUTPUT_EMPTY_MESSAGE,
     confidenceLevel: getArtifactValue(recommendation, ["confidence_level", "confidence", "evidence_confidence"])
-      || "Confiança ainda não informada.",
+      || AGENT_OUTPUT_EMPTY_MESSAGE,
     risks: getArtifactValue(recommendation, ["risks", "watchouts", "known_risks"])
       || getArtifactValue(handoff, ["risks", "open_risks"])
       || [],
@@ -8976,7 +9498,7 @@ function getRecommendationHandoffPanelData(activeDiscovery = {}) {
       || [],
     deliveryRequirements: getArtifactValue(handoff, ["delivery_requirements_summary", "requirements_summary", "delivery_requirements", "requirements"])
       || getArtifactValue(recommendation, ["delivery_requirements", "prototype_requirements"])
-      || "Resumo de requisitos de entrega ainda não disponível.",
+      || AGENT_OUTPUT_EMPTY_MESSAGE,
     userStoriesOrJobs: getArtifactValue(handoff, ["user_stories", "jobs_to_be_done", "jobs", "stories"])
       || getArtifactValue(recommendation, ["user_stories", "jobs_to_be_done", "jobs"])
       || [],
@@ -8990,7 +9512,7 @@ function getRecommendationHandoffPanelData(activeDiscovery = {}) {
       || [],
     traceabilityMap: getArtifactValue(handoff, ["traceability_map_summary", "traceability_summary", "traceability_map", "evidence_traceability"])
       || getArtifactValue(recommendation, ["traceability_map_summary", "traceability_map"])
-      || "Resumo de rastreabilidade ainda não disponível.",
+      || AGENT_OUTPUT_EMPTY_MESSAGE,
   };
 }
 
@@ -9044,18 +9566,18 @@ function renderRecommendationHandoffSection(activeDiscovery = {}) {
       </div>
 
       <div class="recommendation-handoff-grid">
-        ${renderRecommendationHandoffBlock("Tipo de recomendação", panelData.recommendationType, "Tipo de recomendação ainda não informado.")}
-        ${renderRecommendationHandoffBlock("Resumo executivo", panelData.executiveSummary, "Resumo executivo ainda não disponível.")}
-        ${renderRecommendationHandoffBlock("Racional da decisão", panelData.decisionRationale, "Racional da decisão ainda não disponível.")}
-        ${renderRecommendationHandoffBlock("Nível de confiança", panelData.confidenceLevel, "Confiança ainda não informada.")}
+        ${renderRecommendationHandoffBlock("Tipo de recomendação", panelData.recommendationType, AGENT_OUTPUT_EMPTY_MESSAGE)}
+        ${renderRecommendationHandoffBlock("Resumo executivo", panelData.executiveSummary, AGENT_OUTPUT_EMPTY_MESSAGE)}
+        ${renderRecommendationHandoffBlock("Racional da decisão", panelData.decisionRationale, AGENT_OUTPUT_EMPTY_MESSAGE)}
+        ${renderRecommendationHandoffBlock("Nível de confiança", panelData.confidenceLevel, AGENT_OUTPUT_EMPTY_MESSAGE)}
         ${renderRecommendationHandoffBlock("Riscos", panelData.risks, "Nenhum risco informado.")}
         ${renderRecommendationHandoffBlock("Próximos passos", panelData.nextSteps, "Próximos passos ainda não disponíveis.")}
-        ${renderRecommendationHandoffBlock("Resumo dos requisitos de entrega", panelData.deliveryRequirements, "Resumo de requisitos de entrega ainda não disponível.")}
-        ${renderRecommendationHandoffBlock("User stories ou jobs", panelData.userStoriesOrJobs, "User stories ou jobs ainda não disponíveis.")}
-        ${renderRecommendationHandoffBlock("Critérios de aceite", panelData.acceptanceCriteria, "Critérios de aceite ainda não disponíveis.")}
+        ${renderRecommendationHandoffBlock("Resumo dos requisitos de entrega", panelData.deliveryRequirements, AGENT_OUTPUT_EMPTY_MESSAGE)}
+        ${renderRecommendationHandoffBlock("User stories ou jobs", panelData.userStoriesOrJobs, AGENT_OUTPUT_EMPTY_MESSAGE)}
+        ${renderRecommendationHandoffBlock("Critérios de aceite", panelData.acceptanceCriteria, AGENT_OUTPUT_EMPTY_MESSAGE)}
         ${renderRecommendationHandoffBlock("Analytics para acompanhar", panelData.analyticsToTrack, "Analytics ainda não definidos.")}
         ${renderRecommendationHandoffBlock("Perguntas abertas", panelData.openQuestions, "Nenhuma pergunta aberta informada.")}
-        ${renderRecommendationHandoffBlock("Resumo do mapa de rastreabilidade", panelData.traceabilityMap, "Resumo de rastreabilidade ainda não disponível.")}
+        ${renderRecommendationHandoffBlock("Resumo do mapa de rastreabilidade", panelData.traceabilityMap, AGENT_OUTPUT_EMPTY_MESSAGE)}
       </div>
 
       <div class="recommendation-source-flags" aria-label="Artefatos finais disponíveis">
@@ -9667,17 +10189,14 @@ function renderProductPage(productId) {
   productPageStatus.textContent = getProductStatusLabel(product);
   productSquad.textContent = product.squad || "-";
   productParticipants.textContent = product.participants || "-";
-  productStart.textContent = product.start || "-";
-  productEnd.textContent = product.end || "-";
+  productStart.textContent = product.periodStart || product.start || "-";
+  productEnd.textContent = product.periodEnd || product.end || "-";
   if (productMetrics) {
     const metrics = Array.isArray(product.metrics) ? product.metrics : [];
     productMetrics.innerHTML = metrics.map((metric) => `<li>${escapeHTML(metric)}</li>`).join("");
   }
   updateProductAudienceLinks(product);
   renderProductKpis(product);
-  renderProductLearningSummary(product);
-  renderProductSupportArtifacts(product);
-  renderProductAudienceSummary(product);
   renderProductDiscoveries(product);
 }
 
@@ -9720,7 +10239,13 @@ function renderDiscoveryPage(productId, discoveryId) {
   discoveryProductLink.textContent = product.category || product.name;
   discoveryProductLink.href = `#product/${product.id}`;
   discoveryPageName.textContent = activeDiscovery.name;
-  discoveryProductName.textContent = isDraft ? activeDiscovery.name : product.name === "Cora Transportes" || product.name === "Cora Preços" ? "Nome de produto" : product.name;
+  if (discoveryPageTitle) {
+    discoveryPageTitle.textContent = activeDiscovery.name || activeDiscovery.title || "Discovery";
+  }
+  discoveryProductName.textContent = product.name;
+  if (discoveryIdLabel) {
+    discoveryIdLabel.textContent = activeDiscovery.id || discoveryId || "ID não informado";
+  }
   syncDiscoveryDetailFavoriteButton(selectedDiscoveryId);
   if (discoveryReadinessStatus) {
     discoveryReadinessStatus.classList.toggle("ready", hasMvpWorkflow ? activeDiscovery.current_state === WORKFLOW_STATES.COMPLETED : hasCrewResult && normalizedCrewResult.discoveryReady === "yes");
@@ -9746,12 +10271,17 @@ function renderDiscoveryPage(productId, discoveryId) {
   discoveryParticipants.textContent = isDraft && activeDiscovery.participants
     ? formatDraftParticipants(activeDiscovery.participants) || product.participants
     : product.participants;
-  discoveryStart.textContent = product.start;
-  discoveryEnd.textContent = isDraft && activeDiscovery.deadline ? activeDiscovery.deadline : product.end;
-  discoveryTimelineTitle.textContent = "Prazo discovery";
+  discoveryStart.textContent = activeDiscovery.periodStart || activeDiscovery.start || product.periodStart || product.start;
+  discoveryEnd.textContent = activeDiscovery.periodEnd || activeDiscovery.end || (isDraft && activeDiscovery.deadline ? activeDiscovery.deadline : product.periodEnd || product.end);
+  if (discoveryMethodologyName) {
+    discoveryMethodologyName.textContent = normalizeDiscoveryMethodology(activeDiscovery).name;
+  }
+  if (discoveryTimelineTitle) {
+    discoveryTimelineTitle.textContent = "Prazo discovery";
+  }
   discoveryInsights.innerHTML = insightTexts.length
     ? insightTexts.map((insight) => `<li>${escapeHTML(insight)}</li>`).join("")
-    : `<li class="insights-empty-state">${hasCrewResult ? "A CrewAI concluiu, mas ainda não retornou insights." : "Você ainda não tem nenhum insight gerado"}</li>`;
+    : `<li class="insights-empty-state">${hasCrewResult ? AGENT_OUTPUT_EMPTY_MESSAGE : AGENT_WAITING_MESSAGE}</li>`;
   if (discoveryTags) {
     const tags = Array.isArray(activeDiscovery.tags) ? activeDiscovery.tags : [];
     discoveryTags.innerHTML = tags.map((tag) => `<span>${escapeHTML(tag)}</span>`).join("");
@@ -10504,28 +11034,30 @@ function openProductShortcut(productName) {
   setRoute("product", product.id);
 }
 
-chatForm.addEventListener("submit", (event) => {
-  event.preventDefault();
-  submitMessage(chatInput.value);
-});
-
-chatInput.addEventListener("keydown", (event) => {
-  if (event.key === "Enter") {
+if (CONVERSATIONAL_ASSISTANT_ENABLED && chatForm && chatInput) {
+  chatForm.addEventListener("submit", (event) => {
     event.preventDefault();
     submitMessage(chatInput.value);
-  }
-});
+  });
 
-quickPromptButtons.forEach((button) => {
-  button.addEventListener("click", (event) => {
-    event.preventDefault();
-    const prompt = button.dataset.prompt;
-    if (prompt) {
-      setRoute("home");
-      submitMessage(prompt);
+  chatInput.addEventListener("keydown", (event) => {
+    if (event.key === "Enter") {
+      event.preventDefault();
+      submitMessage(chatInput.value);
     }
   });
-});
+
+  quickPromptButtons.forEach((button) => {
+    button.addEventListener("click", (event) => {
+      event.preventDefault();
+      const prompt = button.dataset.prompt;
+      if (prompt) {
+        setRoute("home");
+        submitMessage(prompt);
+      }
+    });
+  });
+}
 
 routeLinks.forEach((link) => {
   link.addEventListener("click", (event) => {
@@ -10534,17 +11066,135 @@ routeLinks.forEach((link) => {
   });
 });
 
-if (favoriteProductsMenu) {
-  favoriteProductsMenu.addEventListener("click", (event) => {
-    const shortcut = event.target.closest("[data-product-shortcut]");
-    if (!shortcut) {
+if (sidebar) {
+  sidebar.addEventListener("click", (event) => {
+    event.stopPropagation();
+
+    const pinButton = event.target.closest("[data-sidebar-pin]");
+    if (pinButton) {
+      event.preventDefault();
+      setSidebarPinned(!isSidebarPinned);
       return;
     }
 
-    event.preventDefault();
-    openProductShortcut(shortcut.dataset.productShortcut);
+    const productFavoriteButton = event.target.closest("[data-sidebar-product-favorite]");
+    if (productFavoriteButton) {
+      event.preventDefault();
+      event.stopPropagation();
+      toggleProductFavorite(productFavoriteButton.dataset.sidebarProductFavorite);
+      renderSidebar(selectedProductId, getCurrentRoute(), selectedDiscoveryId);
+      return;
+    }
+
+    const removeButton = event.target.closest("[data-remove-favorite-discovery]");
+    if (removeButton) {
+      event.preventDefault();
+      removeFavoriteDiscovery(removeButton.dataset.removeFavoriteDiscovery);
+      showAppToast("Favorito removido.", "success");
+      return;
+    }
+
+    const discoveryShortcut = event.target.closest("[data-favorite-discovery-shortcut]");
+    if (discoveryShortcut) {
+      event.preventDefault();
+      navigateToDiscovery(discoveryShortcut.dataset.favoriteDiscoveryShortcut);
+      closeSidebarPanelIfTemporary();
+      return;
+    }
+
+    const discoveryButton = event.target.closest("[data-sidebar-discovery]");
+    if (discoveryButton) {
+      event.preventDefault();
+      const discoveryId = discoveryButton.dataset.sidebarDiscovery;
+      const productId = discoveryButton.dataset.sidebarDiscoveryProduct || selectedProductId;
+      setRoute("discovery", productId, discoveryId);
+      closeSidebarPanelIfTemporary();
+      return;
+    }
+
+    const productPeopleButton = event.target.closest("[data-sidebar-product-people]");
+    if (productPeopleButton) {
+      event.preventDefault();
+      setRoute("product-audience", productPeopleButton.dataset.sidebarProductPeople);
+      return;
+    }
+
+    const productOverviewButton = event.target.closest("[data-sidebar-product-overview]");
+    if (productOverviewButton) {
+      event.preventDefault();
+      navigateToProduct(productOverviewButton.dataset.sidebarProductOverview);
+      return;
+    }
+
+    const productButton = event.target.closest("[data-sidebar-product]");
+    if (productButton) {
+      event.preventDefault();
+      selectSidebarContext({ type: "products" });
+      navigateToProduct(productButton.dataset.sidebarProduct);
+      closeSidebarPanelIfTemporary();
+      return;
+    }
+
+    const contextButton = event.target.closest("[data-sidebar-context]");
+    if (contextButton) {
+      event.preventDefault();
+      const context = contextButton.dataset.sidebarContext;
+      selectSidebarContext({ type: context });
+      setSidebarOpen(true);
+      if (context === "home") {
+        setRoute("home");
+      } else if (context === "products") {
+        setRoute("products");
+      } else if (context === "recent") {
+        setRoute("home");
+        renderSidebar(selectedProductId, "home", selectedDiscoveryId);
+      } else if (context === "favorites") {
+        renderSidebar(selectedProductId, getCurrentRoute(), selectedDiscoveryId);
+      }
+      return;
+    }
+
+    const routeButton = event.target.closest("[data-sidebar-route]");
+    if (routeButton) {
+      event.preventDefault();
+      selectSidebarContext({ type: routeButton.dataset.sidebarRoute });
+      setRoute(routeButton.dataset.sidebarRoute);
+    }
+  });
+
+  sidebar.addEventListener("keydown", (event) => {
+    if (event.key !== "Enter" && event.key !== " ") {
+      return;
+    }
+
+    const productFavoriteButton = event.target.closest("[data-sidebar-product-favorite]");
+    if (productFavoriteButton) {
+      event.preventDefault();
+      toggleProductFavorite(productFavoriteButton.dataset.sidebarProductFavorite);
+      renderSidebar(selectedProductId, getCurrentRoute(), selectedDiscoveryId);
+      return;
+    }
+
+    const productRow = event.target.closest("[data-sidebar-product]");
+    if (productRow) {
+      event.preventDefault();
+      navigateToProduct(productRow.dataset.sidebarProduct);
+      closeSidebarPanelIfTemporary();
+    }
   });
 }
+
+document.addEventListener("click", (event) => {
+  if (isSidebarPinned || sidebar?.classList.contains("collapsed")) {
+    return;
+  }
+
+  if (sidebar?.contains(event.target)) {
+    return;
+  }
+
+  setSidebarOpen(false, { saveSection: false });
+});
 
 if (favoriteDiscoveriesMenu) {
   favoriteDiscoveriesMenu.addEventListener("click", (event) => {
@@ -10602,10 +11252,20 @@ if (discoveryGrid) {
   });
 }
 
-document.querySelector("[data-action='toggle-sidebar']").addEventListener("click", () => {
-  sidebar.classList.toggle("collapsed");
-  appShell.classList.toggle("sidebar-collapsed");
-});
+if (homeProductBar) {
+  homeProductBar.addEventListener("click", (event) => {
+    const productButton = event.target.closest("[data-home-product-id]");
+    if (!productButton) {
+      return;
+    }
+
+    setRoute("product", productButton.dataset.homeProductId);
+  });
+}
+
+if (sidebarToggle) {
+  sidebarToggle.addEventListener("click", toggleSidebarCollapsed);
+}
 
 productSearch.addEventListener("input", () => {
   selectedProductId = null;
@@ -10648,15 +11308,22 @@ productDetailOpen.addEventListener("click", () => {
   }
 });
 
-productDetailChat.addEventListener("click", () => {
-  const product = products.find((item) => item.id === selectedProductId);
-  if (!product) {
-    return;
-  }
+if (productDetailChat) {
+  productDetailChat.hidden = !CONVERSATIONAL_ASSISTANT_ENABLED;
+  productDetailChat.addEventListener("click", () => {
+    if (!CONVERSATIONAL_ASSISTANT_ENABLED) {
+      return;
+    }
 
-  setRoute("home");
-  submitMessage(`Resumo do produto ${product.name}`);
-});
+    const product = products.find((item) => item.id === selectedProductId);
+    if (!product) {
+      return;
+    }
+
+    setRoute("home");
+    submitMessage(`Resumo do produto ${product.name}`);
+  });
+}
 
 productDetailClear.addEventListener("click", () => {
   selectedProductId = null;
@@ -10920,7 +11587,7 @@ productDiscoveryGrid.addEventListener("click", (event) => {
   }
 });
 
-productArtifacts.addEventListener("click", (event) => {
+productArtifacts?.addEventListener("click", (event) => {
   const button = event.target.closest("[data-artifact]");
   if (!button) {
     return;
@@ -11142,8 +11809,8 @@ methodEntryForm.addEventListener("submit", (event) => {
   saveMethodEntry();
 });
 
-teamButton.addEventListener("click", () => {
-  document.querySelector(".product-info-grid").scrollIntoView({ behavior: "smooth", block: "center" });
+teamButton?.addEventListener("click", () => {
+  document.querySelector(".product-hero-meta")?.scrollIntoView({ behavior: "smooth", block: "center" });
 });
 
 closeNewDiscoveryButton.addEventListener("click", closeNewDiscoveryModal);
@@ -11756,6 +12423,18 @@ window.addEventListener("hashchange", () => {
 initializeFlowSelects();
 renderApiModeBadge();
 renderProducts();
+isSidebarPinned = loadSidebarPinned();
+{
+  const routeSidebarSection = getRouteSidebarSection(getCurrentRoute());
+  const storedSidebarSection = loadSidebarSelectedSection();
+  selectedSidebarContext = {
+    type: storedSidebarSection && (storedSidebarSection !== "home" || routeSidebarSection === "home")
+      ? storedSidebarSection
+      : routeSidebarSection,
+  };
+}
+appShell?.classList.toggle("sidebar-pinned", isSidebarPinned);
+setSidebarOpen(isSidebarPinned, { saveSection: false });
 setRoute(getCurrentRoute(), getCurrentProductId(), getCurrentDiscoveryId(), getCurrentInterviewMethodId(), getCurrentInterviewParticipantId());
 refreshDiscoveryFavoriteControls();
 if (!isLocalMockApiMode()) {

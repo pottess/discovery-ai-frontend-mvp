@@ -1,5 +1,15 @@
 # Publicacao do Discovery AI
 
+## Correcao de Arquitetura do MVP
+
+Agentes e processamento CrewAI fazem parte do MVP. O frontend e a publicacao desta pasta servem como camada de interacao do workflow; a inteligencia de discovery continua na camada CrewAI/agentes.
+
+The MVP validates the agent-driven discovery workflow without depending on enterprise integrations.
+
+O assistente conversacional de pesquisa, conectores corporativos e integracoes externas ficam para futuro. Isso inclui Teams, Outlook, Tech Metrics, DataDog, bases de produto, analytics, repositorios de pesquisa, Jira/Linear, notificacoes Slack/Teams, SSO/permissoes, dashboards avancados e recuperacao automatica de dados externos.
+
+No MVP, essas dependencias externas podem ser simuladas com input manual, upload de arquivos, dados mockados, fixture outputs, `localStorage` e respostas mockadas do backend.
+
 ## Requisitos
 
 - Node.js 20 ou superior para o modo com servidor.

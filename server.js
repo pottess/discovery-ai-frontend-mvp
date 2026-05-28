@@ -7,6 +7,33 @@ const ROOT_DIR = __dirname;
 const DEFAULT_CREWAI_POLL_INTERVAL_MS = 15000;
 const DEFAULT_CREWAI_POLL_TIMEOUT_MS = 600000;
 const DEFAULT_DISCOVERY_AI_POLL_INTERVAL_MS = 5000;
+const SUPPORTED_INPUT_MODES = ["manual_intake", "manual_upload", "mock_data"];
+const FUTURE_INTEGRATIONS = [
+  "microsoft_teams",
+  "outlook",
+  "datadog",
+  "tech_metrics",
+  "product_databases",
+  "analytics_tools",
+  "research_repositories",
+  "jira_linear",
+  "slack",
+  "figma",
+  "document_storage",
+];
+const MOCK_AGENT_STATES = {
+  DOR_ANALYZING: "DOR_ANALYZING",
+  RESEARCH_APPROVAL_PENDING: "RESEARCH_APPROVAL_PENDING",
+  EVIDENCE_UPLOAD_PENDING: "EVIDENCE_UPLOAD_PENDING",
+  INSIGHT_REVIEW_PENDING: "INSIGHT_REVIEW_PENDING",
+  OPPORTUNITY_REVIEW_PENDING: "OPPORTUNITY_REVIEW_PENDING",
+  COMPLETED: "COMPLETED",
+};
+const MOCK_AGENT_STATUSES = {
+  RUNNING: "running",
+  WAITING_FOR_HUMAN: "waiting_for_human",
+  COMPLETED: "completed",
+};
 const PUBLIC_FILE_PATHS = new Set(["/index.html", "/styles.css", "/app.js", "/demo-config.js"]);
 const PUBLIC_ASSET_DIRS = ["/assets/"];
 const MIME_TYPES = {
@@ -20,6 +47,7 @@ const MIME_TYPES = {
   ".jpeg": "image/jpeg",
   ".ico": "image/x-icon",
 };
+const mockAgentRuns = new Map();
 
 function loadEnvFile(filePath = path.join(ROOT_DIR, ".env")) {
   if (!fs.existsSync(filePath)) {
@@ -223,8 +251,29 @@ function getFrontendApiMode() {
   return "mock";
 }
 
+function getAgentMode() {
+  const frontendApiMode = getFrontendApiMode();
+  const hasDiscoveryBackend = Boolean(getDiscoveryAiConfig().baseUrl);
+  const hasCrewAiBackend = Boolean(getCrewAiConfig().baseUrl && getCrewAiConfig().token);
+
+  return frontendApiMode !== "mock" && (hasDiscoveryBackend || hasCrewAiBackend) ? "crewai" : "mock";
+}
+
 function getClientConfig() {
   return {
+    mvpMode: true,
+    agentWorkflowEnabled: true,
+    conversationalAssistantEnabled: false,
+    externalIntegrationsEnabled: false,
+    agentMode: getAgentMode(),
+    supportedInputModes: SUPPORTED_INPUT_MODES,
+    futureIntegrations: FUTURE_INTEGRATIONS,
+    featureFlags: {
+      researchAssistant: false,
+      conversationalAssistant: false,
+      agentWorkflow: true,
+      externalIntegrations: false,
+    },
     frontendApiMode: getFrontendApiMode(),
     crewAiPollIntervalMs: getPositiveIntegerEnv("CREWAI_POLL_INTERVAL_MS", DEFAULT_CREWAI_POLL_INTERVAL_MS),
     crewAiPollTimeoutMs: getPositiveIntegerEnv("CREWAI_POLL_TIMEOUT_MS", DEFAULT_CREWAI_POLL_TIMEOUT_MS),
@@ -373,6 +422,126 @@ function getRequiredPathId(response, pathname, prefix, fieldName) {
   return value;
 }
 
+function shouldUseMockAgentAdapter() {
+  return getFrontendApiMode() === "mock" || !getDiscoveryAiConfig().baseUrl;
+}
+
+function getDiscoveryInputs(body = {}) {
+  return body && typeof body === "object" && body.inputs && typeof body.inputs === "object" ? body.inputs : body || {};
+}
+
+function createMockAgentRun(body = {}) {
+  const inputs = getDiscoveryInputs(body);
+  const now = new Date().toISOString();
+  const discoveryId = String(inputs.discovery_id || `mock-discovery-${Date.now()}`);
+  const runId = `mock-agent-run-${Date.now()}-${crypto.randomBytes(3).toString("hex")}`;
+  const run = {
+    run_id: runId,
+    discovery_id: discoveryId,
+    current_state: MOCK_AGENT_STATES.DOR_ANALYZING,
+    status: MOCK_AGENT_STATUSES.RUNNING,
+    adapter: "mock_agent",
+    mock_agent_outputs: true,
+    inputs,
+    evidence: [],
+    events: [],
+    created_at: now,
+    updated_at: now,
+  };
+
+  mockAgentRuns.set(runId, run);
+  return run;
+}
+
+function getMockAgentRun(runId = "") {
+  return mockAgentRuns.get(String(runId || "").trim()) || null;
+}
+
+function setMockAgentRun(run = {}) {
+  const updatedRun = {
+    ...run,
+    updated_at: new Date().toISOString(),
+  };
+  mockAgentRuns.set(updatedRun.run_id, updatedRun);
+  return updatedRun;
+}
+
+function sendMockRunNotFound(response, runId = "") {
+  sendJson(response, 404, {
+    error: "Run de agente mock não encontrada.",
+    run_id: runId,
+    adapter: "mock_agent",
+  });
+}
+
+function createMockAgentOutputs(run = {}) {
+  const inputs = run.inputs || {};
+  const evidence = Array.isArray(run.evidence) ? run.evidence : [];
+  return {
+    discovery_charter: {
+      title: inputs.title || "Discovery MVP",
+      problem: inputs.problem || "Problema informado manualmente ou por fixture mock.",
+      objective: inputs.objective || "Validar o workflow de discovery dirigido por agentes.",
+      readiness_score: 82,
+      output_source: "mock_agent",
+    },
+    research_plan: {
+      summary: "Plano gerado por mock agent adapter para simular planejamento de pesquisa no MVP.",
+      methods: ["Entrevistas", "CSD", "Síntese de evidências"],
+      approval_gate: "research_plan_review",
+      output_source: "mock_agent",
+    },
+    evidence_inventory: {
+      total: evidence.length,
+      input_modes: SUPPORTED_INPUT_MODES,
+      items: evidence,
+      output_source: "mock_agent",
+    },
+    synthesis: {
+      summary: "Síntese mockada de padrões, riscos e aprendizados para validar renderização frontend.",
+      insights: [
+        "Usuários precisam de clareza sobre problema, objetivo e evidências antes de avançar.",
+        "Aprovações humanas continuam necessárias entre etapas críticas do workflow.",
+      ],
+      output_source: "mock_agent",
+    },
+    opportunities: {
+      prioritized: [
+        "Melhorar rastreabilidade entre CSD, evidências e recomendação.",
+        "Expor critérios de aprovação por etapa do discovery.",
+      ],
+      output_source: "mock_agent",
+    },
+    recommendation: {
+      summary: "Prosseguir com o workflow agent-driven usando entradas manuais até integrações externas serem adicionadas.",
+      next_steps: ["Revisar outputs estruturados", "Aprovar gate humano", "Adicionar evidências manuais se necessário"],
+      output_source: "mock_agent",
+    },
+    handoff: {
+      status: "ready_for_review",
+      output_source: "mock_agent",
+    },
+  };
+}
+
+function getNextMockStateForResume(run = {}, eventType = "") {
+  const normalizedEventType = String(eventType || "").trim();
+  if (normalizedEventType.includes("evidence") || run.current_state === MOCK_AGENT_STATES.EVIDENCE_UPLOAD_PENDING) {
+    return MOCK_AGENT_STATES.INSIGHT_REVIEW_PENDING;
+  }
+  if (normalizedEventType.includes("insight") || run.current_state === MOCK_AGENT_STATES.INSIGHT_REVIEW_PENDING) {
+    return MOCK_AGENT_STATES.OPPORTUNITY_REVIEW_PENDING;
+  }
+  if (normalizedEventType.includes("opportunit") || run.current_state === MOCK_AGENT_STATES.OPPORTUNITY_REVIEW_PENDING) {
+    return MOCK_AGENT_STATES.COMPLETED;
+  }
+  if (run.current_state === MOCK_AGENT_STATES.RESEARCH_APPROVAL_PENDING) {
+    return MOCK_AGENT_STATES.EVIDENCE_UPLOAD_PENDING;
+  }
+
+  return MOCK_AGENT_STATES.RESEARCH_APPROVAL_PENDING;
+}
+
 async function handleApiRequest(request, response, url) {
   if ((request.method === "GET" || request.method === "HEAD") && (url.pathname === "/health" || url.pathname === "/healthz")) {
     sendJson(response, 200, {
@@ -417,6 +586,24 @@ async function handleApiRequest(request, response, url) {
   if (request.method === "POST" && url.pathname === "/api/discovery/kickoff") {
     try {
       const body = await readJsonBody(request);
+      if (shouldUseMockAgentAdapter()) {
+        const run = createMockAgentRun(body);
+        sendJson(response, 202, {
+          run_id: run.run_id,
+          discovery_id: run.discovery_id,
+          current_state: run.current_state,
+          state: run.current_state,
+          status: run.status,
+          adapter: run.adapter,
+          mock_agent_outputs: true,
+          agent_workflow_enabled: true,
+          external_integrations_enabled: false,
+          message: "MockAgentAdapter iniciou o workflow de agentes sem conectores externos.",
+          created_at: run.created_at,
+        });
+        return true;
+      }
+
       await forwardDiscoveryAiRequest(response, "/kickoff", {
         method: "POST",
         body: JSON.stringify(body),
@@ -433,6 +620,35 @@ async function handleApiRequest(request, response, url) {
       return true;
     }
 
+    if (shouldUseMockAgentAdapter()) {
+      const run = getMockAgentRun(runId);
+      if (!run) {
+        sendMockRunNotFound(response, runId);
+        return true;
+      }
+
+      const updatedRun = run.current_state === MOCK_AGENT_STATES.DOR_ANALYZING
+        ? setMockAgentRun({
+            ...run,
+            current_state: MOCK_AGENT_STATES.RESEARCH_APPROVAL_PENDING,
+            status: MOCK_AGENT_STATUSES.WAITING_FOR_HUMAN,
+          })
+        : run;
+      sendJson(response, 200, {
+        run_id: updatedRun.run_id,
+        discovery_id: updatedRun.discovery_id,
+        current_state: updatedRun.current_state,
+        state: updatedRun.current_state,
+        status: updatedRun.status,
+        adapter: updatedRun.adapter,
+        mock_agent_outputs: true,
+        agent_workflow_enabled: true,
+        external_integrations_enabled: false,
+        updated_at: updatedRun.updated_at,
+      });
+      return true;
+    }
+
     await forwardDiscoveryAiRequest(response, `/status/${encodeURIComponent(runId)}`, {
       method: "GET",
     });
@@ -442,6 +658,44 @@ async function handleApiRequest(request, response, url) {
   if (request.method === "POST" && url.pathname === "/api/discovery/resume") {
     try {
       const body = await readJsonBody(request);
+      if (shouldUseMockAgentAdapter()) {
+        const runId = String(body.run_id || body.runId || "").trim();
+        const run = getMockAgentRun(runId);
+        if (!run) {
+          sendMockRunNotFound(response, runId);
+          return true;
+        }
+
+        const nextState = getNextMockStateForResume(run, body.event_type || body.eventType || body.decision);
+        const updatedRun = setMockAgentRun({
+          ...run,
+          current_state: nextState,
+          status: nextState === MOCK_AGENT_STATES.COMPLETED ? MOCK_AGENT_STATUSES.COMPLETED : MOCK_AGENT_STATUSES.WAITING_FOR_HUMAN,
+          events: [
+            ...(Array.isArray(run.events) ? run.events : []),
+            {
+              type: body.event_type || body.eventType || body.decision || "human_gate_resumed",
+              payload: body,
+              created_at: new Date().toISOString(),
+            },
+          ],
+        });
+
+        sendJson(response, 200, {
+          run_id: updatedRun.run_id,
+          discovery_id: updatedRun.discovery_id,
+          current_state: updatedRun.current_state,
+          state: updatedRun.current_state,
+          status: updatedRun.status,
+          adapter: updatedRun.adapter,
+          mock_agent_outputs: true,
+          agent_workflow_enabled: true,
+          external_integrations_enabled: false,
+          updated_at: updatedRun.updated_at,
+        });
+        return true;
+      }
+
       await forwardDiscoveryAiRequest(response, "/resume", {
         method: "POST",
         body: JSON.stringify(body),
@@ -458,6 +712,24 @@ async function handleApiRequest(request, response, url) {
       return true;
     }
 
+    if (shouldUseMockAgentAdapter()) {
+      const run = getMockAgentRun(runId);
+      if (!run) {
+        sendMockRunNotFound(response, runId);
+        return true;
+      }
+
+      sendJson(response, 200, {
+        run_id: run.run_id,
+        discovery_id: run.discovery_id,
+        adapter: run.adapter,
+        mock_agent_outputs: true,
+        outputs: createMockAgentOutputs(run),
+        updated_at: run.updated_at,
+      });
+      return true;
+    }
+
     await forwardDiscoveryAiRequest(response, `/outputs/${encodeURIComponent(runId)}`, {
       method: "GET",
     });
@@ -469,6 +741,24 @@ async function handleApiRequest(request, response, url) {
     const runId = decodeURIComponent(artifactsMatch[1]).trim();
     if (!runId) {
       sendJson(response, 400, { error: "run_id ausente." });
+      return true;
+    }
+
+    if (shouldUseMockAgentAdapter()) {
+      const run = getMockAgentRun(runId);
+      if (!run) {
+        sendMockRunNotFound(response, runId);
+        return true;
+      }
+
+      sendJson(response, 200, {
+        run_id: run.run_id,
+        discovery_id: run.discovery_id,
+        adapter: run.adapter,
+        mock_agent_outputs: true,
+        artifacts: createMockAgentOutputs(run),
+        updated_at: run.updated_at,
+      });
       return true;
     }
 
@@ -488,6 +778,39 @@ async function handleApiRequest(request, response, url) {
 
     try {
       const body = await readJsonBody(request);
+      if (shouldUseMockAgentAdapter()) {
+        const run = getMockAgentRun(runId);
+        if (!run) {
+          sendMockRunNotFound(response, runId);
+          return true;
+        }
+
+        const evidence = Array.isArray(body.evidence) ? body.evidence : [body.evidence || body].filter(Boolean);
+        const updatedRun = setMockAgentRun({
+          ...run,
+          evidence: [
+            ...(Array.isArray(run.evidence) ? run.evidence : []),
+            ...evidence,
+          ],
+          current_state: MOCK_AGENT_STATES.INSIGHT_REVIEW_PENDING,
+          status: MOCK_AGENT_STATUSES.WAITING_FOR_HUMAN,
+        });
+
+        sendJson(response, 200, {
+          run_id: updatedRun.run_id,
+          discovery_id: updatedRun.discovery_id,
+          current_state: updatedRun.current_state,
+          state: updatedRun.current_state,
+          status: updatedRun.status,
+          adapter: updatedRun.adapter,
+          mock_agent_outputs: true,
+          evidence_count: updatedRun.evidence.length,
+          evidence_ids: evidence.map((_, index) => `mock-evidence-${updatedRun.evidence.length - evidence.length + index + 1}`),
+          updated_at: updatedRun.updated_at,
+        });
+        return true;
+      }
+
       await forwardDiscoveryAiRequest(response, `/runs/${encodeURIComponent(runId)}/evidence`, {
         method: "POST",
         body: JSON.stringify(body),
@@ -503,6 +826,22 @@ async function handleApiRequest(request, response, url) {
     const runId = decodeURIComponent(runMatch[1]).trim();
     if (!runId) {
       sendJson(response, 400, { error: "run_id ausente." });
+      return true;
+    }
+
+    if (shouldUseMockAgentAdapter()) {
+      const run = getMockAgentRun(runId);
+      if (!run) {
+        sendMockRunNotFound(response, runId);
+        return true;
+      }
+
+      sendJson(response, 200, {
+        ...run,
+        outputs: createMockAgentOutputs(run),
+        agent_workflow_enabled: true,
+        external_integrations_enabled: false,
+      });
       return true;
     }
 

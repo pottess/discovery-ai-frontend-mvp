@@ -14,6 +14,21 @@ Main files:
 
 The prototype supports local mock/demo mode, MVP backend mode and legacy CrewAI proxy mode. Most product and discovery data is still mock/local state.
 
+## MVP Architecture Correction
+
+Agents are in MVP. CrewAI processing and discovery intelligence are core to Discovery AI, and the frontend remains the workflow interaction layer. The research conversational assistant is future, but the agent workflow, agent processing states, output contracts, structured outputs and human approval gates are part of the MVP.
+
+The MVP validates the agent-driven discovery workflow without depending on enterprise integrations.
+
+External integrations such as Teams, Outlook, Tech Metrics, DataDog, product databases, analytics platforms, research repositories, Jira/Linear, Slack/Teams notifications, SSO/permissions and automated external data retrieval are future. In MVP, they may be simulated through manual input, file upload, mock data, fixture outputs, local storage and mock backend responses.
+
+## Documentation
+
+- `docs/MVP_SCOPE_AND_ROADMAP.md`: corrected MVP scope, architecture and future roadmap.
+- `docs/FRONTEND_MVP_STATUS.md`: current frontend implementation status and known gaps.
+- `docs/frontend-mvp-contract.md`: target MVP workflow, agent states, human gates and backend contract.
+- `docs/DEPLOYMENT_GUIDE.md`: deployment and hosting guidance.
+
 ## Install
 
 Use Node.js 20 or newer.
@@ -52,13 +67,15 @@ For the safest local demo, open the app with mock mode enabled:
 http://127.0.0.1:4173/index.html?apiMode=mock
 ```
 
-`apiMode=mock` uses local mock run data and does not require CrewAI credentials or an MVP backend.
+`apiMode=mock` uses local mock run data and does not require live CrewAI credentials or an MVP backend. It is useful for simulating the MVP agent workflow without enterprise integrations.
 
 Older links using `local_mock` still work as a compatibility alias:
 
 ```text
 http://127.0.0.1:4173/index.html?apiMode=local_mock
 ```
+
+In Node server mode, `/api/config` exposes explicit MVP feature flags: `agentWorkflowEnabled: true`, `conversationalAssistantEnabled: false`, `externalIntegrationsEnabled: false`, and `agentMode` as either `mock` or `crewai`. The `/api/discovery/*` endpoints use mock agent outputs when no real backend is configured.
 
 ## Environment Variables
 
@@ -94,7 +111,7 @@ Notes:
 
 The app uses hash routing. Current route shapes include:
 
-- `#home`: repository home and assistant panel.
+- `#home`: repository home with user products and recent discoveries.
 - `#products`: product catalog.
 - `#product/:productId`: product detail page.
 - `#product/:productId/audience`: product audience management.
@@ -164,6 +181,7 @@ npm run check
 - Created discoveries and workflow progress are not durable backend records yet.
 - File attachments are represented locally and are not uploaded to external storage.
 - CrewAI output is normalized best-effort because the final response schema is not yet contract-stable.
+- Enterprise integrations are not part of MVP and are simulated when needed.
 - Static hosting cannot use the Node proxy endpoints.
 - The app has no automated browser regression suite yet.
 

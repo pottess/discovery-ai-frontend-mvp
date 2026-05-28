@@ -116,7 +116,7 @@ Required for CrewAI proxy routes:
 - `CREWAI_API_BASE_URL`
 - `CREWAI_API_KEY`
 
-Required for MVP backend proxy routes:
+Required for real MVP backend proxy routes:
 
 - `DISCOVERY_AI_API_BASE_URL`
 
@@ -146,10 +146,10 @@ If `BASIC_AUTH_ENABLED=true` and either credential is missing, the server logs a
 
 ### Optional Proxy Routes
 
-The frontend still works in mock mode without any proxy configuration.
+The frontend still works in mock mode without any proxy configuration. In Node server mode, `/api/discovery/*` also has a mock agent adapter fallback so the MVP agent workflow can be exercised without enterprise integrations.
 
 - `/api/crewai/*` returns a clear `501` JSON response when `CREWAI_API_BASE_URL` is missing, and a clear `500` when `CREWAI_API_KEY` is missing.
-- `/api/discovery/*` returns a clear `500` JSON response when `DISCOVERY_AI_API_BASE_URL` is missing.
+- `/api/discovery/*` uses mock agent outputs when `DISCOVERY_AI_API_BASE_URL` is missing or mock mode is active.
 - Real backend paths are unchanged for later integration.
 
 ### Health Check

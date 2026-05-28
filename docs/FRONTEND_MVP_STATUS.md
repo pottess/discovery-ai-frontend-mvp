@@ -1,5 +1,11 @@
 # Frontend MVP Status
 
+## MVP Architecture Correction
+
+Agents are in MVP. CrewAI processing and discovery intelligence are core to Discovery AI, while the frontend remains the workflow interaction layer. The research conversational assistant is future, but the agent workflow, agent processing states, structured outputs and human approval gates are part of the MVP.
+
+The MVP validates the agent-driven discovery workflow without depending on enterprise integrations.
+
 ## What Is Implemented
 
 - Static single-page frontend with hash routing.
@@ -49,6 +55,36 @@ The discovery workflow is represented in the frontend as a state machine with th
 
 In mock/demo mode, transitions and artifacts are simulated locally. In backend modes, the frontend expects remote kickoff/status/output responses and renders normalized artifacts when available.
 
+## In MVP
+
+- Core discovery agents.
+- Research intelligence agents.
+- Strategy, opportunity and recommendation agents.
+- Output contracts for agent-generated artifacts.
+- Agent processing states.
+- Human approval gates.
+- Manual evidence upload.
+- Structured outputs.
+- Frontend workflow screens for reviewing agent outputs.
+
+## Out Of MVP / Future
+
+- Teams integration.
+- Outlook integration.
+- Tech Metrics integration.
+- DataDog integration.
+- Product database integration.
+- Analytics platform integration.
+- Research repository integration.
+- Jira/Linear integration.
+- Slack/Teams notifications.
+- SSO and permissions.
+- Advanced dashboards.
+- Conversational assistant.
+- Automated external data retrieval.
+
+External integrations may be simulated in MVP using manual input, file upload, mock data, fixture outputs, local storage and mock backend responses.
+
 ## Known Gaps
 
 - No durable production backend persistence for all frontend state.
@@ -68,6 +104,6 @@ In mock/demo mode, transitions and artifacts are simulated locally. In backend m
 - Define a versioned artifact/output schema for CrewAI and MVP backend responses.
 - Add durable persistence for discoveries, product audience, favorites, workflow runs and artifacts.
 - Add an upload/reference contract for evidence files.
-- Implement real user identity and permissions.
+- Implement real user identity and permissions after MVP validation.
 - Replace local mock transitions with backend-driven workflow states when the backend is ready.
 - Add focused smoke tests for routes, new discovery creation, polling, favorites and workflow gates.
