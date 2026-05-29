@@ -1822,16 +1822,9 @@ function renderProductTeamGrid(product = {}) {
 }
 
 function renderNewDiscoveryProductTeamPreview(product = getProductById(selectedProductId || getCurrentProductId()) || products[0]) {
-  if (!newDiscoveryProductTeam) {
-    return;
+  if (newDiscoveryProductTeam) {
+    newDiscoveryProductTeam.replaceChildren();
   }
-
-  newDiscoveryProductTeam.innerHTML = `
-    <span class="product-team-preview-label">Responsáveis cadastrados no produto</span>
-    <div class="product-team-preview-grid">
-      ${renderProductTeamCards(product, { compact: true })}
-    </div>
-  `;
 }
 
 function renderProductTeamEditFields(product = getProductById(selectedProductId) || products[0]) {
@@ -6409,6 +6402,74 @@ function getDiscoveryRunStatusLabel(discovery = {}) {
   return `${stateLabel} · em andamento`;
 }
 
+function hasStartedDiscoveryMethodology(discovery = {}) {
+  const methodCollections = [
+    discovery.methods,
+    discovery.methodology?.methods,
+    discovery.methodology?.items,
+    discovery.methodologyRecommendation?.methods,
+    discovery.steps,
+  ];
+  const methods = methodCollections.find((collection) => Array.isArray(collection)) || [];
+
+  return methods.some((method = {}) => {
+    const progress = Number(method.progress ?? method.progressPercent ?? method.percent ?? 0);
+    const normalizedStatus = normalizeText(method.status || method.state || "");
+    return progress > 0
+      || normalizedStatus.includes("andamento")
+      || normalizedStatus.includes("execucao")
+      || normalizedStatus.includes("executado")
+      || normalizedStatus.includes("concluido")
+      || normalizedStatus.includes("completed");
+  });
+}
+
+function getDiscoveryLifecycleStatusMeta(discovery = {}) {
+  const rawStatus = normalizeText([
+    discovery.lifecycleStatus,
+    discovery.lifecycle_status,
+    discovery.discoveryStatus,
+    discovery.discovery_status,
+    discovery.manualStatus,
+    discovery.manual_status,
+    discovery.status,
+    discovery.run_status,
+    discovery.runStatus,
+  ].filter(Boolean).join(" "));
+  const rawState = normalizeText([
+    discovery.current_state,
+    discovery.currentState,
+    discovery.workflow_state,
+    discovery.workflow,
+    discovery.state,
+  ].filter(Boolean).join(" "));
+
+  if (rawStatus.includes("cancel") || rawState.includes("cancel")) {
+    return { label: "Cancelado", tone: "canceled" };
+  }
+
+  if (rawStatus.includes("paus") || rawStatus.includes("paused") || rawState.includes("paus") || rawState.includes("paused")) {
+    return { label: "Pausado", tone: "paused" };
+  }
+
+  if (hasStartedDiscoveryMethodology(discovery)) {
+    return { label: "Em andamento", tone: "in-progress" };
+  }
+
+  return { label: "Iniciado", tone: "started" };
+}
+
+function applyDiscoveryLifecycleStatus(discovery = {}) {
+  if (!discoveryReadinessStatus) {
+    return;
+  }
+
+  const statusMeta = getDiscoveryLifecycleStatusMeta(discovery);
+  discoveryReadinessStatus.classList.remove("ready", "not-ready", "is-started", "is-in-progress", "is-paused", "is-canceled");
+  discoveryReadinessStatus.classList.add(`is-${statusMeta.tone}`);
+  discoveryReadinessStatus.innerHTML = `<span></span>${escapeHTML(statusMeta.label)}`;
+}
+
 function updateDiscoveryRunStatusOnPage(discovery = {}) {
   if (!discoveryReadinessStatus || selectedDiscoveryId !== discovery.id) {
     return;
@@ -6420,11 +6481,7 @@ function updateDiscoveryRunStatusOnPage(discovery = {}) {
   renderDiscoveryInsightReviewPanel(discovery);
   renderDiscoveryOpportunityReviewPanel(discovery);
   renderDiscoveryRecommendationHandoffSection(discovery);
-  const state = discovery.current_state || WORKFLOW_STATES.DISCOVERY_CREATED;
-  const status = discovery.status || RUN_STATUSES.RUNNING;
-  discoveryReadinessStatus.classList.toggle("ready", isTerminalState(state, status) && state === WORKFLOW_STATES.COMPLETED);
-  discoveryReadinessStatus.classList.toggle("not-ready", state === WORKFLOW_STATES.FAILED || status === RUN_STATUSES.FAILED);
-  discoveryReadinessStatus.innerHTML = `<span></span>${escapeHTML(getDiscoveryRunStatusLabel(discovery))}`;
+  applyDiscoveryLifecycleStatus(discovery);
 }
 
 const DISCOVERY_POLL_STOP_STATES = new Set([
@@ -7433,23 +7490,89 @@ function renderHomeSidebarPanel() {
 function renderProductsSidebarPanel() {
   const favoriteProducts = getFavoriteProducts();
   const favoriteProductIds = new Set(favoriteProducts.map((product) => product.id));
-  const groupedProducts = getProductsGroupedByArea(products.filter((product) => !favoriteProductIds.has(product.id)));
+  const groupedProducts = getSidebarProductMenuGroups(products.filter((product) => !favoriteProductIds.has(product.id)));
   sidebarPanel.innerHTML = `
-    ${renderSidebarPanelHeader("Produtos", "Produtos", "Produtos que você acompanha.")}
-    <div class="sidebar-submenu">
-      ${favoriteProducts.length ? `
-        <div class="sidebar-submenu-section">
-          <span class="sidebar-submenu-heading">Favoritos</span>
-          <div class="sidebar-list">${favoriteProducts.map((product) => renderSidebarProductRow(product)).join("")}</div>
-        </div>
-      ` : ""}
-      ${Object.entries(groupedProducts).map(([groupLabel, groupProducts]) => `
-        <div class="sidebar-submenu-section">
-          <span class="sidebar-submenu-heading">${escapeHTML(groupLabel)}</span>
-          <div class="sidebar-list">${groupProducts.map((product) => renderSidebarProductRow(product)).join("")}</div>
-        </div>
-      `).join("")}
+    <div class="sidebar-products-menu">
+      <span class="sidebar-products-section-label">SECTION LABEL</span>
+      <div class="sidebar-products-favorites">
+        ${favoriteProducts.map((product) => renderSidebarProductFavoriteLine(product)).join("")}
+      </div>
+      <div class="sidebar-products-groups">
+        ${groupedProducts.map(({ label, products: groupProducts }) => renderSidebarProductGroup(label, groupProducts)).join("")}
+      </div>
     </div>
+  `;
+}
+
+function getSidebarProductMenuLabel(product = {}) {
+  const productName = String(product.name || "Produto").trim();
+  const knownLabels = {
+    "Cora Promoções": "Promoções",
+    "Cora Agreements": "Acordos",
+  };
+  return knownLabels[productName] || productName.replace(/^Cora\s+/i, "");
+}
+
+function getSidebarProductMenuGroupLabel(product = {}) {
+  return product.tribe || product.category || product.area || product.torre || product.tower || "Outros";
+}
+
+function getSidebarProductMenuGroups(productItems = []) {
+  const preferredOrder = ["Revenue", "Finance", "Service Level", "Last Mile", "Supply Chain", "Outros"];
+  const groups = productItems.reduce((acc, product) => {
+    const label = getSidebarProductMenuGroupLabel(product);
+    acc[label] = [...(acc[label] || []), product];
+    return acc;
+  }, {});
+
+  return Object.entries(groups)
+    .sort(([labelA], [labelB]) => {
+      const indexA = preferredOrder.indexOf(labelA);
+      const indexB = preferredOrder.indexOf(labelB);
+      if (indexA >= 0 || indexB >= 0) {
+        return (indexA >= 0 ? indexA : preferredOrder.length) - (indexB >= 0 ? indexB : preferredOrder.length);
+      }
+      return labelA.localeCompare(labelB, "pt-BR");
+    })
+    .map(([label, groupProducts]) => ({
+      label,
+      products: [...groupProducts].sort((a, b) => getSidebarProductMenuLabel(a).localeCompare(getSidebarProductMenuLabel(b), "pt-BR")),
+    }));
+}
+
+function renderSidebarProductFavoriteLine(product = {}) {
+  const isFavorite = isProductFavorite(product.id);
+  return `
+    <div class="sidebar-product-row sidebar-product-row-minimal" role="button" tabindex="0" data-sidebar-product="${escapeHTML(product.id)}" title="${escapeHTML(product.name)}">
+      <span class="sidebar-product-copy">
+        <strong>${escapeHTML(getSidebarProductMenuLabel(product))}</strong>
+      </span>
+      <button class="sidebar-favorite-button${isFavorite ? " is-favorite" : ""}" type="button" data-sidebar-product-favorite="${escapeHTML(product.id)}" aria-label="${isFavorite ? "Remover produto dos favoritos" : "Favoritar produto"}" aria-pressed="${String(isFavorite)}" title="${isFavorite ? "Remover dos favoritos" : "Favoritar"}">
+        ★
+      </button>
+    </div>
+  `;
+}
+
+function renderSidebarProductGroup(groupLabel = "Outros", groupProducts = []) {
+  return `
+    <details class="sidebar-product-group">
+      <summary class="sidebar-product-group-summary">
+        <span>${escapeHTML(groupLabel)}</span>
+        <span class="sidebar-product-group-chevron" aria-hidden="true">⌄</span>
+      </summary>
+      <div class="sidebar-product-group-list">
+        ${groupProducts.map((product) => renderSidebarProductSimpleLine(product)).join("")}
+      </div>
+    </details>
+  `;
+}
+
+function renderSidebarProductSimpleLine(product = {}) {
+  return `
+    <button class="sidebar-product-line" type="button" data-sidebar-product="${escapeHTML(product.id)}" title="${escapeHTML(product.name)}">
+      ${escapeHTML(product.name)}
+    </button>
   `;
 }
 
@@ -11982,12 +12105,6 @@ function renderDiscoveryPage(productId, discoveryId) {
   const hasCrewResult = isDraft && hasCrewAiDiscoveryResult(activeDiscovery);
   const hasMvpRun = Boolean(getDiscoveryRunId(activeDiscovery));
   const hasMvpWorkflow = shouldShowMvpWorkflow(activeDiscovery);
-  const readinessLabel = getDiscoveryReadyLabel(normalizedCrewResult.discoveryReady);
-  const statusLabel = hasMvpWorkflow
-    ? getDiscoveryRunStatusLabel(activeDiscovery)
-    : hasCrewResult
-      ? `Concluído · ${readinessLabel}`
-      : activeDiscovery.status || "Em Execução";
   const insightTexts = getDiscoveryInsightTexts(activeDiscovery);
 
   discoveryProductLink.textContent = product.category || product.name;
@@ -12002,11 +12119,7 @@ function renderDiscoveryPage(productId, discoveryId) {
   }
   syncDiscoverySynthesisButton(activeDiscovery, product);
   syncDiscoveryDetailFavoriteButton(selectedDiscoveryId);
-  if (discoveryReadinessStatus) {
-    discoveryReadinessStatus.classList.toggle("ready", hasMvpWorkflow ? activeDiscovery.current_state === WORKFLOW_STATES.COMPLETED : hasCrewResult && normalizedCrewResult.discoveryReady === "yes");
-    discoveryReadinessStatus.classList.toggle("not-ready", hasMvpWorkflow ? activeDiscovery.current_state === WORKFLOW_STATES.FAILED || activeDiscovery.status === RUN_STATUSES.FAILED : hasCrewResult && normalizedCrewResult.discoveryReady === "no");
-    discoveryReadinessStatus.innerHTML = `<span></span>${escapeHTML(statusLabel)}`;
-  }
+  applyDiscoveryLifecycleStatus(activeDiscovery);
   renderDiscoveryWorkflowCockpit(activeDiscovery);
   renderDiscoveryResearchApprovalPanel(activeDiscovery);
   renderDiscoveryEvidenceUploadPanel(activeDiscovery);
