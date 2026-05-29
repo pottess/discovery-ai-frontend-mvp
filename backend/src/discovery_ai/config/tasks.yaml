@@ -1,0 +1,425 @@
+---
+build_d_o_r_framework:
+  description: 'Create comprehensive Definition of Ready (D.O.R.) framework for {discovery_id}.
+    Process discovery intake inputs: {title}, {objective}, {problem}, {owners}, {users},
+    {stakeholders}, {certainties}, {assumptions}, {open_questions}, {file}, {link}.
+    Establish clear criteria, success metrics, and governance checkpoints to ensure
+    discovery readiness before proceeding with research execution.'
+  expected_output: 'JSON object: {"discovery_id": "string", "dor_status": "COMPLETED
+    | PARTIALLY_COMPLETED | INSUFFICIENT_INFORMATION", "title": "string", "objective":
+    "string", "problem": "string", "owners": [], "users": [], "stakeholders": [],
+    "certainties": [], "assumptions": [], "open_questions": [], "deadline": null,
+    "attached_files": [], "reference_links": [], "completeness_score": 0, "missing_required_fields":
+    [], "clarification_required": true, "clarification_questions": [], "workflow_recommendation":
+    "PROCEED_TO_DISCOVERY_READINESS | REQUEST_MORE_INFORMATION"}'
+  agent: d_o_r_builder
+validate_discovery_readiness:
+  description: 'Avaliar se uma solicitação de descoberta estruturada está pronta para
+    avançar para a definição da metodologia. Analisar os resultados da DOR. Avaliar:
+    clareza do problema, clareza do objetivo, definição do usuário, abrangência das
+    partes interessadas, maturidade das evidências, enquadramento das incertezas,
+    qualidade das premissas, ausência de contexto crítico. Responsabilidades: avaliar
+    a prontidão, classificar o nível de prontidão, identificar obstáculos, gerar requisitos
+    de esclarecimento, encaminhar o fluxo de trabalho. NÃO: definir a metodologia,
+    elaborar o plano de pesquisa, gerar oportunidades.'
+  expected_output: 'JSON object: {"discovery_id": "string", "readiness_status": "READY
+    | PARTIALLY_READY | NOT_READY", "readiness_score": 0, "strengths": [], "critical_gaps":
+    [], "blockers": [], "clarification_required": true, "clarification_questions":
+    [], "uncertainty_profile": {"problem_uncertainty": "LOW | MEDIUM | HIGH", "user_uncertainty":
+    "LOW | MEDIUM | HIGH", "validation_uncertainty": "LOW | MEDIUM | HIGH"}, "workflow_recommendation":
+    "PROCEED_TO_METHODOLOGY | REQUEST_MORE_INFORMATION"}'
+  agent: discovery_readiness_specialist
+  context:
+  - build_d_o_r_framework
+define_discovery_methodology:
+  description: 'Defina a metodologia de descoberta mais adequada para a investigação
+    atual. Considere os resultados da análise de prontidão e o contexto do DOR. Avalie:
+    tipo de incerteza, urgência comercial, evidências disponíveis, objetivo da investigação,
+    tipo de decisão, nível de risco. Responsabilidades: recomendar a abordagem de
+    investigação, definir a fundamentação da metodologia, propor a sequência de etapas,
+    definir os limites metodológicos. Tipos de método: GENERATIVO, AVALIATIVO, VALIDATIVO,
+    MISTO. NÃO: elabore um plano operacional de investigação, defina os participantes,
+    execute a investigação.'
+  expected_output: 'JSON object: {"discovery_id": "string", "methodology_status":
+    "DEFINED", "recommended_methodology": "GENERATIVE | EVALUATIVE | VALIDATIVE |
+    MIXED", "methodology_summary": "string", "method_rationale": [], "recommended_methods":
+    [], "sequencing_recommendation": [], "constraints": [], "risks": [], "workflow_recommendation":
+    "PROCEED_TO_SCOPE"}'
+  agent: discovery_methodology_strategist
+  context:
+  - validate_discovery_readiness
+prioritize_discovery_scope:
+  description: 'Defina o escopo de descoberta mais relevante do ponto de vista estratégico
+    e realisticamente exequível. Utilize os resultados da metodologia. Responsabilidades:
+    definir os limites do escopo, priorizar temas de pesquisa, identificar questões
+    que devem ser respondidas, reduzir a exploração desnecessária, alinhar o escopo
+    com o objetivo. NÃO: criar um plano de execução, definir a logística.'
+  expected_output: 'JSON object: {"discovery_id": "string", "scope_status": "DEFINED",
+    "scope_statement": "string", "priority_questions": [], "out_of_scope": [], "must_answer_questions":
+    [], "strategic_focus_areas": [], "workflow_recommendation": "PROCEED_TO_RESEARCH_PLANNING"}'
+  agent: discovery_scope_prioritization_specialist
+  context:
+  - define_discovery_methodology
+create_research_execution_plan:
+  description: 'Transforme a metodologia e o escopo em um plano estruturado de execução
+    da pesquisa. Responsabilidades: definir as fases da pesquisa, organizar a sequência
+    de execução, estruturar o cronograma, articular os métodos aos objetivos. NÃO:
+    definir os participantes, definir a logística operacional.'
+  expected_output: 'JSON object: {"discovery_id": "string", "plan_status": "DEFINED",
+    "execution_plan": [], "phases": [], "timeline": [], "method_mapping": [], "decision_points":
+    [], "workflow_recommendation": "PROCEED_TO_PARTICIPANTS"}'
+  agent: research_planning_strategist
+  context:
+  - prioritize_discovery_scope
+define_participant_strategy:
+  description: 'Definir a estratégia de seleção de participantes para a execução da
+    pesquisa. Responsabilidades: identificar perfis de participantes, definir a lógica
+    de recrutamento, mapear as expectativas da amostra, associar os participantes
+    aos métodos. NÃO: lidar com agendamento, lidar com operações.'
+  expected_output: 'JSON object: {"discovery_id": "string", "participant_strategy_status":
+    "DEFINED", "participant_profiles": [], "sample_strategy": [], "recruitment_criteria":
+    [], "method_participant_mapping": [], "workflow_recommendation": "PROCEED_TO_RESEARCH_OPS"}'
+  agent: participant_strategy_specialist
+  context:
+  - create_research_execution_plan
+define_research_operational_structure:
+  description: 'Definir a prontidão operacional para a execução da pesquisa. Responsabilidades:
+    estrutura de programação, dependências operacionais, prontidão para execução,
+    logística, requisitos de apoio à pesquisa. NÃO: criar scripts, executar a pesquisa.'
+  expected_output: 'JSON object: {"discovery_id": "string", "ops_status": "DEFINED",
+    "operational_requirements": [], "dependencies": [], "scheduling_structure": [],
+    "execution_readiness_checklist": [], "workflow_recommendation": "PROCEED_TO_PROTOCOL"}'
+  agent: research_operations_strategist
+  context:
+  - define_participant_strategy
+create_research_execution_protocols:
+  description: 'Transform approved research structure into executable research protocols.
+    Responsibilities: define scripts, define protocol instructions, define execution
+    guidance, structure evidence capture expectations. This is the final pre-approval
+    research artifact.'
+  expected_output: 'JSON object: {"discovery_id": "string", "protocol_status": "READY_FOR_APPROVAL",
+    "research_protocols": [], "discussion_guides": [], "execution_instructions": [],
+    "evidence_capture_framework": [], "workflow_recommendation": "RESEARCH_APPROVAL_PENDING"}'
+  agent: research_protocol_design_specialist
+  context:
+  - define_research_operational_structure
+execute_desk_research_evidence_collection:
+  description: 'Collect, evaluate, and structure relevant secondary evidence for the
+    current discovery. Consume approved research strategy and discovery context. Responsibilities:
+    collect relevant secondary evidence, identify market signals, benchmark references,
+    collect competitor evidence, identify behavioral references, identify domain insights,
+    structure evidence quality. Evidence sources may include: public web sources,
+    market references, benchmark cases, industry patterns, public product examples.
+    Do NOT: invent evidence, synthesize final insights, define recommendations.'
+  expected_output: |-
+    JSON object: {
+      "discovery_id": "string",
+      "evidence_collection_status": "COMPLETED | PARTIALLY_COMPLETED | BLOCKED",
+      "collected_evidence": [],
+      "market_signals": [],
+      "benchmark_references": [],
+      "competitor_evidence": [],
+      "behavioral_references": [],
+      "domain_insights": [],
+      "evidence_quality_assessment": {},
+      "source_inventory": [],
+      "evidence_gaps": [],
+      "workflow_recommendation": "PROCEED_TO_PRIMARY_RESEARCH | PROCEED_TO_SYNTHESIS | REQUEST_MORE_SOURCES"
+    }
+  agent: desk_research_intelligence_specialist
+  context:
+  - create_research_execution_protocols
+primary_research_execution:
+  description: 'Process uploaded primary research evidence for {discovery_id}. Perform:
+    STEP 1 — Review uploaded assets. Analyze transcripts, usability notes, survey
+    data, observation logs, session summaries. STEP 2 — Assess evidence quality. Evaluate
+    completeness, usability, clarity, research relevance. STEP 3 — Extract observations.
+    Structure behaviors, friction, signals, patterns. STEP 4 — Extract quotes. Preserve
+    relevant evidence with participant context. STEP 5 — Build repository payload.
+    Include blob references and structured data. STEP 6 — Route workflow. If valid
+    evidence: PROCEED_TO_SYNTHESIS, if insufficient: REQUEST_MORE_EVIDENCE, if blocked:
+    BLOCK_DISCOVERY. Rules: preserve blob references, maintain evidence traceability,
+    do not conduct research, do not synthesize insights, only structure evidence.'
+  expected_output: 'Structured PrimaryResearchExecutionOutput object containing: discovery_id,
+    execution_status (PROCESSED|PARTIALLY_PROCESSED|REQUIRES_MORE_EVIDENCE|BLOCKED),
+    execution_summary, processed_research_types, structured_evidence, extracted_observations,
+    extracted_quotes, evidence_quality_assessment, ingestion_warnings, blob_storage_references,
+    repository_payload, workflow_recommendation (PROCEED_TO_SYNTHESIS|REQUEST_MORE_EVIDENCE|BLOCK_DISCOVERY),
+    stage_summary, decision_rationale.'
+  agent: primary_research_evidence_processor
+  context:
+  - execute_desk_research_evidence_collection
+synthesize:
+  description: 'Sintetizar as evidências da descoberta em insights estruturados para
+    {discovery_id}. Executar: PASSO 1 — Analisar o contexto das evidências. Analisar
+    o repositório de evidências, descobertas anteriores, memória do produto, memória
+    da persona e artefatos de apoio. PASSO 2 — Avaliar a suficiência das evidências.
+    Avalie a cobertura das evidências, a qualidade das evidências, a diversidade de
+    fontes, a atualidade e a rastreabilidade. Se forem fracas: retorne INSUFFICIENT_EVIDENCE.
+    PASSO 3 — Gerar insights. Crie insights respaldados por evidências. Cada insight
+    deve incluir uma declaração de insight, base de evidências, nível de confiança,
+    tags e domínios afetados. PASSO 4 — Detectar padrões. Identifique comportamentos
+    recorrentes, atritos repetidos, temas estruturais e aglomerados de sinais. PASSO
+    5 — Detectar contradições. Revele evidências conflitantes, tensões internas e
+    ambiguidades. PASSO 6 — Detectar lacunas nas evidências. Identifique incertezas
+    não respondidas. PASSO 7 — Construir mapa de rastreabilidade. Cada insight deve
+    estar mapeado para fontes de evidência. PASSO 8 — Construir carga útil de atualização
+    de memória. Prepare atualizações estruturadas para a memória do repositório. PASSO
+    9 — Roteamento do fluxo de trabalho. Se bem-sucedido: PROSSEGUIR_PARA_CONTROLE_DE_QUALIDADE_DA_PERCEÇÃO.
+    Se fraco: SOLICITAR_EVIDÊNCIAS_ADICIONAIS. Se bloqueado: BLOQUEAR_A_DESCOBERTA.
+    Regras: nunca invente certezas sobre percepções, nunca proponha soluções, nunca
+    recomende oportunidades, preserve a rastreabilidade das evidências, preserve o
+    comportamento da inteligência cumulativa.'
+  expected_output: 'Structured SynthesisOutput object containing: discovery_id, synthesis_status
+    (COMPLETED|PARTIALLY_COMPLETED|INSUFFICIENT_EVIDENCE|BLOCKED), synthesis_summary,
+    generated_insights, identified_patterns, tensions_and_contradictions, evidence_gaps,
+    confidence_assessment, traceability_map, repository_memory_update_payload, clarification_required,
+    clarification_questions, workflow_recommendation (PROCEED_TO_INSIGHT_QA|REQUEST_ADDITIONAL_EVIDENCE|BLOCK_DISCOVERY),
+    stage_summary, decision_rationale.'
+  agent: discovery_intelligence_synthesis_specialist
+  context:
+  - execute_desk_research_evidence_collection
+  - primary_research_execution
+insight_qa:
+  description: "Revisar os insights sintetizados para garantia de qualidade para \n{discovery_id}\n{synthesis
+    output}\n{evidence inventory}\n{patterns}\n{contradictions}\n{hypothesis states}\n{confidence
+    levels}\n\nExecutar: \nPASSO 1 — Revisar o resultado da síntese. Analisar os insights
+    gerados, os padrões identificados, as contradições, a avaliação de confiança e
+    o mapa de rastreabilidade. \nPASSO 2 — Validar a rastreabilidade. Verificar se
+    cada insight está vinculado a evidências de apoio. Sinalizar alegações sem fundamento,
+    rastreabilidade fraca e ligações de fonte interrompidas. \nPASSO 3 — Validar o
+    realismo da confiança. Detecte confiança exagerada, evidências fracas com alegações
+    fortes, generalização excessiva. \nPASSO 4 — Detecte duplicação. Identifique insights
+    repetidos, padrões redundantes, sobreposição semântica. \nPASSO 5 — Analise o
+    tratamento de contradições. Verifique se as evidências conflitantes permanecem
+    visíveis. \nPASSO 6 — Detecte riscos de viés. Identifique viés de confirmação,
+    viés de partes interessadas internas, dependência excessiva de evidências indiretas,
+    amostragem restrita de evidências. PASSO 7 — Revise a qualidade da síntese. Decida:
+    aprovado, aprovado com advertências, requer revisão, bloqueado. \nPASSO 8 — Crie
+    o conteúdo de controle de qualidade do repositório. Prepare uma atualização estruturada
+    da revisão. \nPASSO 9 — Roteamento do fluxo de trabalho. \nAPROVADO: PROSSEGUIR_PARA_PRONTIDÃO_DA_OPORTUNIDADE.
+    APROVADO_COM_AVISOS: PROSSEGUIR_PARA_PRONTIDÃO_DE_OPORTUNIDADE. REQUER_REVISÃO:
+    SOLICITAR_REVISÃO_DA_SÍNTESE. evidência fraca: SOLICITAR_EVIDÊNCIA_ADICIONAL.
+    falha crítica: BLOQUEAR_DESCOBERTA. Regras: nunca gerar novos insights, nunca
+    reescrever a síntese, nunca recomendar direção do produto, preservar a governança
+    da qualidade.\n"
+  expected_output: 'Structured InsightQualityReviewOutput object containing: discovery_id,
+    review_status (APPROVED|APPROVED_WITH_WARNINGS|REQUIRES_REVIEW|BLOCKED), review_summary,
+    approved_insights, rejected_insights, flagged_insights, quality_findings, evidence_traceability_issues,
+    confidence_issues, duplication_findings, contradiction_findings, bias_risk_findings,
+    repository_review_update_payload, workflow_recommendation (PROCEED_TO_OPPORTUNITY_READINESS|REQUEST_ADDITIONAL_EVIDENCE|REQUEST_SYNTHESIS_REVIEW|BLOCK_DISCOVERY),
+    stage_summary, decision_rationale.'
+  agent: insight_quality_assurance_specialist
+  context:
+  - synthesize
+map_strategic_opportunities:
+  description: 'Transform validated discovery insights into structured strategic opportunities.
+    Consume approved insights. Responsibilities: identify opportunity spaces, cluster
+    related problems, structure opportunity areas, define opportunity hierarchy, connect
+    opportunities to evidence, prioritize strategic opportunity potential. Do NOT:
+    propose solutions, generate prototypes, recommend delivery decisions.'
+  expected_output: "JSON object: {\n  \"discovery_id\": \"string\",\n  \"opportunity_status\":
+    \"COMPLETED\",\n  \"opportunity_areas\": [\n    {\n      \"opportunity_id\": \"string\",\n
+    \     \"title\": \"string\", \n      \"description\": \"string\",\n      \"linked_insights\":
+    [],\n      \"priority\": \"HIGH | MEDIUM | LOW\",\n      \"confidence_score\":
+    0\n    }\n  ],\n  \"opportunity_tree\": [],\n  \"strategic_focus_recommendations\":
+    [],\n  \"workflow_recommendation\": \"OPPORTUNITY_REVIEW_PENDING\"\n}"
+  agent: estrategista_de_oportunidades
+  context:
+  - insight_qa
+generate_solution_hypotheses:
+  description: 'Generate evidence-based solution hypotheses from approved opportunity
+    areas. Consume approved opportunities. Responsibilities: generate solution hypotheses,
+    connect hypotheses to opportunities, define measurable expected outcomes, preserve
+    feasibility awareness, create testable hypotheses. Principles: hypotheses must
+    be testable, hypotheses must be measurable, hypotheses must be strategically relevant,
+    hypotheses must be factible enough for prototype exploration. Do NOT: design UI,
+    define prototype implementation, define validation plan.'
+  expected_output: |-
+    JSON object: {
+      "discovery_id": "string",
+      "solution_status": "COMPLETED",
+      "solution_hypotheses": [
+        {
+          "hypothesis_id": "string",
+          "statement": "string",
+          "linked_opportunity": "string",
+          "expected_user_outcome": "string",
+          "expected_business_outcome": "string",
+          "success_metrics": [],
+          "assumptions": [],
+          "confidence_score": 0
+        }
+      ],
+      "workflow_recommendation": "PROCEED_TO_PROTOTYPE_DEFINITION"
+    }
+  agent: solution_hypothesis_strategist
+  context:
+  - map_strategic_opportunities
+define_prototype_requirements:
+  description: 'Define prototype requirements based on validated solution hypotheses
+    for {discovery_id}. Perform: STEP 1 — Review context. Analyze solution hypotheses,
+    linked opportunities, assumptions, measurement intent, validation goals. STEP
+    2 — Assess readiness. Evaluate hypothesis clarity, prototype necessity, scope
+    realism. If weak: return INSUFFICIENT_CONFIDENCE. STEP 3 — Define prototype objective.
+    Clarify what the prototype must help validate. STEP 4 — Define prototype scope.
+    Determine what must be included. Explicitly exclude unnecessary scope. STEP 5
+    — Define user journeys. Identify key journeys the prototype must represent. STEP
+    6 — Define scenarios. Examples: first use, activation flow, error handling, decision
+    moments. STEP 7 — Define interaction expectations. Clarify: clickable behaviors,
+    navigation expectations, fidelity expectations. STEP 8 — Surface business rules.
+    Examples: eligibility logic, gating rules, operational assumptions. STEP 9 — Design
+    system constraints. Respect organizational standards. STEP 10 — Define prototype
+    success criteria. Examples: usability test readiness, scenario completeness, interaction
+    coherence. STEP 11 — Surface risks. Examples: overscoping, prototype ambiguity,
+    false realism. STEP 12 — Build prototype generation payload. Prepare structured
+    handoff for Prototype Generation Agent. STEP 13 — Workflow routing. strong: PROCEED_TO_PROTOTYPE_GENERATION,
+    weak: REQUEST_HYPOTHESIS_REVIEW, severe: RETURN_TO_OPPORTUNITY_MAPPING. Rules:
+    never generate prototype assets, never design implementation, preserve validation
+    intent, preserve scope discipline.'
+  expected_output: 'Structured PrototypeDefinitionOutput object containing: discovery_id,
+    prototype_definition_status (COMPLETED|PARTIALLY_COMPLETED|INSUFFICIENT_CONFIDENCE|BLOCKED),
+    prototype_definition_summary, prototype_objective, prototype_scope, user_journeys_to_represent,
+    required_scenarios, required_states, interaction_expectations, business_rules,
+    content_requirements, design_system_constraints, prototype_success_criteria, prototype_risks,
+    assumption_map, prototype_generation_payload, workflow_recommendation (PROCEED_TO_PROTOTYPE_GENERATION|REQUEST_HYPOTHESIS_REVIEW|RETURN_TO_OPPORTUNITY_MAPPING|BLOCK_DISCOVERY),
+    stage_summary, decision_rationale.'
+  agent: prototype_definition_strategist
+  context:
+  - generate_solution_hypotheses
+prototype_definition:
+  description: 'Transform prototype definition for {discovery_id} into executable
+    prototype artifacts. Perform: STEP 1 — Review prototype definition. Analyze prototype
+    objective, scope, journeys, scenarios, interaction expectations, business rules,
+    content expectations, design constraints. STEP 2 — Validate clarity. Assess completeness,
+    ambiguity, execution readiness. If insufficient: return REQUIRES_CLARIFICATION.
+    STEP 3 — Normalize execution instructions. Transform strategic inputs into operationally
+    clear instructions. Improve clarity, sequencing, execution framing, prototype
+    intent preservation. STEP 4 — Generate final Figma Make prompt. Build clean executable
+    prompt aligned with Design System, interaction expectations, scenarios, journeys,
+    fidelity expectations. This is the primary output. STEP 5 — Generate UX execution
+    notes. Add guidance for the human executor. Examples: preserve progressive disclosure,
+    prioritize interaction realism, avoid decorative complexity. STEP 6 — Build Design
+    System checklist. Surface recommended component expectations. Examples: buttons,
+    progress indicators, form patterns, feedback states. STEP 7 — Build acceptance
+    criteria. Define simple execution success checklist. Examples: prototype includes
+    required journeys, error states represented, interactions navigable. STEP 8 —
+    Future automation payload. Build architectural placeholder for future execution
+    automation. Not active in MVP. STEP 9 — Workflow routing. valid: PROCEED_TO_VALIDATION_STRATEGY,
+    unclear: REQUEST_PROTOTYPE_REFINEMENT. Rules: never generate UI files, never create
+    production code, never redefine prototype strategy, preserve prototype intent.'
+  expected_output: 'Structured PrototypeGenerationOutput object containing: discovery_id,
+    generation_status (READY|REQUIRES_CLARIFICATION|GENERATED), generation_summary,
+    final_figma_make_prompt (primary executable output), ux_execution_notes (human
+    executor guidance), ds_component_checklist (Design System component recommendations),
+    prototype_acceptance_criteria (execution success checklist), future_automation_payload
+    (architectural placeholder), clarification_required (boolean), clarification_questions
+    (if clarification needed), workflow_recommendation (PROCEED_TO_VALIDATION_STRATEGY|REQUEST_PROTOTYPE_REFINEMENT),
+    stage_summary, decision_rationale.'
+  agent: prototype_build_translator
+  context:
+  - define_prototype_requirements
+define_validation_strategy:
+  description: 'Define the most appropriate validation strategy for the current solution
+    hypothesis and prototype package. Consume: solution hypotheses, prototype package,
+    discovery context. Responsibilities: define the best validation approach, recommend
+    validation methods, evaluate whether experimentation is necessary, align validation
+    rigor with decision risk, define validation objectives. Supported validation strategies:
+    usability testing, concept validation, prototype evaluation, A/B test recommendation,
+    behavioral experiment, stakeholder validation, mixed validation. Decision logic:
+    if experimentation is required: route to experiment design, otherwise: route directly
+    to recommendation. Do NOT: execute experiments, generate recommendations, redefine
+    solutions.'
+  expected_output: |-
+    JSON object: {
+      "discovery_id": "string",
+      "validation_status": "COMPLETED",
+      "recommended_validation_strategy": "USABILITY_TEST | CONCEPT_TEST | AB_TEST | EXPERIMENT | MIXED",
+      "validation_objectives": [],
+      "recommended_methods": [],
+      "validation_rationale": [],
+      "experiment_required": true,
+      "validation_risk_level": "LOW | MEDIUM | HIGH",
+      "workflow_recommendation": "PROCEED_TO_EXPERIMENT_DESIGN | PROCEED_TO_RECOMMENDATION"
+    }
+  agent: validation_strategy_specialist
+  context:
+  - prototype_definition
+design_validation_experiment:
+  description: 'Design executable validation experiments when the validation strategy
+    requires experimentation. Consume validation strategy output. Responsibilities:
+    define experiment structure, define experiment objective, define success metrics,
+    define assumptions to test, define test mechanics, define expected evidence. Supported
+    experiments: MVP experiment, behavioral test, prototype experiment, concept experiment,
+    A/B experiment, decision-risk reduction experiment. Do NOT: execute experiment,
+    generate recommendations, redefine prototype.'
+  expected_output: |-
+    JSON object: {
+      "discovery_id": "string",
+      "experiment_status": "COMPLETED",
+      "experiment_type": "MVP | AB_TEST | CONCEPT_TEST | BEHAVIORAL_TEST | PROTOTYPE_TEST",
+      "experiment_objective": "string",
+      "assumptions_under_test": [],
+      "success_metrics": [],
+      "execution_steps": [],
+      "evidence_expected": [],
+      "workflow_recommendation": "PROCEED_TO_RECOMMENDATION"
+    }
+  agent: experiment_design_specialist
+  context:
+  - define_validation_strategy
+generate_strategic_recommendation:
+  description: 'Generate the final strategic recommendation for the discovery. Consume:
+    validated discovery context, insights, opportunities, solution hypotheses, prototype
+    package, validation strategy, experiment design (if available). Responsibilities:
+    synthesize strategic recommendation, define next best action, assess risks, define
+    confidence level, provide decision guidance. Recommendation types: proceed to
+    delivery, proceed to validation, proceed to further discovery, proceed to experiment,
+    hold decision, strategic pivot. Do NOT: create delivery artifacts.'
+  expected_output: |-
+    JSON object: {
+      "discovery_id": "string",
+      "recommendation_status": "COMPLETED",
+      "recommendation_type": "PROCEED_TO_DELIVERY | PROCEED_TO_VALIDATION | MORE_DISCOVERY_REQUIRED | HOLD | PIVOT",
+      "executive_summary": "string",
+      "decision_rationale": [],
+      "risks": [],
+      "confidence_level": "LOW | MEDIUM | HIGH",
+      "next_steps": [],
+      "workflow_recommendation": "PROCEED_TO_HANDOFF"
+    }
+  agent: strategic_recommendation_specialist
+  context:
+  - design_validation_experiment
+  - define_validation_strategy
+generate_delivery_handoff_package:
+  description: 'Generate the final delivery handoff package for downstream execution.
+    Consume the full discovery workflow outputs. Responsibilities: consolidate discovery
+    artifacts, package executive outputs, structure delivery-ready documentation,
+    prepare implementation handoff, preserve strategic traceability. Artifacts to
+    consolidate: DOR, methodology, research plan, evidence, validated insights, opportunities,
+    solution hypotheses, prototype package, validation strategy, recommendation. Do
+    NOT: redefine strategy, execute delivery.'
+  expected_output: |-
+    JSON object: {
+      "discovery_id": "string",
+      "handoff_status": "COMPLETED",
+      "delivery_package": {
+        "dor": {},
+        "methodology": {},
+        "research_plan": {},
+        "evidence_summary": {},
+        "validated_insights": {},
+        "opportunities": {},
+        "solution_hypotheses": {},
+        "prototype_package": {},
+        "validation_strategy": {},
+        "recommendation": {}
+      },
+      "implementation_notes": [],
+      "traceability_map": [],
+      "workflow_recommendation": "WORKFLOW_COMPLETED"
+    }
+  agent: discovery_handoff_delivery_strategist
+  context:
+  - generate_strategic_recommendation
