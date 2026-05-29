@@ -1729,6 +1729,7 @@ const defaultProductTeam = Object.freeze({
   designer: "",
   pm: "",
   architect: "",
+  arquiteto: "",
   gpm: "",
 });
 
@@ -1777,6 +1778,19 @@ function createProductTeam(productId = "", team = {}) {
 
 function getProductTeam(product = {}) {
   return createProductTeam(product.id, product.productTeam || product.team || {});
+}
+
+function getSafeDiscoveryProductTeam(productOrTeam = {}) {
+  const team = productOrTeam.id
+    ? getProductTeam(productOrTeam)
+    : createProductTeam("", productOrTeam);
+
+  return {
+    pm: String(team.pm || "").trim(),
+    designer: String(team.designer || "").trim(),
+    arquiteto: String(team.arquiteto || team.architect || "").trim(),
+    gpm: String(team.gpm || "").trim(),
+  };
 }
 
 function getProductTeamEntries(product = {}, fields = PRODUCT_TEAM_FIELDS) {
@@ -4249,16 +4263,8 @@ function normalizeMethodologyEvaluationResponse(payload = {}) {
 }
 
 async function evaluateDiscoveryMethodology(discoveryDraft = {}) {
-  if (isLocalMockApiMode()) {
-    await sleep(700);
-    return createDemoMethodologyEvaluationResponse(discoveryDraft);
-  }
-
-  return requestDiscoveryApi(getApiPath("discovery/methodology/evaluate"), {
-    method: "POST",
-    body: { discoveryDraft },
-    action: "Falha ao avaliar metodologia do discovery",
-  });
+  await sleep(700);
+  return createDemoMethodologyEvaluationResponse(discoveryDraft);
 }
 
 function renderMethodologyEvaluationResult(result = currentMethodologyEvaluation) {
@@ -4743,6 +4749,7 @@ function buildDiscoveryRunInput({
   deadline = "",
   methodology = getSelectedMethodologyPackage(),
   files = [],
+  productTeam = defaultProductTeam,
 } = {}) {
   return {
     discovery_id: String(discoveryId || ""),
@@ -4751,7 +4758,7 @@ function buildDiscoveryRunInput({
     problem: String(problem || ""),
     objective: String(objective || ""),
     owners: participants.responsaveis || [],
-    product_team: productTeam,
+    product_team: getSafeDiscoveryProductTeam(productTeam),
     users: participants.personas || [],
     stakeholders: participants.stakeholders || [],
     certainties: csd.certezas || [],
@@ -8445,12 +8452,10 @@ function renderProductAudienceManagementPage(product = {}) {
         <h1 id="product-audience-page-title">Pessoas do produto</h1>
         <p>Cadastre personas e stakeholders do produto. Cada discovery escolhe apenas o subconjunto relacionado ao seu escopo.</p>
       </div>
-      <div class="audience-hero-actions page-header-actions">
-        <a class="btn btn-secondary secondary-action" href="#product/${escapeHTML(product.id)}">Voltar ao produto</a>
-        <a class="btn btn-primary primary-action" href="${getProductAudienceHash("persona-new", product.id)}">Criar persona</a>
-        <a class="btn btn-primary primary-action" href="${getProductAudienceHash("stakeholder-new", product.id)}">Criar stakeholder</a>
-      </div>
-    </header>
+        <div class="audience-hero-actions page-header-actions">
+          <a class="btn btn-secondary secondary-action" href="#product/${escapeHTML(product.id)}">Voltar ao produto</a>
+        </div>
+      </header>
 
     <section class="audience-manager card-surface">
       <div class="audience-toolbar">
@@ -14500,6 +14505,7 @@ function createMvpDiscoveryDraft({
   const peopleSelection = getNewDiscoveryPeopleSelection(product);
   const now = new Date().toISOString();
   const csdMatrix = createCsdMatrixFromLegacyCsd(csd, { updatedAt: now });
+  const productTeam = getProductTeam(product);
 
   draftDiscovery = {
     ...createBlankDraftDiscovery(resolvedDraftId),
@@ -14529,6 +14535,8 @@ function createMvpDiscoveryDraft({
     methodologyId: selectedMethodology.id,
     methods: methods || buildMethodsFromMethodology(selectedMethodology.id),
     participants: newDiscoveryParticipantsDraft,
+    productTeam,
+    team: productTeam,
     personaIds: peopleSelection.personaIds,
     stakeholderIds: peopleSelection.stakeholderIds,
     personasSnapshot: peopleSelection.personasSnapshot,
@@ -14560,23 +14568,19 @@ async function createDiscoveryWithMvpBackend({
   selectedMethodology = getSelectedMethodologyPackage(),
 } = {}) {
   const product = products.find((item) => item.id === selectedProductId) || products[0];
-  const isDemoMode = isLocalMockApiMode();
+  const safeProductTeam = getSafeDiscoveryProductTeam(product);
 
   setNewDiscoveryCreateState(true);
-  setNewDiscoveryStatus(isDemoMode ? DEMO_MODE_MESSAGE : "Criando run no Discovery AI...");
+  setNewDiscoveryStatus(DEMO_MODE_MESSAGE);
   resetCrewKickoffPanel();
   crewKickoffStartedAt = Date.now();
   startCrewKickoffElapsedTimer();
   updateCrewKickoffPanel({
-    summary: isDemoMode
-      ? "Modo demo ativo. O discovery será criado com dados locais e estados simulados."
-      : "Criando run no backend MVP. O discovery abrirá assim que o kickoff responder.",
-    phase: isDemoMode ? "Simulação local" : "Kickoff",
+    summary: "Modo demo ativo. O discovery será criado com dados locais e estados simulados.",
+    phase: "Simulação local",
   });
   addCrewKickoffLog(`Discovery ID gerado: ${draftId}.`);
-  if (isDemoMode) {
-    addCrewKickoffLog(DEMO_MODE_MESSAGE);
-  }
+  addCrewKickoffLog(DEMO_MODE_MESSAGE);
 
   try {
     const kickoffInput = buildDiscoveryRunInput({
@@ -14586,30 +14590,25 @@ async function createDiscoveryWithMvpBackend({
       problem: newDiscoveryProblemDraft,
       objective: newDiscoveryObjectiveDraft,
       participants: newDiscoveryParticipantsDraft,
-      productTeam: getProductTeam(product),
+      productTeam: safeProductTeam,
       csd,
       links: newDiscoverySupportLinksDraft,
       deadline: newDiscoveryDeadlineDraft,
       methodology: selectedMethodology,
       files: newDiscoverySupportFiles,
     });
-    addCrewKickoffLog(isDemoMode ? "Simulando kickoff local." : "Enviando POST /api/discovery/kickoff.");
-    const kickoffPayload = await kickoffDiscoveryRun(kickoffInput);
+    addCrewKickoffLog("Registrando kickoff local simulado.");
+    const kickoffPayload = await kickoffLocalMockDiscoveryRun(kickoffInput);
     const responseIdentifiers = extractDiscoveryRunIdentifiers(kickoffPayload);
-    if (!responseIdentifiers.runId && !responseIdentifiers.discoveryId) {
-      throw new Error("O Discovery AI backend não retornou run_id ou discovery_id.");
-    }
 
     const resolvedDraftId = responseIdentifiers.discoveryId || draftId;
     updateCrewKickoffPanel({
-      summary: isDemoMode
-        ? "Discovery demo criado. Os próximos estados serão simulados localmente."
-        : "Run criada. Abrindo discovery e acompanhando status em segundo plano.",
-      phase: isDemoMode ? "Demo criada" : "Run criada",
+      summary: "Discovery demo criado. Os próximos estados serão simulados localmente.",
+      phase: "Demo criada",
       kickoffId: responseIdentifiers.runId || resolvedDraftId,
       state: "success",
     });
-    addCrewKickoffLog(`Run criada: ${responseIdentifiers.runId || "sem run_id retornado"}.`, "success");
+    addCrewKickoffLog(`Run local criada: ${responseIdentifiers.runId || "sem run_id retornado"}.`, "success");
     stopCrewKickoffElapsedTimer();
     createMvpDiscoveryDraft({
       draftId: resolvedDraftId,
@@ -14623,19 +14622,34 @@ async function createDiscoveryWithMvpBackend({
       methods: buildMethodsFromMethodology(selectedMethodology.id),
     });
   } catch (error) {
-    const friendlyError = getFriendlyUiErrorMessage(error, "Não foi possível criar a run no Discovery AI.");
-    setNewDiscoveryCreateState(false);
+    console.warn("Kickoff local simulado falhou; criando discovery sem bloquear o fluxo.", error);
     stopCrewKickoffElapsedTimer();
+    const fallbackPayload = {
+      run_id: "",
+      discovery_id: draftId,
+      current_state: WORKFLOW_STATES.DISCOVERY_CREATED,
+      status: RUN_STATUSES.IDLE,
+      simulated: true,
+      kickoff_error: error?.message || String(error || ""),
+      created_at: new Date().toISOString(),
+    };
     updateCrewKickoffPanel({
-      summary: friendlyError,
-      phase: "Falha",
-      state: "error",
+      summary: "Kickoff local não foi registrado, mas o discovery será criado normalmente em modo demo.",
+      phase: "Demo local",
+      state: "success",
     });
-    addCrewKickoffLog(friendlyError, "error");
-    if (error.payload) {
-      addCrewKickoffLog(`Resposta da API: ${formatApiPayloadDetails(error.payload)}`, "error");
-    }
-    setNewDiscoveryStatus(friendlyError, "error");
+    addCrewKickoffLog(`Kickoff local ignorado: ${fallbackPayload.kickoff_error}`, "warning");
+    createMvpDiscoveryDraft({
+      draftId,
+      runId: "",
+      kickoffPayload: fallbackPayload,
+      title: newDiscoveryTitleDraft,
+      problem: newDiscoveryProblemDraft,
+      objective: newDiscoveryObjectiveDraft,
+      csd,
+      methodology: selectedMethodology,
+      methods: buildMethodsFromMethodology(selectedMethodology.id),
+    });
   }
 }
 
@@ -14824,89 +14838,12 @@ newDiscoveryMethodologyForm.addEventListener("submit", async (event) => {
   const draftTitle = getNewDiscoveryDraftTitle(newDiscoveryTitleDraft, newDiscoveryObjectiveDraft);
   const draftId = createNewDiscoveryDraftId(draftTitle);
 
-  if (DISCOVERY_FRONTEND_API_MODE !== DISCOVERY_FRONTEND_API_MODES.LEGACY_CREWAI) {
-    await createDiscoveryWithMvpBackend({
-      draftId,
-      draftTitle,
-      csd,
-      selectedMethodology,
-    });
-    return;
-  }
-
-  setNewDiscoveryCreateState(true);
-  setNewDiscoveryStatus("Enviando discovery para CrewAI...");
-  resetCrewKickoffPanel();
-  crewKickoffStartedAt = Date.now();
-  startCrewKickoffElapsedTimer();
-  updateCrewKickoffPanel({
-    summary: "Preparando payload e configuração segura do proxy.",
-    phase: "Preparando",
+  await createDiscoveryWithMvpBackend({
+    draftId,
+    draftTitle,
+    csd,
+    selectedMethodology,
   });
-  addCrewKickoffLog(`Discovery ID gerado: ${draftId}.`);
-
-  try {
-    addCrewKickoffLog("Carregando configuração de polling.");
-    updateCrewKickoffPanel({
-      summary: "Buscando /api/config por até 2s. Se não responder, o kickoff seguirá com valores padrão.",
-      phase: "Configuração",
-    });
-    const configLoaded = await loadCrewAiClientConfig();
-    addCrewKickoffLog(configLoaded ? "Configuração de polling carregada." : "Configuração não respondeu; usando valores padrão.");
-    updateCrewKickoffPanel({
-      summary: `Polling configurado a cada ${Math.round(crewAiPollIntervalMs / 1000)}s por até ${Math.round(crewAiPollTimeoutMs / 60000)}min.`,
-      phase: "Configuração",
-    });
-    addCrewKickoffLog("Enviando POST /kickoff para CrewAI via proxy local.");
-    const kickoffPayload = await kickoffCrewAiDiscovery({
-      discoveryId: draftId,
-      title: draftTitle,
-      problem: newDiscoveryProblemDraft,
-      objective: newDiscoveryObjectiveDraft,
-      participants: newDiscoveryParticipantsDraft,
-      csd,
-      links: newDiscoverySupportLinksDraft,
-      deadline: newDiscoveryDeadlineDraft,
-      methodology: selectedMethodology,
-    });
-    updateCrewKickoffPanel({
-      summary: "Kickoff criado. Iniciando acompanhamento de status.",
-      phase: "Kickoff recebido",
-      kickoffId: kickoffPayload.kickoff_id,
-    });
-    addCrewKickoffLog(`kickoff_id recebido: ${kickoffPayload.kickoff_id}.`, "success");
-    setNewDiscoveryStatus(`Processamento iniciado. Kickoff: ${kickoffPayload.kickoff_id}`);
-    const statusPayload = await pollCrewAiStatus(kickoffPayload.kickoff_id);
-    createNewDiscoveryDraft({
-      draftId,
-      title: newDiscoveryTitleDraft,
-      problem: newDiscoveryProblemDraft,
-      objective: newDiscoveryObjectiveDraft,
-      csd,
-      methodology: selectedMethodology,
-      methods: buildMethodsFromMethodology(selectedMethodology.id),
-      crewAi: {
-        discoveryId: draftId,
-        kickoffId: kickoffPayload.kickoff_id,
-        kickoffPayload,
-        statusPayload,
-        result: getCrewAiResult(statusPayload),
-      },
-    });
-  } catch (error) {
-    setNewDiscoveryCreateState(false);
-    stopCrewKickoffElapsedTimer();
-    updateCrewKickoffPanel({
-      summary: error.message || "Não foi possível criar o discovery via CrewAI.",
-      phase: "Falha",
-      state: "error",
-    });
-    addCrewKickoffLog(error.message || "Não foi possível criar o discovery via CrewAI.", "error");
-    if (error.payload) {
-      addCrewKickoffLog(`Resposta da API: ${formatCrewAiPayloadForLog(error.payload)}`, "error");
-    }
-    setNewDiscoveryStatus(error.message || "Não foi possível criar o discovery via CrewAI.", "error");
-  }
 });
 
 newDiscoveryCsdForm.addEventListener("click", (event) => {
