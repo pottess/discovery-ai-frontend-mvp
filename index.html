@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Discovery IA</title>
+    <title>Discovery AI</title>
     <link rel="stylesheet" href="./styles.css" />
     <script defer src="./config.vercel.js"></script>
     <script defer src="./app.js"></script>
@@ -25,7 +25,7 @@
             />
             <span class="app-brand-fallback" hidden>D</span>
           </a>
-          <a class="brand-name" href="#home" data-route-link="home">Discovery IA</a>
+          <a class="brand-name" href="#home" data-route-link="home">Discovery AI</a>
         </div>
         <span class="api-mode-badge" data-api-mode-badge></span>
 
@@ -36,6 +36,20 @@
             </svg>
             Voltar para todos os produtos
           </a>
+          <button class="language-button" type="button" aria-label="Selecionar idioma">
+            <svg aria-hidden="true" viewBox="0 0 24 24">
+              <path d="m5 8 6 6" />
+              <path d="m4 14 6-6 2-3" />
+              <path d="M2 5h12" />
+              <path d="M7 2h1" />
+              <path d="m22 22-5-10-5 10" />
+              <path d="M14 18h6" />
+            </svg>
+            Idioma
+            <svg aria-hidden="true" viewBox="0 0 24 24">
+              <path d="m6 9 6 6 6-6" />
+            </svg>
+          </button>
           <button class="icon-button notification-button" type="button" aria-label="Notificações">
             <svg aria-hidden="true" viewBox="0 0 24 24">
               <path d="M6 8a6 6 0 0 1 12 0c0 7 3 7 3 9H3c0-2 3-2 3-9" />
@@ -44,10 +58,7 @@
             <span class="notification-dot" aria-hidden="true"></span>
           </button>
           <button class="avatar-button" type="button" aria-label="Perfil">
-            <svg aria-hidden="true" viewBox="0 0 24 24">
-              <path d="M18 20a6 6 0 0 0-12 0" />
-              <circle cx="12" cy="10" r="4" />
-            </svg>
+            <span aria-hidden="true">A</span>
           </button>
         </div>
       </header>
@@ -80,135 +91,20 @@
         <section class="recent-section" aria-labelledby="recent-title">
           <div class="section-heading">
             <h2 id="recent-title">Discoveries recentes</h2>
-            <div class="filter-group" role="group" aria-label="Filtrar discoveries">
-              <button class="active" type="button" data-filter="all">Todos</button>
-              <button type="button" data-filter="progress">Em andamento</button>
-              <button type="button" data-filter="done">Finalizados</button>
+            <div class="repository-toolbar" aria-label="Busca do repositório">
+              <label class="search-box repository-search">
+                <span class="visually-hidden">Buscar no repositório</span>
+                <svg aria-hidden="true" viewBox="0 0 24 24">
+                  <circle cx="11" cy="11" r="8" />
+                  <path d="m21 21-4.3-4.3" />
+                </svg>
+                <input type="search" placeholder="Buscar discovery, produto ou artefato..." data-repository-search />
+              </label>
             </div>
           </div>
 
-          <div class="discovery-grid" data-discovery-grid>
-            <article class="discovery-card" data-status="progress" data-title="Dashboard operacional" data-product="Cora Preços">
-              <div class="card-topline">
-                <button class="star-button active" type="button" aria-label="Favoritar Dashboard operacional">
-                  <svg aria-hidden="true" viewBox="0 0 24 24">
-                    <polygon points="12 2 15.1 8.3 22 9.3 17 14.2 18.2 21 12 17.8 5.8 21 7 14.2 2 9.3 8.9 8.3 12 2" />
-                  </svg>
-                </button>
-                <span class="status-pill blue">
-                  <svg aria-hidden="true" viewBox="0 0 24 24">
-                    <circle cx="12" cy="12" r="10" />
-                    <path d="M12 8v5" />
-                    <path d="M12 16h.01" />
-                  </svg>
-                  1/3 concluídos
-                </span>
-              </div>
-              <h3>Dashboard operacional</h3>
-              <p>Métricas em tempo real para acompanhar desvios de preço e demanda.</p>
-              <button class="text-action" type="button">Continuar <span aria-hidden="true">›</span></button>
-            </article>
-
-            <article class="discovery-card" data-status="progress" data-title="Cora Transportes" data-product="Logística">
-              <div class="card-topline">
-                <button class="star-button active" type="button" aria-label="Favoritar Cora Transportes">
-                  <svg aria-hidden="true" viewBox="0 0 24 24">
-                    <polygon points="12 2 15.1 8.3 22 9.3 17 14.2 18.2 21 12 17.8 5.8 21 7 14.2 2 9.3 8.9 8.3 12 2" />
-                  </svg>
-                </button>
-                <span class="status-pill blue">
-                  <svg aria-hidden="true" viewBox="0 0 24 24">
-                    <circle cx="12" cy="12" r="10" />
-                    <path d="M12 8v5" />
-                    <path d="M12 16h.01" />
-                  </svg>
-                  2/3 concluídos
-                </span>
-              </div>
-              <h3>Cora Transportes</h3>
-              <p>Mapeamento de gargalos em rotas, SLA e comunicação operacional.</p>
-              <button class="text-action" type="button">Continuar <span aria-hidden="true">›</span></button>
-            </article>
-
-            <article class="discovery-card" data-status="done" data-title="Conciliação de pagamentos" data-product="Pagamentos">
-              <div class="card-topline">
-                <button class="star-button active" type="button" aria-label="Favoritar Conciliação de pagamentos">
-                  <svg aria-hidden="true" viewBox="0 0 24 24">
-                    <polygon points="12 2 15.1 8.3 22 9.3 17 14.2 18.2 21 12 17.8 5.8 21 7 14.2 2 9.3 8.9 8.3 12 2" />
-                  </svg>
-                </button>
-                <span class="status-pill green">
-                  <svg aria-hidden="true" viewBox="0 0 24 24">
-                    <path d="M20 6 9 17l-5-5" />
-                  </svg>
-                  3/3 concluídos
-                </span>
-              </div>
-              <h3>Conciliação de pagamentos</h3>
-              <p>Validação de hipóteses para reduzir retrabalho no fechamento.</p>
-              <button class="text-action" type="button">Ver detalhes <span aria-hidden="true">›</span></button>
-            </article>
-
-            <article class="discovery-card" data-status="progress" data-title="Alertas inteligentes" data-product="Operações">
-              <div class="card-topline">
-                <button class="star-button active" type="button" aria-label="Favoritar Alertas inteligentes">
-                  <svg aria-hidden="true" viewBox="0 0 24 24">
-                    <polygon points="12 2 15.1 8.3 22 9.3 17 14.2 18.2 21 12 17.8 5.8 21 7 14.2 2 9.3 8.9 8.3 12 2" />
-                  </svg>
-                </button>
-                <span class="status-pill blue">
-                  <svg aria-hidden="true" viewBox="0 0 24 24">
-                    <circle cx="12" cy="12" r="10" />
-                    <path d="M12 8v5" />
-                    <path d="M12 16h.01" />
-                  </svg>
-                  1/3 concluídos
-                </span>
-              </div>
-              <h3>Alertas inteligentes</h3>
-              <p>Priorização de alertas para analistas com base em impacto e urgência.</p>
-              <button class="text-action" type="button">Continuar <span aria-hidden="true">›</span></button>
-            </article>
-
-            <article class="discovery-card" data-status="progress" data-title="Onboarding de produto" data-product="Growth">
-              <div class="card-topline">
-                <button class="star-button" type="button" aria-label="Favoritar Onboarding de produto">
-                  <svg aria-hidden="true" viewBox="0 0 24 24">
-                    <polygon points="12 2 15.1 8.3 22 9.3 17 14.2 18.2 21 12 17.8 5.8 21 7 14.2 2 9.3 8.9 8.3 12 2" />
-                  </svg>
-                </button>
-                <span class="status-pill amber">
-                  <svg aria-hidden="true" viewBox="0 0 24 24">
-                    <path d="M12 6v6l4 2" />
-                    <circle cx="12" cy="12" r="10" />
-                  </svg>
-                  0/3 concluídos
-                </span>
-              </div>
-              <h3>Onboarding de produto</h3>
-              <p>Entrevistas iniciais sobre ativação, primeira tarefa e fricções.</p>
-              <button class="text-action" type="button">Continuar <span aria-hidden="true">›</span></button>
-            </article>
-
-            <article class="discovery-card" data-status="done" data-title="Relatório de repasses" data-product="Financeiro">
-              <div class="card-topline">
-                <button class="star-button active" type="button" aria-label="Favoritar Relatório de repasses">
-                  <svg aria-hidden="true" viewBox="0 0 24 24">
-                    <polygon points="12 2 15.1 8.3 22 9.3 17 14.2 18.2 21 12 17.8 5.8 21 7 14.2 2 9.3 8.9 8.3 12 2" />
-                  </svg>
-                </button>
-                <span class="status-pill green">
-                  <svg aria-hidden="true" viewBox="0 0 24 24">
-                    <path d="M20 6 9 17l-5-5" />
-                  </svg>
-                  3/3 concluídos
-                </span>
-              </div>
-              <h3>Relatório de repasses</h3>
-              <p>Síntese de necessidades para rastrear divergências de repasse.</p>
-              <button class="text-action" type="button">Ver detalhes <span aria-hidden="true">›</span></button>
-            </article>
-          </div>
+          <div class="discovery-grid" data-discovery-grid></div>
+          <p class="repository-empty" data-repository-empty hidden>Nenhum discovery encontrado para os filtros selecionados.</p>
         </section>
         </div>
 
@@ -316,44 +212,44 @@
               <div class="product-hero-copy">
                 <h1 id="product-page-title" data-product-page-title>Product name 1</h1>
                 <span class="product-category-pill" data-product-page-category>Cora Transportes</span>
-                <p data-product-page-about>Teste A/B de elementos de gamificação para aumentar engajamento com promoções.</p>
-                <span class="product-status-pill" data-product-page-status>Monitorado</span>
-                <dl class="product-hero-meta" aria-label="Metadados do produto">
-                  <div>
-                    <dt>Squad</dt>
-                    <dd data-product-squad>Growth Squad</dd>
-                  </div>
-                  <div>
-                    <dt>Participantes</dt>
-                    <dd data-product-participants>Bruno Lima, Camila Rocha</dd>
-                  </div>
-                  <div>
-                    <dt>Período</dt>
-                    <dd><span data-product-start>25/04/2026</span> - <span data-product-end>20/05/2026</span></dd>
-                  </div>
-                </dl>
+
+                <div class="product-about-block">
+                  <h2>Sobre</h2>
+                  <p data-product-page-about>Teste A/B de elementos de gamificação para aumentar engajamento com promoções.</p>
+                </div>
+
+                <section class="product-team-inline" aria-labelledby="product-team-title">
+                  <h2 id="product-team-title">
+                    <svg aria-hidden="true" viewBox="0 0 24 24">
+                      <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+                      <circle cx="9" cy="7" r="4" />
+                      <path d="M22 21v-2a4 4 0 0 0-3-3.87" />
+                      <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+                    </svg>
+                    <span>Membros do time</span>
+                    <button class="product-team-edit-icon" type="button" aria-label="Editar membros do time" data-product-manage-people>
+                      <svg aria-hidden="true" viewBox="0 0 24 24">
+                        <path d="M12 20h9" />
+                        <path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z" />
+                      </svg>
+                    </button>
+                  </h2>
+                  <div class="product-team-grid" data-product-team-grid></div>
+                </section>
               </div>
 
               <div class="product-hero-actions page-header-actions">
                 <button class="btn btn-primary primary-action new-discovery-product-button" type="button" data-product-new-discovery>
-                  <svg aria-hidden="true" viewBox="0 0 24 24">
-                    <circle cx="12" cy="12" r="10" />
-                    <path d="M8 12h8" />
-                    <path d="M12 8v8" />
-                  </svg>
+                  <span aria-hidden="true">+</span>
                   Novo discovery
                 </button>
-                <a class="btn btn-secondary outline-action" href="#product/cora-precos/audience" data-product-audience-manage-link>Gerenciar pessoas do produto</a>
               </div>
             </section>
-
-            <section class="product-kpi-grid" data-product-kpi-grid aria-label="Resumo do produto"></section>
 
             <section class="product-discoveries card-surface" aria-labelledby="product-discoveries-title">
               <div class="product-section-header">
                 <div>
-                  <span>Prioridade</span>
-                  <h2 id="product-discoveries-title">Discoveries ativos</h2>
+                  <h2 id="product-discoveries-title">Discoveries</h2>
                 </div>
                 <label class="search-box compact">
                   <span class="visually-hidden">Buscar discovery</span>
@@ -370,6 +266,17 @@
                 <strong>Nenhum discovery encontrado</strong>
                 <span>Revise a busca ou abra outro produto.</span>
               </div>
+            </section>
+
+            <section class="product-artifacts-card card-surface" aria-labelledby="product-artifacts-title">
+              <h2 id="product-artifacts-title">Artefatos</h2>
+              <div class="product-artifact-list" data-product-artifacts></div>
+              <button class="product-add-artifact" type="button" data-product-add-artifact>
+                <svg aria-hidden="true" viewBox="0 0 24 24">
+                  <path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48" />
+                </svg>
+                + Adicionar arquivo
+              </button>
             </section>
           </section>
         </div>
@@ -404,15 +311,19 @@
                           <span></span>
                           Em Execução
                         </span>
+                        <span class="discovery-id" data-discovery-header-id>ID-20251108-007</span>
+                        <span class="discovery-deadline-tag info" data-discovery-deadline-tag>01/07/2026</span>
                       </div>
                     </div>
                     <div class="discovery-header-side">
+                      <button class="btn btn-primary synthesis-open-button" type="button" data-discovery-synthesis-button disabled>
+                        Ver síntese
+                      </button>
                       <button class="star-button discovery-detail-favorite" type="button" aria-label="Favoritar discovery" aria-pressed="false" data-discovery-detail-favorite>
                         <svg aria-hidden="true" viewBox="0 0 24 24">
                           <polygon points="12 2 15.1 8.3 22 9.3 17 14.2 18.2 21 12 17.8 5.8 21 7 14.2 2 9.3 8.9 8.3 12 2" />
                         </svg>
                       </button>
-                      <span class="discovery-id" data-discovery-header-id>ID-20251108-007</span>
                     </div>
                   </div>
 
@@ -463,15 +374,19 @@
                     <dl>
                       <div>
                         <dt>Sensibilidade</dt>
-                        <dd>interno</dd>
+                        <dd>Confidencial</dd>
                       </div>
                       <div>
                         <dt>Retenção</dt>
-                        <dd>365 dias</dd>
+                        <dd>60 meses</dd>
                       </div>
                       <div>
                         <dt>Consentimento</dt>
-                        <dd>× Pendente</dd>
+                        <dd class="governance-approved">✓ Coletado</dd>
+                      </div>
+                      <div>
+                        <dt>Aprovação Jurídico</dt>
+                        <dd class="governance-approved">✓ Aprovado</dd>
                       </div>
                     </dl>
                   </section>
@@ -819,6 +734,31 @@
         </section>
       </div>
 
+      <div class="modal-backdrop product-team-edit-backdrop" data-product-team-edit-modal hidden>
+        <section class="product-team-edit-drawer" role="dialog" aria-modal="true" aria-labelledby="product-team-edit-title">
+          <header class="product-team-edit-header">
+            <div>
+              <h2 id="product-team-edit-title">Membros do time</h2>
+              <p>Cadastre os responsáveis do produto, esses campos são carregados no fluxo de um novo discovery.</p>
+            </div>
+            <button class="modal-close" type="button" aria-label="Fechar" data-product-team-edit-close>
+              <svg aria-hidden="true" viewBox="0 0 24 24">
+                <path d="M18 6 6 18" />
+                <path d="m6 6 12 12" />
+              </svg>
+            </button>
+          </header>
+          <form class="product-team-edit-form" data-product-team-edit-form>
+            <div class="product-team-edit-grid" data-product-team-edit-fields></div>
+            <footer class="product-team-edit-actions modal-actions">
+              <p class="product-team-form-feedback" data-product-team-edit-feedback hidden>Preencha todos os campos para salvar.</p>
+              <button class="btn btn-secondary secondary-action" type="button" data-product-team-edit-cancel>Cancelar</button>
+              <button class="btn btn-primary primary-action" type="submit">Salvar</button>
+            </footer>
+          </form>
+        </section>
+      </div>
+
       <div class="modal-backdrop discovery-people-backdrop" data-discovery-people-preview-modal hidden>
         <section class="discovery-people-modal card-surface" role="dialog" aria-modal="true" aria-labelledby="discovery-people-preview-title">
           <header class="discovery-people-modal-header">
@@ -894,7 +834,6 @@
         <form class="method-entry-drawer" data-method-entry-form role="dialog" aria-modal="true" aria-labelledby="method-entry-title">
           <header class="method-entry-header">
             <div>
-              <span>Metodologia</span>
               <h2 id="method-entry-title" data-method-entry-title>Metodologia</h2>
               <p>Registre as informações coletadas e materiais de apoio desta etapa.</p>
             </div>
@@ -906,30 +845,71 @@
             </button>
           </header>
 
-          <label class="method-entry-field">
-            <span>Informações</span>
-            <textarea rows="7" placeholder="Insira observações, aprendizados, plano de execução ou síntese desta metodologia..." data-method-entry-text></textarea>
-          </label>
-
-          <div class="method-entry-field">
-            <span>Arquivos</span>
-            <input
-              class="visually-hidden"
-              type="file"
-              multiple
-              accept="image/*,.pdf,.txt,.csv,.xls,.xlsx,.doc,.docx,application/pdf,text/plain,text/csv,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-              data-method-entry-file
-            />
-            <button class="support-file-button" type="button" data-method-entry-file-button>
-              <strong>Select file</strong>
-              <span data-method-entry-file-label>Nenhum arquivo selecionado</span>
+          <nav class="method-entry-tabs" aria-label="Gestão de evidências">
+            <button class="method-entry-tab is-active" type="button" data-method-entry-tab="upload" aria-selected="true">
+              <svg aria-hidden="true" viewBox="0 0 24 24">
+                <path d="M12 16V4" />
+                <path d="m7 9 5-5 5 5" />
+                <path d="M20 16.5V18a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-1.5" />
+              </svg>
+              Upload
             </button>
-            <div class="method-entry-file-list" data-method-entry-file-list hidden></div>
+            <button class="method-entry-tab" type="button" data-method-entry-tab="evidences" aria-selected="false">
+              <svg aria-hidden="true" viewBox="0 0 24 24">
+                <path d="M8 6h8" />
+                <path d="M8 10h8" />
+                <path d="M8 14h5" />
+                <path d="M5 3h14v18H5z" />
+              </svg>
+              Evidências
+            </button>
+          </nav>
+
+          <div class="method-entry-content">
+            <section class="method-entry-panel is-active" data-method-entry-panel="upload" aria-label="Upload de evidências">
+              <div class="method-entry-field">
+                <span>Arquivos</span>
+                <input
+                  class="visually-hidden"
+                  type="file"
+                  multiple
+                  accept=".pdf,.docx,.xlsx,.csv,.txt,.md,.markdown,application/pdf,text/plain,text/csv,text/markdown,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                  data-method-entry-file
+                />
+                <button class="method-entry-upload-dropzone" type="button" data-method-entry-file-button>
+                  <svg aria-hidden="true" viewBox="0 0 24 24">
+                    <path d="M12 16V4" />
+                    <path d="m7 9 5-5 5 5" />
+                    <path d="M20 16.5V18a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-1.5" />
+                  </svg>
+                  <strong>Clique para selecionar</strong>
+                  <span>Qualquer tipo de arquivo permitido</span>
+                </button>
+                <div class="method-entry-file-list" data-method-entry-file-list hidden></div>
+              </div>
+
+              <div class="method-entry-field">
+                <span>Link externo</span>
+                <div class="method-entry-link-list" data-method-entry-link-list>
+                  <input type="url" placeholder="Cole o link aqui" data-method-entry-link-input />
+                </div>
+                <button class="method-entry-add-link" type="button" data-method-entry-add-link>+ Adicionar outro link</button>
+              </div>
+            </section>
+
+            <section class="method-entry-panel" data-method-entry-panel="evidences" aria-label="Evidências adicionadas">
+              <div class="method-entry-evidence-list" data-method-entry-evidence-list></div>
+            </section>
+
+            <label class="visually-hidden">
+              Informações
+              <textarea rows="7" data-method-entry-text></textarea>
+            </label>
           </div>
 
           <footer class="method-entry-actions modal-actions">
             <button type="button" class="btn btn-secondary secondary-action" data-method-entry-cancel>Cancelar</button>
-            <button type="submit" class="btn btn-primary primary-action">Salvar</button>
+            <button type="submit" class="btn btn-primary primary-action" data-method-entry-save>Salvar</button>
           </footer>
         </form>
       </div>
@@ -986,8 +966,8 @@
               <section class="setup-card participants-card card-surface">
                 <div class="setup-heading">
                   <span>Etapa 2</span>
-                  <h3>Participantes de pesquisa</h3>
-                  <p>Responsáveis e perfis que podem participar da etapa de pesquisa.</p>
+                  <h3>Participantes</h3>
+                  <p>Pessoas responsáveis e envolvidas no discovery.</p>
                 </div>
 
                 <div class="participant-field custom-select">
@@ -998,9 +978,11 @@
                   </button>
                 </div>
 
+                <div class="new-discovery-product-team" data-new-discovery-product-team aria-label="Responsáveis cadastrados no produto"></div>
+
                 <div class="participant-grid">
                   <div class="participant-field custom-select">
-                    <span>Perfis de pesquisa</span>
+                    <span>Persona</span>
                     <button class="select-simulated custom-select-trigger active" type="button" data-flow-select="personas">
                       <span data-flow-select-label="personas">1 selected</span>
                       <span aria-hidden="true">⌄</span>
@@ -1008,7 +990,7 @@
                   </div>
 
                   <div class="participant-field custom-select">
-                    <span>Stakeholders para pesquisa</span>
+                    <span>Stakeholders</span>
                     <button class="select-simulated custom-select-trigger" type="button" data-flow-select="stakeholders">
                       <span data-flow-select-label="stakeholders">Selecione os stakeholders</span>
                       <span aria-hidden="true">⌄</span>
@@ -1017,32 +999,37 @@
                 </div>
               </section>
 
-              <section class="setup-card participants-card related-people-card card-surface">
-                <div class="setup-heading">
-                  <span>Produto</span>
-                  <h3>Pessoas relacionadas ao discovery</h3>
-                  <p>Selecione as personas impactadas e os stakeholders envolvidos neste discovery.</p>
-                </div>
-
-                <div class="related-people-selection" data-new-discovery-product-people></div>
-              </section>
-
               <section class="setup-card participants-card card-surface">
                 <div class="setup-heading">
                   <h3>Informações complementares</h3>
-                  <p>Todos os campos desta seção são opcionais.</p>
+                  <p>Insira informações adicionais para o discovery</p>
                 </div>
 
                 <label>
                   <span>Prazo (opcional)</span>
-                  <input type="text" placeholder="DD/MM/YYYY" data-new-discovery-deadline />
+                  <span class="flow-date-input">
+                    <svg aria-hidden="true" viewBox="0 0 24 24">
+                      <path d="M8 2v4" />
+                      <path d="M16 2v4" />
+                      <rect x="3" y="4" width="18" height="18" rx="2" />
+                      <path d="M3 10h18" />
+                    </svg>
+                    <input type="text" placeholder="DD/MM/YYYY" data-new-discovery-deadline />
+                  </span>
                 </label>
 
                 <label>
                   <span>Evidências e materiais de apoio (opcional)</span>
                   <input class="visually-hidden" type="file" multiple data-new-discovery-support-file />
                   <button class="support-file-button" type="button" data-new-discovery-support-file-button>
-                    <strong>Select file</strong>
+                    <strong>
+                      <svg aria-hidden="true" viewBox="0 0 24 24">
+                        <path d="M12 16V4" />
+                        <path d="m8 8 4-4 4 4" />
+                        <path d="M20 16.5A4.5 4.5 0 0 1 15.5 21h-7A4.5 4.5 0 0 1 4 16.5" />
+                      </svg>
+                      Select file
+                    </strong>
                     <span data-new-discovery-support-file-label>Selecione seu arquivo</span>
                   </button>
                 </label>
@@ -1083,9 +1070,9 @@
                   Certezas
                 </h3>
                 <div class="csd-list" data-csd-list="certezas">
-                  <div class="csd-row"><input type="text" placeholder="Placeholder" /><button type="button" data-csd-remove aria-label="Remover certeza">⌫</button></div>
-                  <div class="csd-row"><input type="text" placeholder="Placeholder" /><button type="button" data-csd-remove aria-label="Remover certeza">⌫</button></div>
-                  <div class="csd-row"><input type="text" placeholder="Placeholder" /><button type="button" data-csd-remove aria-label="Remover certeza">⌫</button></div>
+                  <div class="csd-row"><input type="text" placeholder="Placeholder" /><button type="button" data-csd-remove aria-label="Remover certeza"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M3 6h18" /><path d="M8 6V4h8v2" /><path d="M19 6l-1 14H6L5 6" /><path d="M10 11v6" /><path d="M14 11v6" /></svg></button></div>
+                  <div class="csd-row"><input type="text" placeholder="Placeholder" /><button type="button" data-csd-remove aria-label="Remover certeza"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M3 6h18" /><path d="M8 6V4h8v2" /><path d="M19 6l-1 14H6L5 6" /><path d="M10 11v6" /><path d="M14 11v6" /></svg></button></div>
+                  <div class="csd-row"><input type="text" placeholder="Placeholder" /><button type="button" data-csd-remove aria-label="Remover certeza"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M3 6h18" /><path d="M8 6V4h8v2" /><path d="M19 6l-1 14H6L5 6" /><path d="M10 11v6" /><path d="M14 11v6" /></svg></button></div>
                 </div>
                 <button class="add-inline-button" type="button" data-csd-add="certezas">
                   <span aria-hidden="true">⊕</span>
@@ -1103,9 +1090,9 @@
                   Suposições
                 </h3>
                 <div class="csd-list" data-csd-list="suposicoes">
-                  <div class="csd-row"><input type="text" placeholder="Placeholder" /><button type="button" data-csd-remove aria-label="Remover suposição">⌫</button></div>
-                  <div class="csd-row"><input type="text" placeholder="Placeholder" /><button type="button" data-csd-remove aria-label="Remover suposição">⌫</button></div>
-                  <div class="csd-row"><input type="text" placeholder="Placeholder" /><button type="button" data-csd-remove aria-label="Remover suposição">⌫</button></div>
+                  <div class="csd-row"><input type="text" placeholder="Placeholder" /><button type="button" data-csd-remove aria-label="Remover suposição"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M3 6h18" /><path d="M8 6V4h8v2" /><path d="M19 6l-1 14H6L5 6" /><path d="M10 11v6" /><path d="M14 11v6" /></svg></button></div>
+                  <div class="csd-row"><input type="text" placeholder="Placeholder" /><button type="button" data-csd-remove aria-label="Remover suposição"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M3 6h18" /><path d="M8 6V4h8v2" /><path d="M19 6l-1 14H6L5 6" /><path d="M10 11v6" /><path d="M14 11v6" /></svg></button></div>
+                  <div class="csd-row"><input type="text" placeholder="Placeholder" /><button type="button" data-csd-remove aria-label="Remover suposição"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M3 6h18" /><path d="M8 6V4h8v2" /><path d="M19 6l-1 14H6L5 6" /><path d="M10 11v6" /><path d="M14 11v6" /></svg></button></div>
                 </div>
                 <button class="add-inline-button" type="button" data-csd-add="suposicoes">
                   <span aria-hidden="true">⊕</span>
@@ -1123,9 +1110,9 @@
                   Dúvidas
                 </h3>
                 <div class="csd-list" data-csd-list="duvidas">
-                  <div class="csd-row"><input type="text" placeholder="Placeholder" /><button type="button" data-csd-remove aria-label="Remover dúvida">⌫</button></div>
-                  <div class="csd-row"><input type="text" placeholder="Placeholder" /><button type="button" data-csd-remove aria-label="Remover dúvida">⌫</button></div>
-                  <div class="csd-row"><input type="text" placeholder="Placeholder" /><button type="button" data-csd-remove aria-label="Remover dúvida">⌫</button></div>
+                  <div class="csd-row"><input type="text" placeholder="Placeholder" /><button type="button" data-csd-remove aria-label="Remover dúvida"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M3 6h18" /><path d="M8 6V4h8v2" /><path d="M19 6l-1 14H6L5 6" /><path d="M10 11v6" /><path d="M14 11v6" /></svg></button></div>
+                  <div class="csd-row"><input type="text" placeholder="Placeholder" /><button type="button" data-csd-remove aria-label="Remover dúvida"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M3 6h18" /><path d="M8 6V4h8v2" /><path d="M19 6l-1 14H6L5 6" /><path d="M10 11v6" /><path d="M14 11v6" /></svg></button></div>
+                  <div class="csd-row"><input type="text" placeholder="Placeholder" /><button type="button" data-csd-remove aria-label="Remover dúvida"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M3 6h18" /><path d="M8 6V4h8v2" /><path d="M19 6l-1 14H6L5 6" /><path d="M10 11v6" /><path d="M14 11v6" /></svg></button></div>
                 </div>
                 <button class="add-inline-button" type="button" data-csd-add="duvidas">
                   <span aria-hidden="true">⊕</span>
@@ -1141,6 +1128,7 @@
               </button>
               <div class="flow-footer-actions form-actions">
                 <button type="button" class="btn btn-secondary secondary-action" data-new-discovery-csd-back>Voltar</button>
+                <p class="flow-status-message" data-new-discovery-csd-validation role="alert" hidden></p>
                 <button type="submit" class="btn btn-primary primary-action">Avançar</button>
               </div>
             </footer>
@@ -1148,112 +1136,44 @@
 
           <form class="new-discovery-methodology" data-new-discovery-methodology-form hidden>
             <div class="flow-body methodology-choice-body">
-              <p class="methodology-choice-intro">Escolha a abordagem que melhor se adequa ao seu projeto e prazo disponível.</p>
-
-              <button class="methodology-choice-card active" type="button" data-methodology-option="optimized" aria-pressed="true">
-                <span class="methodology-radio" aria-hidden="true"></span>
-                <div class="methodology-card-content">
-                  <h3>Discovery Otimizado</h3>
-                  <p>Abordagem ágil focada em validações essenciais</p>
-                  <span class="methodology-duration"><strong>Duração total:</strong> 3-4 semanas</span>
-
-                  <h4>Metodologias Incluídas (3)</h4>
-                  <div class="methodology-method-list">
-                    <article class="methodology-method-item">
-                      <div>
-                        <strong>Pesquisa em Profundidade</strong>
-                        <mark>1-2 semanas</mark>
-                      </div>
-                      <p>Entrevistas qualitativas com usuários-chave para entender contexto, dores e necessidades</p>
-                      <small><strong>Amostra:</strong> 8-12 participantes</small>
-                    </article>
-
-                    <article class="methodology-method-item">
-                      <div>
-                        <strong>Survey</strong>
-                        <mark>1 semana</mark>
-                      </div>
-                      <p>Questionário online para validação quantitativa de hipóteses e priorização</p>
-                      <small><strong>Amostra:</strong> 50-100+ respostas</small>
-                    </article>
-
-                    <article class="methodology-method-item">
-                      <div>
-                        <strong>Teste de Usabilidade</strong>
-                        <mark>1 semana</mark>
-                      </div>
-                      <p>Validação de protótipos com usuários reais para identificar problemas de interação</p>
-                      <small><strong>Amostra:</strong> 5-8 participantes</small>
-                    </article>
-                  </div>
+              <section class="methodology-evaluation-state card-surface" data-methodology-evaluation-loading hidden>
+                <div class="artifact-loading-state" role="status">
+                  <span aria-hidden="true"></span>
+                  <strong>Avaliando metodologia com agentes de discovery...</strong>
+                  <p>Preparando o DiscoveryDraft e aguardando recomendação de frameworks.</p>
                 </div>
-              </button>
+              </section>
 
-              <button class="methodology-choice-card" type="button" data-methodology-option="complete" aria-pressed="false">
-                <span class="methodology-radio" aria-hidden="true"></span>
-                <div class="methodology-card-content">
-                  <h3>Discovery Completo</h3>
-                  <p>Processo aprofundado com múltiplas camadas de validação</p>
-                  <span class="methodology-duration"><strong>Duração total:</strong> 6-8 semanas</span>
-
-                  <h4>Metodologias Incluídas (6)</h4>
-                  <div class="methodology-method-list">
-                    <article class="methodology-method-item">
-                      <div>
-                        <strong>Pesquisa em Profundidade</strong>
-                        <mark>2-3 semanas</mark>
-                      </div>
-                      <p>Entrevistas qualitativas detalhadas com diferentes perfis de usuários e stakeholders</p>
-                      <small><strong>Amostra:</strong> 15-20 participantes</small>
-                    </article>
-
-                    <article class="methodology-method-item">
-                      <div>
-                        <strong>Desk Research</strong>
-                        <mark>1 semana</mark>
-                      </div>
-                      <p>Análise de mercado, concorrência, tendências e dados secundários disponíveis</p>
-                      <small><strong>Amostra:</strong> N/A - Análise documental</small>
-                    </article>
-
-                    <article class="methodology-method-item">
-                      <div>
-                        <strong>Survey</strong>
-                        <mark>1-2 semanas</mark>
-                      </div>
-                      <p>Pesquisa quantitativa ampla para validação estatística e segmentação de público</p>
-                      <small><strong>Amostra:</strong> 200+ respostas</small>
-                    </article>
-
-                    <article class="methodology-method-item">
-                      <div>
-                        <strong>Shadowing</strong>
-                        <mark>1 semana</mark>
-                      </div>
-                      <p>Observação contextual de usuários em seu ambiente natural de uso</p>
-                      <small><strong>Amostra:</strong> 5-8 sessões</small>
-                    </article>
-
-                    <article class="methodology-method-item">
-                      <div>
-                        <strong>Card Sorting</strong>
-                        <mark>1 semana</mark>
-                      </div>
-                      <p>Organização colaborativa de informações para definir arquitetura de informação</p>
-                      <small><strong>Amostra:</strong> 15-20 participantes</small>
-                    </article>
-
-                    <article class="methodology-method-item">
-                      <div>
-                        <strong>Teste de Usabilidade</strong>
-                        <mark>1-2 semanas</mark>
-                      </div>
-                      <p>Testes iterativos de protótipos com diferentes níveis de fidelidade</p>
-                      <small><strong>Amostra:</strong> 8-12 participantes</small>
-                    </article>
+              <section class="methodology-evaluation-result" data-methodology-evaluation-result hidden>
+                <header class="methodology-result-header">
+                  <div>
+                    <span class="eyebrow-label">Resultado da avaliação</span>
+                    <h3>Frameworks recomendados</h3>
+                    <p>Recomendação preparada para ser substituída pela resposta do backend CrewAI.</p>
                   </div>
+                  <div class="methodology-readiness">
+                    <span>Nível de prontidão</span>
+                    <strong data-methodology-readiness-score>--</strong>
+                  </div>
+                </header>
+
+                <div class="methodology-result-grid">
+                  <section class="methodology-result-section" aria-labelledby="methodology-frameworks-title">
+                    <h4 id="methodology-frameworks-title">Frameworks recomendados</h4>
+                    <div class="methodology-framework-list" data-methodology-frameworks></div>
+                  </section>
+
+                  <section class="methodology-result-section" aria-labelledby="methodology-gaps-title">
+                    <h4 id="methodology-gaps-title">Lacunas identificadas</h4>
+                    <ul data-methodology-missing-information></ul>
+                  </section>
+
+                  <section class="methodology-result-section" aria-labelledby="methodology-recommendations-title">
+                    <h4 id="methodology-recommendations-title">Recomendações</h4>
+                    <ul data-methodology-recommendations></ul>
+                  </section>
                 </div>
-              </button>
+              </section>
             </div>
 
             <section class="crew-kickoff-panel" data-crew-kickoff-panel aria-labelledby="crew-kickoff-title" hidden>
