@@ -18,7 +18,7 @@
   --amber-bg: #fff0cf;
   --amber: #9a6500;
   --shadow: 0 10px 24px rgba(0, 0, 0, 0.10);
-  --sidebar-width: 360px;
+  --sidebar-width: 312px;
   --topbar-height: 76px;
   font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
 }
@@ -270,11 +270,11 @@ svg {
   left: 0;
   z-index: 20;
   display: grid;
-  grid-template-columns: 88px minmax(260px, 272px);
+  grid-template-columns: 88px minmax(0, 224px);
   width: var(--sidebar-width);
   border-right: 1px solid var(--border);
   background: var(--surface);
-  box-shadow: 8px 0 24px rgba(0, 0, 0, 0.08);
+  box-shadow: none;
   transition: width 180ms ease, grid-template-columns 180ms ease;
 }
 
@@ -366,7 +366,7 @@ svg {
 
 .sidebar-panel {
   min-width: 0;
-  padding: 34px 24px 28px;
+  padding: 37px 22px 28px;
   background: var(--surface);
   overflow-y: auto;
 }
@@ -602,6 +602,141 @@ svg {
 .sidebar-favorite-button.is-favorite {
   color: var(--accent-strong);
   background: transparent;
+}
+
+.sidebar-products-menu {
+  display: grid;
+  gap: 12px;
+  color: #222222;
+}
+
+.sidebar-products-section-label {
+  display: block;
+  margin: 0 0 5px;
+  color: #202020;
+  font-size: 12px;
+  font-weight: 720;
+  letter-spacing: 0.14em;
+  line-height: 1.2;
+  text-transform: uppercase;
+}
+
+.sidebar-products-favorites,
+.sidebar-products-groups,
+.sidebar-product-group-list {
+  display: grid;
+  gap: 0;
+}
+
+.sidebar-products-favorites {
+  margin-bottom: 2px;
+}
+
+.sidebar-product-row-minimal {
+  min-height: 32px;
+  padding: 3px 0;
+  border-radius: 0;
+  color: #6a6a6a;
+  font-size: 14px;
+}
+
+.sidebar-product-row-minimal:hover,
+.sidebar-product-row-minimal:focus-visible {
+  color: #111111;
+  background: transparent;
+}
+
+.sidebar-product-row-minimal .sidebar-product-copy strong {
+  color: inherit;
+  font-size: 14px;
+  font-weight: 400;
+  line-height: 1.35;
+}
+
+.sidebar-product-row-minimal:hover .sidebar-product-copy strong,
+.sidebar-product-row-minimal:focus-visible .sidebar-product-copy strong {
+  color: inherit;
+}
+
+.sidebar-product-row-minimal .sidebar-favorite-button {
+  width: 24px;
+  height: 24px;
+  color: var(--accent);
+  font-size: 20px;
+}
+
+.sidebar-product-row-minimal .sidebar-favorite-button:hover,
+.sidebar-product-row-minimal .sidebar-favorite-button:focus-visible {
+  color: var(--accent-strong);
+  background: transparent;
+}
+
+.sidebar-product-group {
+  margin: 0;
+}
+
+.sidebar-product-group > summary {
+  list-style: none;
+}
+
+.sidebar-product-group > summary::-webkit-details-marker {
+  display: none;
+}
+
+.sidebar-product-group-summary {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  min-height: 32px;
+  padding: 3px 0;
+  color: #6a6a6a;
+  font-size: 14px;
+  font-weight: 400;
+  line-height: 1.35;
+  cursor: pointer;
+}
+
+.sidebar-product-group-summary:hover,
+.sidebar-product-group-summary:focus-visible {
+  color: #111111;
+  outline: none;
+}
+
+.sidebar-product-group-chevron {
+  color: #111111;
+  font-size: 16px;
+  line-height: 1;
+  transform: translateY(-1px);
+}
+
+.sidebar-product-group[open] .sidebar-product-group-chevron {
+  transform: rotate(180deg) translateY(1px);
+}
+
+.sidebar-product-group-list {
+  padding: 2px 0 8px 10px;
+}
+
+.sidebar-product-line {
+  width: 100%;
+  min-height: 28px;
+  padding: 3px 0;
+  border: 0;
+  border-radius: 0;
+  color: #6a6a6a;
+  background: transparent;
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 1.35;
+  text-align: left;
+}
+
+.sidebar-product-line:hover,
+.sidebar-product-line:focus-visible {
+  color: #111111;
+  background: transparent;
+  outline: none;
 }
 
 .sidebar-discovery-row {
@@ -10570,7 +10705,7 @@ svg {
 
 @media (max-width: 980px) {
   :root {
-    --sidebar-width: 360px;
+    --sidebar-width: 312px;
   }
 
   .topbar {
@@ -12057,5 +12192,280 @@ svg {
   .csd-modal-footer .modal-actions,
   .csd-modal-footer .btn {
     width: 100%;
+  }
+}
+
+/* Discovery header hierarchy */
+.discovery-page.new-discovery-detail .discovery-title-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 16px 24px;
+  align-items: start;
+  margin-bottom: 36px;
+}
+
+.discovery-page.new-discovery-detail .discovery-title-row > div:first-child {
+  display: grid;
+  gap: 14px;
+  min-width: 0;
+}
+
+.discovery-page.new-discovery-detail .discovery-title-row h1 {
+  display: block;
+  margin: 0;
+  max-width: 100%;
+  color: #111827;
+  font-size: clamp(32px, 4.2vw, 54px);
+  font-weight: 800;
+  line-height: 1.08;
+  overflow-wrap: break-word;
+}
+
+.discovery-page.new-discovery-detail .discovery-header-side {
+  position: static;
+  display: flex;
+  justify-content: flex-end;
+  justify-self: end;
+  min-width: max-content;
+}
+
+.discovery-page.new-discovery-detail .discovery-status-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  max-width: 100%;
+}
+
+.discovery-page.new-discovery-detail .execution-status,
+.discovery-page.new-discovery-detail .discovery-id,
+.discovery-page.new-discovery-detail .discovery-deadline-tag {
+  min-height: 40px;
+  padding: 0 14px;
+  border-radius: 5px;
+  font-size: 16px;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.discovery-page.new-discovery-detail .execution-status {
+  gap: 8px;
+  border: 1px solid transparent;
+  font-weight: 700;
+}
+
+.discovery-page.new-discovery-detail .execution-status span {
+  width: 12px;
+  height: 12px;
+}
+
+.discovery-page.new-discovery-detail .execution-status.is-started {
+  color: #1d4ed8;
+  background: #dbeafe;
+}
+
+.discovery-page.new-discovery-detail .execution-status.is-started span {
+  background: #3b82f6;
+}
+
+.discovery-page.new-discovery-detail .execution-status.is-in-progress {
+  color: #166534;
+  background: #dcfce7;
+}
+
+.discovery-page.new-discovery-detail .execution-status.is-in-progress span {
+  background: #16834e;
+}
+
+.discovery-page.new-discovery-detail .execution-status.is-paused {
+  color: #92400e;
+  background: #fef3c7;
+}
+
+.discovery-page.new-discovery-detail .execution-status.is-paused span {
+  background: #f59e0b;
+}
+
+.discovery-page.new-discovery-detail .execution-status.is-canceled {
+  color: #991b1b;
+  background: #fee2e2;
+}
+
+.discovery-page.new-discovery-detail .execution-status.is-canceled span {
+  background: #ef4444;
+}
+
+.discovery-page.new-discovery-detail .discovery-id {
+  color: #111827;
+  background: #f8fafc;
+  border: 1px solid #d1d5db;
+}
+
+.discovery-page.new-discovery-detail .discovery-deadline-tag.info {
+  color: #1d4ed8;
+  background: #dbeafe;
+}
+
+.discovery-page.new-discovery-detail .discovery-deadline-tag.warning {
+  color: #92400e;
+  background: #fef3c7;
+}
+
+.discovery-page.new-discovery-detail .discovery-deadline-tag.negative {
+  color: #b42318;
+  background: #fee2e2;
+}
+
+.discovery-page.new-discovery-detail .synthesis-open-button {
+  min-width: 180px;
+  min-height: 56px;
+}
+
+@media (max-width: 760px) {
+  .discovery-page.new-discovery-detail .discovery-title-row {
+    grid-template-columns: 1fr;
+  }
+
+  .discovery-page.new-discovery-detail .discovery-header-side {
+    justify-self: start;
+  }
+
+  .discovery-page.new-discovery-detail .synthesis-open-button {
+    min-width: 0;
+  }
+}
+
+/* Full-width responsive app layout */
+html,
+body {
+  width: 100%;
+  overflow-x: hidden;
+}
+
+.workspace,
+.sidebar.collapsed + .workspace,
+.app-shell.sidebar-collapsed .workspace,
+.app-shell.product-mode .workspace,
+.app-shell.product-mode.sidebar-collapsed .workspace,
+.app-shell.discovery-mode .workspace,
+.app-shell.discovery-mode.sidebar-collapsed .workspace,
+.app-shell.discovery-detail-mode .workspace,
+.app-shell.discovery-detail-mode.sidebar-collapsed .workspace,
+.app-shell.synthesis-mode .workspace {
+  width: calc(100vw - 88px);
+  max-width: none;
+  margin-left: 88px;
+}
+
+.app-shell.product-mode .workspace,
+.app-shell.product-mode.sidebar-collapsed .workspace {
+  width: calc(100vw - 76px);
+  margin-left: 76px;
+}
+
+.app-shell.sidebar-pinned .workspace,
+.app-shell.product-mode.sidebar-pinned .workspace,
+.app-shell.discovery-mode.sidebar-pinned .workspace,
+.app-shell.discovery-detail-mode.sidebar-pinned .workspace,
+.app-shell.synthesis-mode.sidebar-pinned .workspace {
+  width: calc(100vw - var(--sidebar-width));
+  max-width: none;
+  margin-left: var(--sidebar-width);
+}
+
+.view,
+.page-heading,
+.page-heading p,
+.product-page,
+.discovery-page.new-discovery-detail,
+.synthesis-page,
+.product-audience-page,
+.research-activity-page {
+  width: 100%;
+  max-width: none;
+}
+
+.home-product-bar {
+  grid-template-columns: repeat(auto-fit, minmax(min(280px, 100%), 1fr));
+}
+
+.recent-section .section-heading {
+  grid-template-columns: minmax(0, 1fr) minmax(360px, 34vw);
+  gap: 24px;
+}
+
+.discovery-grid {
+  grid-template-columns: repeat(auto-fit, minmax(min(340px, 100%), 1fr));
+}
+
+.product-discovery-grid {
+  grid-template-columns: repeat(auto-fit, minmax(min(420px, 100%), 1fr));
+}
+
+.product-hero,
+.product-discoveries,
+.product-artifacts-card,
+.artifact-card,
+.card-surface {
+  max-width: none;
+}
+
+.discovery-page.new-discovery-detail .discovery-layout,
+.synthesis-layout {
+  grid-template-columns: minmax(0, 1fr) clamp(340px, 24vw, 420px);
+}
+
+.csd-body,
+.methodology-choice-body {
+  width: 100%;
+  max-width: none;
+}
+
+@media (min-width: 1440px) {
+  .workspace {
+    padding-right: clamp(32px, 4vw, 72px);
+    padding-left: clamp(32px, 4vw, 72px);
+  }
+
+  .app-shell.product-mode .workspace {
+    padding-right: clamp(40px, 4vw, 76px);
+    padding-left: clamp(40px, 4vw, 76px);
+  }
+
+  .app-shell.discovery-mode .workspace,
+  .app-shell.discovery-detail-mode .workspace,
+  .app-shell.synthesis-mode .workspace {
+    padding-right: clamp(28px, 3.5vw, 64px);
+    padding-left: clamp(28px, 3.5vw, 64px);
+  }
+}
+
+@media (max-width: 980px) {
+  .recent-section .section-heading,
+  .discovery-page.new-discovery-detail .discovery-layout,
+  .synthesis-layout {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 760px) {
+  .workspace,
+  .sidebar.collapsed + .workspace,
+  .app-shell.sidebar-collapsed .workspace,
+  .app-shell.product-mode .workspace,
+  .app-shell.product-mode.sidebar-collapsed .workspace,
+  .app-shell.discovery-mode .workspace,
+  .app-shell.discovery-mode.sidebar-collapsed .workspace,
+  .app-shell.discovery-detail-mode .workspace,
+  .app-shell.discovery-detail-mode.sidebar-collapsed .workspace,
+  .app-shell.synthesis-mode .workspace,
+  .app-shell.sidebar-pinned .workspace,
+  .app-shell.product-mode.sidebar-pinned .workspace,
+  .app-shell.discovery-mode.sidebar-pinned .workspace,
+  .app-shell.discovery-detail-mode.sidebar-pinned .workspace,
+  .app-shell.synthesis-mode.sidebar-pinned .workspace {
+    width: 100%;
+    margin-left: 0;
   }
 }

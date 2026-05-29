@@ -1729,6 +1729,7 @@ const defaultProductTeam = Object.freeze({
   designer: "",
   pm: "",
   architect: "",
+  arquiteto: "",
   gpm: "",
 });
 
@@ -1779,6 +1780,19 @@ function getProductTeam(product = {}) {
   return createProductTeam(product.id, product.productTeam || product.team || {});
 }
 
+function getSafeDiscoveryProductTeam(productOrTeam = {}) {
+  const team = productOrTeam.id
+    ? getProductTeam(productOrTeam)
+    : createProductTeam("", productOrTeam);
+
+  return {
+    pm: String(team.pm || "").trim(),
+    designer: String(team.designer || "").trim(),
+    arquiteto: String(team.arquiteto || team.architect || "").trim(),
+    gpm: String(team.gpm || "").trim(),
+  };
+}
+
 function getProductTeamEntries(product = {}, fields = PRODUCT_TEAM_FIELDS) {
   const productTeam = getProductTeam(product);
   return fields.map(({ key, label }) => {
@@ -1822,16 +1836,9 @@ function renderProductTeamGrid(product = {}) {
 }
 
 function renderNewDiscoveryProductTeamPreview(product = getProductById(selectedProductId || getCurrentProductId()) || products[0]) {
-  if (!newDiscoveryProductTeam) {
-    return;
+  if (newDiscoveryProductTeam) {
+    newDiscoveryProductTeam.replaceChildren();
   }
-
-  newDiscoveryProductTeam.innerHTML = `
-    <span class="product-team-preview-label">Responsáveis cadastrados no produto</span>
-    <div class="product-team-preview-grid">
-      ${renderProductTeamCards(product, { compact: true })}
-    </div>
-  `;
 }
 
 function renderProductTeamEditFields(product = getProductById(selectedProductId) || products[0]) {
@@ -4256,16 +4263,8 @@ function normalizeMethodologyEvaluationResponse(payload = {}) {
 }
 
 async function evaluateDiscoveryMethodology(discoveryDraft = {}) {
-  if (isLocalMockApiMode()) {
-    await sleep(700);
-    return createDemoMethodologyEvaluationResponse(discoveryDraft);
-  }
-
-  return requestDiscoveryApi(getApiPath("discovery/methodology/evaluate"), {
-    method: "POST",
-    body: { discoveryDraft },
-    action: "Falha ao avaliar metodologia do discovery",
-  });
+  await sleep(700);
+  return createDemoMethodologyEvaluationResponse(discoveryDraft);
 }
 
 function renderMethodologyEvaluationResult(result = currentMethodologyEvaluation) {
@@ -4750,6 +4749,7 @@ function buildDiscoveryRunInput({
   deadline = "",
   methodology = getSelectedMethodologyPackage(),
   files = [],
+  productTeam = defaultProductTeam,
 } = {}) {
   return {
     discovery_id: String(discoveryId || ""),
@@ -4758,7 +4758,7 @@ function buildDiscoveryRunInput({
     problem: String(problem || ""),
     objective: String(objective || ""),
     owners: participants.responsaveis || [],
-    product_team: productTeam,
+    product_team: getSafeDiscoveryProductTeam(productTeam),
     users: participants.personas || [],
     stakeholders: participants.stakeholders || [],
     certainties: csd.certezas || [],
@@ -6409,6 +6409,74 @@ function getDiscoveryRunStatusLabel(discovery = {}) {
   return `${stateLabel} · em andamento`;
 }
 
+function hasStartedDiscoveryMethodology(discovery = {}) {
+  const methodCollections = [
+    discovery.methods,
+    discovery.methodology?.methods,
+    discovery.methodology?.items,
+    discovery.methodologyRecommendation?.methods,
+    discovery.steps,
+  ];
+  const methods = methodCollections.find((collection) => Array.isArray(collection)) || [];
+
+  return methods.some((method = {}) => {
+    const progress = Number(method.progress ?? method.progressPercent ?? method.percent ?? 0);
+    const normalizedStatus = normalizeText(method.status || method.state || "");
+    return progress > 0
+      || normalizedStatus.includes("andamento")
+      || normalizedStatus.includes("execucao")
+      || normalizedStatus.includes("executado")
+      || normalizedStatus.includes("concluido")
+      || normalizedStatus.includes("completed");
+  });
+}
+
+function getDiscoveryLifecycleStatusMeta(discovery = {}) {
+  const rawStatus = normalizeText([
+    discovery.lifecycleStatus,
+    discovery.lifecycle_status,
+    discovery.discoveryStatus,
+    discovery.discovery_status,
+    discovery.manualStatus,
+    discovery.manual_status,
+    discovery.status,
+    discovery.run_status,
+    discovery.runStatus,
+  ].filter(Boolean).join(" "));
+  const rawState = normalizeText([
+    discovery.current_state,
+    discovery.currentState,
+    discovery.workflow_state,
+    discovery.workflow,
+    discovery.state,
+  ].filter(Boolean).join(" "));
+
+  if (rawStatus.includes("cancel") || rawState.includes("cancel")) {
+    return { label: "Cancelado", tone: "canceled" };
+  }
+
+  if (rawStatus.includes("paus") || rawStatus.includes("paused") || rawState.includes("paus") || rawState.includes("paused")) {
+    return { label: "Pausado", tone: "paused" };
+  }
+
+  if (hasStartedDiscoveryMethodology(discovery)) {
+    return { label: "Em andamento", tone: "in-progress" };
+  }
+
+  return { label: "Iniciado", tone: "started" };
+}
+
+function applyDiscoveryLifecycleStatus(discovery = {}) {
+  if (!discoveryReadinessStatus) {
+    return;
+  }
+
+  const statusMeta = getDiscoveryLifecycleStatusMeta(discovery);
+  discoveryReadinessStatus.classList.remove("ready", "not-ready", "is-started", "is-in-progress", "is-paused", "is-canceled");
+  discoveryReadinessStatus.classList.add(`is-${statusMeta.tone}`);
+  discoveryReadinessStatus.innerHTML = `<span></span>${escapeHTML(statusMeta.label)}`;
+}
+
 function updateDiscoveryRunStatusOnPage(discovery = {}) {
   if (!discoveryReadinessStatus || selectedDiscoveryId !== discovery.id) {
     return;
@@ -6420,11 +6488,7 @@ function updateDiscoveryRunStatusOnPage(discovery = {}) {
   renderDiscoveryInsightReviewPanel(discovery);
   renderDiscoveryOpportunityReviewPanel(discovery);
   renderDiscoveryRecommendationHandoffSection(discovery);
-  const state = discovery.current_state || WORKFLOW_STATES.DISCOVERY_CREATED;
-  const status = discovery.status || RUN_STATUSES.RUNNING;
-  discoveryReadinessStatus.classList.toggle("ready", isTerminalState(state, status) && state === WORKFLOW_STATES.COMPLETED);
-  discoveryReadinessStatus.classList.toggle("not-ready", state === WORKFLOW_STATES.FAILED || status === RUN_STATUSES.FAILED);
-  discoveryReadinessStatus.innerHTML = `<span></span>${escapeHTML(getDiscoveryRunStatusLabel(discovery))}`;
+  applyDiscoveryLifecycleStatus(discovery);
 }
 
 const DISCOVERY_POLL_STOP_STATES = new Set([
@@ -7433,23 +7497,89 @@ function renderHomeSidebarPanel() {
 function renderProductsSidebarPanel() {
   const favoriteProducts = getFavoriteProducts();
   const favoriteProductIds = new Set(favoriteProducts.map((product) => product.id));
-  const groupedProducts = getProductsGroupedByArea(products.filter((product) => !favoriteProductIds.has(product.id)));
+  const groupedProducts = getSidebarProductMenuGroups(products.filter((product) => !favoriteProductIds.has(product.id)));
   sidebarPanel.innerHTML = `
-    ${renderSidebarPanelHeader("Produtos", "Produtos", "Produtos que você acompanha.")}
-    <div class="sidebar-submenu">
-      ${favoriteProducts.length ? `
-        <div class="sidebar-submenu-section">
-          <span class="sidebar-submenu-heading">Favoritos</span>
-          <div class="sidebar-list">${favoriteProducts.map((product) => renderSidebarProductRow(product)).join("")}</div>
-        </div>
-      ` : ""}
-      ${Object.entries(groupedProducts).map(([groupLabel, groupProducts]) => `
-        <div class="sidebar-submenu-section">
-          <span class="sidebar-submenu-heading">${escapeHTML(groupLabel)}</span>
-          <div class="sidebar-list">${groupProducts.map((product) => renderSidebarProductRow(product)).join("")}</div>
-        </div>
-      `).join("")}
+    <div class="sidebar-products-menu">
+      <span class="sidebar-products-section-label">SECTION LABEL</span>
+      <div class="sidebar-products-favorites">
+        ${favoriteProducts.map((product) => renderSidebarProductFavoriteLine(product)).join("")}
+      </div>
+      <div class="sidebar-products-groups">
+        ${groupedProducts.map(({ label, products: groupProducts }) => renderSidebarProductGroup(label, groupProducts)).join("")}
+      </div>
     </div>
+  `;
+}
+
+function getSidebarProductMenuLabel(product = {}) {
+  const productName = String(product.name || "Produto").trim();
+  const knownLabels = {
+    "Cora Promoções": "Promoções",
+    "Cora Agreements": "Acordos",
+  };
+  return knownLabels[productName] || productName.replace(/^Cora\s+/i, "");
+}
+
+function getSidebarProductMenuGroupLabel(product = {}) {
+  return product.tribe || product.category || product.area || product.torre || product.tower || "Outros";
+}
+
+function getSidebarProductMenuGroups(productItems = []) {
+  const preferredOrder = ["Revenue", "Finance", "Service Level", "Last Mile", "Supply Chain", "Outros"];
+  const groups = productItems.reduce((acc, product) => {
+    const label = getSidebarProductMenuGroupLabel(product);
+    acc[label] = [...(acc[label] || []), product];
+    return acc;
+  }, {});
+
+  return Object.entries(groups)
+    .sort(([labelA], [labelB]) => {
+      const indexA = preferredOrder.indexOf(labelA);
+      const indexB = preferredOrder.indexOf(labelB);
+      if (indexA >= 0 || indexB >= 0) {
+        return (indexA >= 0 ? indexA : preferredOrder.length) - (indexB >= 0 ? indexB : preferredOrder.length);
+      }
+      return labelA.localeCompare(labelB, "pt-BR");
+    })
+    .map(([label, groupProducts]) => ({
+      label,
+      products: [...groupProducts].sort((a, b) => getSidebarProductMenuLabel(a).localeCompare(getSidebarProductMenuLabel(b), "pt-BR")),
+    }));
+}
+
+function renderSidebarProductFavoriteLine(product = {}) {
+  const isFavorite = isProductFavorite(product.id);
+  return `
+    <div class="sidebar-product-row sidebar-product-row-minimal" role="button" tabindex="0" data-sidebar-product="${escapeHTML(product.id)}" title="${escapeHTML(product.name)}">
+      <span class="sidebar-product-copy">
+        <strong>${escapeHTML(getSidebarProductMenuLabel(product))}</strong>
+      </span>
+      <button class="sidebar-favorite-button${isFavorite ? " is-favorite" : ""}" type="button" data-sidebar-product-favorite="${escapeHTML(product.id)}" aria-label="${isFavorite ? "Remover produto dos favoritos" : "Favoritar produto"}" aria-pressed="${String(isFavorite)}" title="${isFavorite ? "Remover dos favoritos" : "Favoritar"}">
+        ★
+      </button>
+    </div>
+  `;
+}
+
+function renderSidebarProductGroup(groupLabel = "Outros", groupProducts = []) {
+  return `
+    <details class="sidebar-product-group">
+      <summary class="sidebar-product-group-summary">
+        <span>${escapeHTML(groupLabel)}</span>
+        <span class="sidebar-product-group-chevron" aria-hidden="true">⌄</span>
+      </summary>
+      <div class="sidebar-product-group-list">
+        ${groupProducts.map((product) => renderSidebarProductSimpleLine(product)).join("")}
+      </div>
+    </details>
+  `;
+}
+
+function renderSidebarProductSimpleLine(product = {}) {
+  return `
+    <button class="sidebar-product-line" type="button" data-sidebar-product="${escapeHTML(product.id)}" title="${escapeHTML(product.name)}">
+      ${escapeHTML(product.name)}
+    </button>
   `;
 }
 
@@ -8322,12 +8452,10 @@ function renderProductAudienceManagementPage(product = {}) {
         <h1 id="product-audience-page-title">Pessoas do produto</h1>
         <p>Cadastre personas e stakeholders do produto. Cada discovery escolhe apenas o subconjunto relacionado ao seu escopo.</p>
       </div>
-      <div class="audience-hero-actions page-header-actions">
-        <a class="btn btn-secondary secondary-action" href="#product/${escapeHTML(product.id)}">Voltar ao produto</a>
-        <a class="btn btn-primary primary-action" href="${getProductAudienceHash("persona-new", product.id)}">Criar persona</a>
-        <a class="btn btn-primary primary-action" href="${getProductAudienceHash("stakeholder-new", product.id)}">Criar stakeholder</a>
-      </div>
-    </header>
+        <div class="audience-hero-actions page-header-actions">
+          <a class="btn btn-secondary secondary-action" href="#product/${escapeHTML(product.id)}">Voltar ao produto</a>
+        </div>
+      </header>
 
     <section class="audience-manager card-surface">
       <div class="audience-toolbar">
@@ -11982,12 +12110,6 @@ function renderDiscoveryPage(productId, discoveryId) {
   const hasCrewResult = isDraft && hasCrewAiDiscoveryResult(activeDiscovery);
   const hasMvpRun = Boolean(getDiscoveryRunId(activeDiscovery));
   const hasMvpWorkflow = shouldShowMvpWorkflow(activeDiscovery);
-  const readinessLabel = getDiscoveryReadyLabel(normalizedCrewResult.discoveryReady);
-  const statusLabel = hasMvpWorkflow
-    ? getDiscoveryRunStatusLabel(activeDiscovery)
-    : hasCrewResult
-      ? `Concluído · ${readinessLabel}`
-      : activeDiscovery.status || "Em Execução";
   const insightTexts = getDiscoveryInsightTexts(activeDiscovery);
 
   discoveryProductLink.textContent = product.category || product.name;
@@ -12002,11 +12124,7 @@ function renderDiscoveryPage(productId, discoveryId) {
   }
   syncDiscoverySynthesisButton(activeDiscovery, product);
   syncDiscoveryDetailFavoriteButton(selectedDiscoveryId);
-  if (discoveryReadinessStatus) {
-    discoveryReadinessStatus.classList.toggle("ready", hasMvpWorkflow ? activeDiscovery.current_state === WORKFLOW_STATES.COMPLETED : hasCrewResult && normalizedCrewResult.discoveryReady === "yes");
-    discoveryReadinessStatus.classList.toggle("not-ready", hasMvpWorkflow ? activeDiscovery.current_state === WORKFLOW_STATES.FAILED || activeDiscovery.status === RUN_STATUSES.FAILED : hasCrewResult && normalizedCrewResult.discoveryReady === "no");
-    discoveryReadinessStatus.innerHTML = `<span></span>${escapeHTML(statusLabel)}`;
-  }
+  applyDiscoveryLifecycleStatus(activeDiscovery);
   renderDiscoveryWorkflowCockpit(activeDiscovery);
   renderDiscoveryResearchApprovalPanel(activeDiscovery);
   renderDiscoveryEvidenceUploadPanel(activeDiscovery);
@@ -14387,6 +14505,7 @@ function createMvpDiscoveryDraft({
   const peopleSelection = getNewDiscoveryPeopleSelection(product);
   const now = new Date().toISOString();
   const csdMatrix = createCsdMatrixFromLegacyCsd(csd, { updatedAt: now });
+  const productTeam = getProductTeam(product);
 
   draftDiscovery = {
     ...createBlankDraftDiscovery(resolvedDraftId),
@@ -14416,6 +14535,8 @@ function createMvpDiscoveryDraft({
     methodologyId: selectedMethodology.id,
     methods: methods || buildMethodsFromMethodology(selectedMethodology.id),
     participants: newDiscoveryParticipantsDraft,
+    productTeam,
+    team: productTeam,
     personaIds: peopleSelection.personaIds,
     stakeholderIds: peopleSelection.stakeholderIds,
     personasSnapshot: peopleSelection.personasSnapshot,
@@ -14447,23 +14568,19 @@ async function createDiscoveryWithMvpBackend({
   selectedMethodology = getSelectedMethodologyPackage(),
 } = {}) {
   const product = products.find((item) => item.id === selectedProductId) || products[0];
-  const isDemoMode = isLocalMockApiMode();
+  const safeProductTeam = getSafeDiscoveryProductTeam(product);
 
   setNewDiscoveryCreateState(true);
-  setNewDiscoveryStatus(isDemoMode ? DEMO_MODE_MESSAGE : "Criando run no Discovery AI...");
+  setNewDiscoveryStatus(DEMO_MODE_MESSAGE);
   resetCrewKickoffPanel();
   crewKickoffStartedAt = Date.now();
   startCrewKickoffElapsedTimer();
   updateCrewKickoffPanel({
-    summary: isDemoMode
-      ? "Modo demo ativo. O discovery será criado com dados locais e estados simulados."
-      : "Criando run no backend MVP. O discovery abrirá assim que o kickoff responder.",
-    phase: isDemoMode ? "Simulação local" : "Kickoff",
+    summary: "Modo demo ativo. O discovery será criado com dados locais e estados simulados.",
+    phase: "Simulação local",
   });
   addCrewKickoffLog(`Discovery ID gerado: ${draftId}.`);
-  if (isDemoMode) {
-    addCrewKickoffLog(DEMO_MODE_MESSAGE);
-  }
+  addCrewKickoffLog(DEMO_MODE_MESSAGE);
 
   try {
     const kickoffInput = buildDiscoveryRunInput({
@@ -14473,30 +14590,25 @@ async function createDiscoveryWithMvpBackend({
       problem: newDiscoveryProblemDraft,
       objective: newDiscoveryObjectiveDraft,
       participants: newDiscoveryParticipantsDraft,
-      productTeam: getProductTeam(product),
+      productTeam: safeProductTeam,
       csd,
       links: newDiscoverySupportLinksDraft,
       deadline: newDiscoveryDeadlineDraft,
       methodology: selectedMethodology,
       files: newDiscoverySupportFiles,
     });
-    addCrewKickoffLog(isDemoMode ? "Simulando kickoff local." : "Enviando POST /api/discovery/kickoff.");
-    const kickoffPayload = await kickoffDiscoveryRun(kickoffInput);
+    addCrewKickoffLog("Registrando kickoff local simulado.");
+    const kickoffPayload = await kickoffLocalMockDiscoveryRun(kickoffInput);
     const responseIdentifiers = extractDiscoveryRunIdentifiers(kickoffPayload);
-    if (!responseIdentifiers.runId && !responseIdentifiers.discoveryId) {
-      throw new Error("O Discovery AI backend não retornou run_id ou discovery_id.");
-    }
 
     const resolvedDraftId = responseIdentifiers.discoveryId || draftId;
     updateCrewKickoffPanel({
-      summary: isDemoMode
-        ? "Discovery demo criado. Os próximos estados serão simulados localmente."
-        : "Run criada. Abrindo discovery e acompanhando status em segundo plano.",
-      phase: isDemoMode ? "Demo criada" : "Run criada",
+      summary: "Discovery demo criado. Os próximos estados serão simulados localmente.",
+      phase: "Demo criada",
       kickoffId: responseIdentifiers.runId || resolvedDraftId,
       state: "success",
     });
-    addCrewKickoffLog(`Run criada: ${responseIdentifiers.runId || "sem run_id retornado"}.`, "success");
+    addCrewKickoffLog(`Run local criada: ${responseIdentifiers.runId || "sem run_id retornado"}.`, "success");
     stopCrewKickoffElapsedTimer();
     createMvpDiscoveryDraft({
       draftId: resolvedDraftId,
@@ -14510,19 +14622,34 @@ async function createDiscoveryWithMvpBackend({
       methods: buildMethodsFromMethodology(selectedMethodology.id),
     });
   } catch (error) {
-    const friendlyError = getFriendlyUiErrorMessage(error, "Não foi possível criar a run no Discovery AI.");
-    setNewDiscoveryCreateState(false);
+    console.warn("Kickoff local simulado falhou; criando discovery sem bloquear o fluxo.", error);
     stopCrewKickoffElapsedTimer();
+    const fallbackPayload = {
+      run_id: "",
+      discovery_id: draftId,
+      current_state: WORKFLOW_STATES.DISCOVERY_CREATED,
+      status: RUN_STATUSES.IDLE,
+      simulated: true,
+      kickoff_error: error?.message || String(error || ""),
+      created_at: new Date().toISOString(),
+    };
     updateCrewKickoffPanel({
-      summary: friendlyError,
-      phase: "Falha",
-      state: "error",
+      summary: "Kickoff local não foi registrado, mas o discovery será criado normalmente em modo demo.",
+      phase: "Demo local",
+      state: "success",
     });
-    addCrewKickoffLog(friendlyError, "error");
-    if (error.payload) {
-      addCrewKickoffLog(`Resposta da API: ${formatApiPayloadDetails(error.payload)}`, "error");
-    }
-    setNewDiscoveryStatus(friendlyError, "error");
+    addCrewKickoffLog(`Kickoff local ignorado: ${fallbackPayload.kickoff_error}`, "warning");
+    createMvpDiscoveryDraft({
+      draftId,
+      runId: "",
+      kickoffPayload: fallbackPayload,
+      title: newDiscoveryTitleDraft,
+      problem: newDiscoveryProblemDraft,
+      objective: newDiscoveryObjectiveDraft,
+      csd,
+      methodology: selectedMethodology,
+      methods: buildMethodsFromMethodology(selectedMethodology.id),
+    });
   }
 }
 
@@ -14711,89 +14838,12 @@ newDiscoveryMethodologyForm.addEventListener("submit", async (event) => {
   const draftTitle = getNewDiscoveryDraftTitle(newDiscoveryTitleDraft, newDiscoveryObjectiveDraft);
   const draftId = createNewDiscoveryDraftId(draftTitle);
 
-  if (DISCOVERY_FRONTEND_API_MODE !== DISCOVERY_FRONTEND_API_MODES.LEGACY_CREWAI) {
-    await createDiscoveryWithMvpBackend({
-      draftId,
-      draftTitle,
-      csd,
-      selectedMethodology,
-    });
-    return;
-  }
-
-  setNewDiscoveryCreateState(true);
-  setNewDiscoveryStatus("Enviando discovery para CrewAI...");
-  resetCrewKickoffPanel();
-  crewKickoffStartedAt = Date.now();
-  startCrewKickoffElapsedTimer();
-  updateCrewKickoffPanel({
-    summary: "Preparando payload e configuração segura do proxy.",
-    phase: "Preparando",
+  await createDiscoveryWithMvpBackend({
+    draftId,
+    draftTitle,
+    csd,
+    selectedMethodology,
   });
-  addCrewKickoffLog(`Discovery ID gerado: ${draftId}.`);
-
-  try {
-    addCrewKickoffLog("Carregando configuração de polling.");
-    updateCrewKickoffPanel({
-      summary: "Buscando /api/config por até 2s. Se não responder, o kickoff seguirá com valores padrão.",
-      phase: "Configuração",
-    });
-    const configLoaded = await loadCrewAiClientConfig();
-    addCrewKickoffLog(configLoaded ? "Configuração de polling carregada." : "Configuração não respondeu; usando valores padrão.");
-    updateCrewKickoffPanel({
-      summary: `Polling configurado a cada ${Math.round(crewAiPollIntervalMs / 1000)}s por até ${Math.round(crewAiPollTimeoutMs / 60000)}min.`,
-      phase: "Configuração",
-    });
-    addCrewKickoffLog("Enviando POST /kickoff para CrewAI via proxy local.");
-    const kickoffPayload = await kickoffCrewAiDiscovery({
-      discoveryId: draftId,
-      title: draftTitle,
-      problem: newDiscoveryProblemDraft,
-      objective: newDiscoveryObjectiveDraft,
-      participants: newDiscoveryParticipantsDraft,
-      csd,
-      links: newDiscoverySupportLinksDraft,
-      deadline: newDiscoveryDeadlineDraft,
-      methodology: selectedMethodology,
-    });
-    updateCrewKickoffPanel({
-      summary: "Kickoff criado. Iniciando acompanhamento de status.",
-      phase: "Kickoff recebido",
-      kickoffId: kickoffPayload.kickoff_id,
-    });
-    addCrewKickoffLog(`kickoff_id recebido: ${kickoffPayload.kickoff_id}.`, "success");
-    setNewDiscoveryStatus(`Processamento iniciado. Kickoff: ${kickoffPayload.kickoff_id}`);
-    const statusPayload = await pollCrewAiStatus(kickoffPayload.kickoff_id);
-    createNewDiscoveryDraft({
-      draftId,
-      title: newDiscoveryTitleDraft,
-      problem: newDiscoveryProblemDraft,
-      objective: newDiscoveryObjectiveDraft,
-      csd,
-      methodology: selectedMethodology,
-      methods: buildMethodsFromMethodology(selectedMethodology.id),
-      crewAi: {
-        discoveryId: draftId,
-        kickoffId: kickoffPayload.kickoff_id,
-        kickoffPayload,
-        statusPayload,
-        result: getCrewAiResult(statusPayload),
-      },
-    });
-  } catch (error) {
-    setNewDiscoveryCreateState(false);
-    stopCrewKickoffElapsedTimer();
-    updateCrewKickoffPanel({
-      summary: error.message || "Não foi possível criar o discovery via CrewAI.",
-      phase: "Falha",
-      state: "error",
-    });
-    addCrewKickoffLog(error.message || "Não foi possível criar o discovery via CrewAI.", "error");
-    if (error.payload) {
-      addCrewKickoffLog(`Resposta da API: ${formatCrewAiPayloadForLog(error.payload)}`, "error");
-    }
-    setNewDiscoveryStatus(error.message || "Não foi possível criar o discovery via CrewAI.", "error");
-  }
 });
 
 newDiscoveryCsdForm.addEventListener("click", (event) => {
