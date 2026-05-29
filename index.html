@@ -239,6 +239,9 @@
               </div>
 
               <div class="product-hero-actions page-header-actions">
+                <button class="btn btn-secondary secondary-action product-manage-people-button" type="button" data-product-manage-audience>
+                  Gerenciar pessoas
+                </button>
                 <button class="btn btn-primary primary-action new-discovery-product-button" type="button" data-product-new-discovery>
                   <span aria-hidden="true">+</span>
                   Novo discovery
@@ -800,17 +803,14 @@
       </div>
 
       <div class="modal-backdrop csd-modal-overlay" data-csd-modal hidden>
-        <section class="csd-modal" role="dialog" aria-modal="true" aria-labelledby="csd-modal-title">
+        <section class="csd-modal" role="dialog" aria-modal="true" aria-labelledby="csd-modal-title" tabindex="-1">
           <header class="csd-modal-header">
             <div class="csd-modal-heading">
-              <div>
-                <span>Método de discovery</span>
-                <h2 id="csd-modal-title">Matriz CSD</h2>
-              </div>
+              <h2 id="csd-modal-title">Matriz CSD</h2>
               <strong class="csd-validation-badge" data-csd-validation-badge>0% validado</strong>
             </div>
             <p>Gerencie as certezas, suposições e dúvidas do discovery.</p>
-            <button class="modal-close csd-modal-close" type="button" aria-label="Fechar Matriz CSD" data-csd-modal-close>
+            <button class="modal-close csd-modal-close" type="button" aria-label="Fechar matriz CSD" data-csd-modal-close>
               <svg aria-hidden="true" viewBox="0 0 24 24">
                 <path d="M18 6 6 18" />
                 <path d="m6 6 12 12" />

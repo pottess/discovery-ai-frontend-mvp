@@ -55,6 +55,7 @@ const productAudiencePage = document.querySelector("[data-product-audience-page]
 const productDiscoverySearch = document.querySelector("[data-product-discovery-search]");
 const productDiscoveryGrid = document.querySelector("[data-product-discovery-grid]");
 const productDiscoveryEmpty = document.querySelector("[data-product-discovery-empty]");
+const productManageAudienceButton = document.querySelector("[data-product-manage-audience]");
 const productNewDiscoveryButton = document.querySelector("[data-product-new-discovery]");
 const teamButton = document.querySelector("[data-team-button]");
 const discoveryPage = document.querySelector("[data-discovery-page]");
@@ -1810,37 +1811,6 @@ function renderProductTeamCards(product = {}, { compact = false, fields = PRODUC
       <strong>${escapeHTML(entry.name)}</strong>
     </article>
   `).join("");
-}
-
-function renderProductTeamRegistrationCard(product = {}) {
-  return `
-    <section class="product-responsibles-card card-surface" aria-labelledby="product-responsibles-title">
-      <div class="product-responsibles-header">
-        <div>
-          <span>Cadastro obrigatório</span>
-          <h2 id="product-responsibles-title">Responsáveis do produto</h2>
-          <p>Cadastre os responsáveis antes de criar discoveries. Esses campos são carregados automaticamente no fluxo de novo discovery.</p>
-        </div>
-      </div>
-      <form class="product-responsibles-form" data-product-team-form data-product-team-product="${escapeHTML(product.id)}">
-        <div class="product-responsibles-grid">
-          ${PRODUCT_TEAM_FIELDS.map(({ key, label }) => {
-            const value = getProductTeam(product)[key] || "";
-            return `
-              <label class="product-responsible-field">
-                <span>${escapeHTML(label)}</span>
-                <input type="text" name="${escapeHTML(key)}" value="${escapeHTML(value)}" placeholder="Nome do ${escapeHTML(label)}" data-product-team-field="${escapeHTML(key)}" required />
-              </label>
-            `;
-          }).join("")}
-        </div>
-        <p class="product-team-form-feedback" data-product-team-feedback hidden>Preencha Designer, PM, Arquiteto e GPM para continuar.</p>
-        <div class="product-responsibles-actions">
-          <button class="btn btn-primary primary-action" type="submit">Salvar responsáveis</button>
-        </div>
-      </form>
-    </section>
-  `;
 }
 
 function renderProductTeamGrid(product = {}) {
@@ -8359,8 +8329,6 @@ function renderProductAudienceManagementPage(product = {}) {
       </div>
     </header>
 
-    ${renderProductTeamRegistrationCard(product)}
-
     <section class="audience-manager card-surface">
       <div class="audience-toolbar">
         <div class="audience-tabs" role="tablist" aria-label="Pessoas do produto">
@@ -8885,13 +8853,17 @@ const CSD_COLUMN_CONFIG = {
     legacyKey: "certezas",
     title: "Certezas",
     icon: "✓",
+    tone: "success",
+    countLabel: "certezas",
     addLabel: "+ Adicionar certeza",
     emptyLabel: "Nenhuma certeza registrada.",
   },
   assumptions: {
     legacyKey: "suposicoes",
     title: "Suposições",
-    icon: "S",
+    icon: "!",
+    tone: "warning",
+    countLabel: "suposições",
     addLabel: "+ Adicionar suposição",
     emptyLabel: "Nenhuma suposição registrada.",
   },
@@ -8899,6 +8871,8 @@ const CSD_COLUMN_CONFIG = {
     legacyKey: "duvidas",
     title: "Dúvidas",
     icon: "?",
+    tone: "info",
+    countLabel: "dúvidas",
     addLabel: "+ Adicionar dúvida",
     emptyLabel: "Nenhuma dúvida registrada.",
   },
@@ -9212,6 +9186,11 @@ function renderDiscoveryCsdSummaryPanel(activeDiscovery = {}) {
 
 function getCsdColumnCountLabel(matrix = {}, key = "certainties") {
   const items = getCountableCsdItems(matrix, key);
+  if (key === "doubts") {
+    const answeredCount = items.filter(isCsdDoubtAnswered).length;
+    return `${answeredCount}/${items.length}`;
+  }
+
   return String(items.length);
 }
 
@@ -9248,6 +9227,28 @@ function renderCsdStatusBadges(item = {}, key = "certainties") {
   return badges.join("");
 }
 
+function renderCsdAddForm(key = "certainties") {
+  if (editingCsdMatrixState?.addingColumn !== key) {
+    return "";
+  }
+
+  const draft = editingCsdMatrixState.addingDraft || "";
+  const hasError = Boolean(editingCsdMatrixState.addingError);
+  return `
+    <article class="csd-card csd-item-card csd-add-card">
+      <label class="csd-new-item-field">
+        <span class="visually-hidden">Novo item</span>
+        <textarea rows="3" data-csd-new-item-text="${escapeHTML(key)}" placeholder="Descreva aqui...">${escapeHTML(draft)}</textarea>
+      </label>
+      ${hasError ? `<p class="csd-inline-error">Descreva o item antes de salvar.</p>` : ""}
+      <div class="csd-inline-actions is-left">
+        <button class="csd-inline-primary blue" type="button" data-csd-save-new-item="${escapeHTML(key)}">✓ Salvar</button>
+        <button class="csd-inline-secondary" type="button" data-csd-cancel-new-item="${escapeHTML(key)}">× Cancelar</button>
+      </div>
+    </article>
+  `;
+}
+
 function renderCsdItemCard(key = "certainties", item = {}, index = 0) {
   const config = CSD_COLUMN_CONFIG[key] || CSD_COLUMN_CONFIG.certainties;
   const dateLabel = formatCsdDate(item.updatedAt || item.createdAt);
@@ -9256,8 +9257,8 @@ function renderCsdItemCard(key = "certainties", item = {}, index = 0) {
       <div class="csd-inline-panel" role="group" aria-label="Confirmar suposição como certeza">
         <p>Mover esta suposição para Certezas?</p>
         <div class="csd-inline-actions">
-          <button class="btn btn-primary btn-sm" type="button" data-csd-confirm-assumption-final="${index}">Confirmar</button>
-          <button class="btn btn-secondary btn-sm" type="button" data-csd-confirm-assumption-cancel="${index}">Cancelar</button>
+          <button class="csd-inline-primary" type="button" data-csd-confirm-assumption-final="${index}">Confirmar</button>
+          <button class="csd-inline-secondary" type="button" data-csd-confirm-assumption-cancel="${index}">Cancelar</button>
         </div>
       </div>
     `
@@ -9266,39 +9267,36 @@ function renderCsdItemCard(key = "certainties", item = {}, index = 0) {
     ? `
       <div class="csd-inline-panel" role="group" aria-label="Responder dúvida">
         <label class="csd-answer-field">
-          <span>Resposta</span>
-          <textarea rows="3" data-csd-doubt-answer-draft="${index}" placeholder="Digite a resposta da dúvida">${escapeHTML(item.answerDraft || "")}</textarea>
+          <span class="visually-hidden">Resposta</span>
+          <textarea rows="3" data-csd-doubt-answer-draft="${index}" placeholder="Descreva a resposta...">${escapeHTML(item.answerDraft || "")}</textarea>
         </label>
         ${item.answerError ? `<p class="csd-inline-error">Digite uma resposta antes de salvar.</p>` : ""}
         <div class="csd-inline-actions">
-          <button class="btn btn-primary btn-sm" type="button" data-csd-save-doubt-answer="${index}">Salvar resposta</button>
-          <button class="btn btn-secondary btn-sm" type="button" data-csd-cancel-doubt-answer="${index}">Cancelar</button>
+          <button class="csd-inline-primary blue" type="button" data-csd-save-doubt-answer="${index}">Salvar</button>
+          <button class="csd-inline-secondary" type="button" data-csd-cancel-doubt-answer="${index}">Cancelar</button>
         </div>
       </div>
     `
     : "";
   const actionMarkup = key === "assumptions" && !item.isConfirming
-    ? `<button class="btn btn-secondary btn-sm csd-card-action" type="button" data-csd-start-confirm-assumption="${index}">Confirmar como certeza</button>`
-    : key === "doubts" && !item.isAnswering
-      ? `<button class="btn btn-secondary btn-sm csd-card-action" type="button" data-csd-start-answer-doubt="${index}">Responder dúvida</button>`
+    ? `<button class="csd-card-action" type="button" data-csd-start-confirm-assumption="${index}">→ ✓ Confirmar como certeza</button>`
+    : key === "doubts" && !item.isAnswering && !isCsdDoubtAnswered(item)
+      ? `<button class="csd-card-action" type="button" data-csd-start-answer-doubt="${index}">→ ✓ Responder dúvida</button>`
       : "";
+  const answeredMarkup = key === "doubts" && isCsdDoubtAnswered(item) && !item.isAnswering
+    ? `<span class="csd-answered-label">Respondida</span>`
+    : "";
 
   return `
     <article class="csd-card csd-item-card" data-csd-card="${escapeHTML(key)}" data-csd-index="${index}">
-      <div class="csd-item-card-topline">
-        <span>${escapeHTML(dateLabel)}</span>
-        <button class="csd-item-remove btn btn-ghost btn-icon btn-sm" type="button" data-csd-remove-item="${escapeHTML(key)}:${index}" aria-label="Remover item de ${escapeHTML(config.title)}">×</button>
-      </div>
-      <label class="csd-item-text-label">
-        <span class="visually-hidden">${escapeHTML(config.title)}</span>
-        <textarea rows="4" data-csd-item-text="${escapeHTML(key)}:${index}" placeholder="Digite o conteúdo...">${escapeHTML(item.text || "")}</textarea>
-      </label>
+      <p class="csd-item-text">${escapeHTML(item.text || "")}</p>
+      <time class="csd-item-date" datetime="${escapeHTML(item.updatedAt || item.createdAt || "")}">${escapeHTML(dateLabel)}</time>
       <div class="csd-item-meta">
         ${renderCsdStatusBadges(item, key)}
       </div>
       ${assumptionConfirmationMarkup}
       ${doubtAnswerMarkup}
-      ${actionMarkup ? `<div class="csd-item-actions">${actionMarkup}</div>` : ""}
+      ${actionMarkup || answeredMarkup ? `<div class="csd-item-actions">${actionMarkup}${answeredMarkup}</div>` : ""}
     </article>
   `;
 }
@@ -9311,12 +9309,13 @@ function renderCsdColumn(key = "certainties", matrix = {}) {
     <section class="csd-column csd-${escapeHTML(key)}" aria-labelledby="csd-${escapeHTML(key)}-title">
       <header class="csd-column-header">
         <div>
-          <span class="csd-column-icon" aria-hidden="true">${escapeHTML(config.icon)}</span>
+          <span class="csd-column-icon ${escapeHTML(config.tone)}" aria-hidden="true">${escapeHTML(config.icon)}</span>
           <h3 id="csd-${escapeHTML(key)}-title">${escapeHTML(config.title)}</h3>
+          <strong class="${escapeHTML(config.tone)}">${escapeHTML(getCsdColumnCountLabel(matrix, key))}</strong>
         </div>
-        <strong>${escapeHTML(getCsdColumnCountLabel(matrix, key))}</strong>
       </header>
       <div class="csd-card-list csd-column-list">
+        ${renderCsdAddForm(key)}
         ${items.length
           ? items.map((item, index) => renderCsdItemCard(key, item, index)).join("")
           : `<p class="csd-column-empty">${escapeHTML(config.emptyLabel)}</p>`}
@@ -9368,10 +9367,14 @@ function openCsdMatrixModal(discoveryId = selectedDiscoveryId || getCurrentDisco
     discoveryId: requestedDiscoveryId || activeDiscovery.id || "",
     productId: selectedProductId || activeDiscovery.productId || getCurrentProductId(),
     matrix: cloneCsdMatrix(matrix),
+    addingColumn: "",
+    addingDraft: "",
+    addingError: false,
   };
   renderCsdMatrixModal(activeDiscovery);
   csdModal.hidden = false;
-  window.setTimeout(() => csdModalClose?.focus(), 0);
+  document.body.style.overflow = "hidden";
+  window.setTimeout(() => csdModal.querySelector(".csd-modal")?.focus(), 0);
 }
 
 function closeCsdMatrixModal() {
@@ -9379,6 +9382,7 @@ function closeCsdMatrixModal() {
   if (csdModal) {
     csdModal.hidden = true;
   }
+  document.body.style.overflow = "";
 }
 
 function updateCsdMatrixItem(key = "certainties", index = 0, patch = {}) {
@@ -9429,6 +9433,31 @@ function parseCsdMatrixTarget(value = "") {
   };
 }
 
+function clearCsdMatrixInlineStates({ keepAdding = false } = {}) {
+  if (!editingCsdMatrixState?.matrix) {
+    return;
+  }
+
+  Object.keys(CSD_COLUMN_CONFIG).forEach((key) => {
+    editingCsdMatrixState.matrix[key] = (Array.isArray(editingCsdMatrixState.matrix[key])
+      ? editingCsdMatrixState.matrix[key]
+      : []
+    ).map((item) => ({
+      ...item,
+      isConfirming: false,
+      isAnswering: false,
+      answerError: false,
+      answerDraft: item.answer || "",
+    }));
+  });
+
+  if (!keepAdding) {
+    editingCsdMatrixState.addingColumn = "";
+    editingCsdMatrixState.addingDraft = "";
+    editingCsdMatrixState.addingError = false;
+  }
+}
+
 function cleanCsdMatrixForSave(matrix = {}) {
   const normalizedMatrix = normalizeCsdMatrix({ csdMatrix: matrix });
   const cleanedMatrix = {
@@ -9458,16 +9487,64 @@ function addCsdMatrixItem(key = "certainties") {
     return;
   }
 
-  editingCsdMatrixState.matrix[key] = [
-    ...editingCsdMatrixState.matrix[key],
-    createEditableCsdItem(key),
-  ];
+  clearCsdMatrixInlineStates();
+  editingCsdMatrixState.addingColumn = key;
+  editingCsdMatrixState.addingDraft = "";
+  editingCsdMatrixState.addingError = false;
   renderCsdMatrixModal(getActiveDiscoveryForCurrentPage());
   window.setTimeout(() => {
-    const newItemIndex = editingCsdMatrixState?.matrix?.[key]?.length - 1;
-    const input = csdModalBody?.querySelector(`[data-csd-item-text="${key}:${newItemIndex}"]`);
+    const input = csdModalBody?.querySelector(`[data-csd-new-item-text="${key}"]`);
     input?.focus();
   }, 0);
+}
+
+function updateCsdAddDraft(key = "certainties", value = "") {
+  if (!editingCsdMatrixState || editingCsdMatrixState.addingColumn !== key) {
+    return;
+  }
+
+  editingCsdMatrixState.addingDraft = value;
+  editingCsdMatrixState.addingError = false;
+}
+
+function cancelCsdAddItem() {
+  if (!editingCsdMatrixState) {
+    return;
+  }
+
+  editingCsdMatrixState.addingColumn = "";
+  editingCsdMatrixState.addingDraft = "";
+  editingCsdMatrixState.addingError = false;
+  renderCsdMatrixModal(getActiveDiscoveryForCurrentPage());
+}
+
+function saveCsdAddItem(key = "certainties") {
+  if (!editingCsdMatrixState?.matrix || !Array.isArray(editingCsdMatrixState.matrix[key])) {
+    return;
+  }
+
+  const text = String(editingCsdMatrixState.addingDraft || "").trim();
+  if (!text) {
+    editingCsdMatrixState.addingColumn = key;
+    editingCsdMatrixState.addingError = true;
+    renderCsdMatrixModal(getActiveDiscoveryForCurrentPage());
+    window.setTimeout(() => csdModalBody?.querySelector(`[data-csd-new-item-text="${key}"]`)?.focus(), 0);
+    return;
+  }
+
+  const now = new Date().toISOString();
+  editingCsdMatrixState.matrix[key] = [
+    createEditableCsdItem(key, text, {
+      createdAt: now,
+      updatedAt: now,
+      isDraft: false,
+    }),
+    ...editingCsdMatrixState.matrix[key],
+  ];
+  editingCsdMatrixState.addingColumn = "";
+  editingCsdMatrixState.addingDraft = "";
+  editingCsdMatrixState.addingError = false;
+  renderCsdMatrixModal(getActiveDiscoveryForCurrentPage());
 }
 
 function removeCsdMatrixItem(key = "certainties", index = 0) {
@@ -9483,6 +9560,7 @@ function removeCsdMatrixItem(key = "certainties", index = 0) {
 }
 
 function startCsdAssumptionConfirmation(index = 0) {
+  clearCsdMatrixInlineStates();
   updateCsdMatrixActiveItem("assumptions", index, { isConfirming: true });
   renderCsdMatrixModal(getActiveDiscoveryForCurrentPage());
 }
@@ -9521,8 +9599,8 @@ function confirmCsdAssumptionAsCertainty(index = 0) {
         sourceType: "assumption",
         sourceLabel: "Movida de Suposição",
         validatedAt: now,
-        createdAt: now,
-        updatedAt: now,
+        createdAt: assumption.createdAt || now,
+        updatedAt: assumption.updatedAt || assumption.createdAt || now,
         isDraft: false,
       }),
       ...editingCsdMatrixState.matrix.certainties,
@@ -9542,6 +9620,7 @@ function startCsdDoubtAnswer(index = 0) {
     return;
   }
 
+  clearCsdMatrixInlineStates();
   updateCsdMatrixActiveItem("doubts", index, {
     isAnswering: true,
     answerDraft: doubt.answer || doubt.answerDraft || "",
@@ -9579,28 +9658,10 @@ function saveCsdDoubtAnswer(index = 0) {
   }
 
   const now = new Date().toISOString();
-  if (!hasCsdCertaintyFromSource("answered_doubt", doubt.id)) {
-    editingCsdMatrixState.matrix.certainties = [
-      createEditableCsdItem("certainties", answerText, {
-        status: "confirmed",
-        source: "answered_doubt",
-        sourceId: doubt.id,
-        sourceType: "doubt",
-        sourceLabel: "Dúvida respondida",
-        validatedAt: now,
-        createdAt: now,
-        updatedAt: now,
-        isDraft: false,
-      }),
-      ...editingCsdMatrixState.matrix.certainties,
-    ];
-  }
-
   editingCsdMatrixState.matrix.doubts = editingCsdMatrixState.matrix.doubts.map((item) => (
     item.id === doubt.id
       ? {
           ...item,
-          active: false,
           status: "answered",
           answer: answerText,
           answerDraft: "",
@@ -13610,28 +13671,6 @@ productAudiencePage?.addEventListener("change", (event) => {
 });
 
 productAudiencePage?.addEventListener("submit", (event) => {
-  const productTeamForm = event.target.closest("[data-product-team-form]");
-  if (productTeamForm) {
-    event.preventDefault();
-    const product = getProductById(productTeamForm.dataset.productTeamProduct || selectedProductId || getCurrentProductId()) || products[0];
-    const feedback = productTeamForm.querySelector("[data-product-team-feedback]");
-
-    if (!saveProductTeamFromForm(productTeamForm, product)) {
-      if (feedback) {
-        feedback.hidden = false;
-      }
-      showAppToast("Preencha todos os responsáveis do produto.", "error");
-      return;
-    }
-
-    if (feedback) {
-      feedback.hidden = true;
-    }
-    renderProductAudienceRoute(product.id, getProductAudienceRouteInfo());
-    showAppToast("Responsáveis do produto salvos.", "success");
-    return;
-  }
-
   const form = event.target.closest("[data-audience-form]");
   if (!form) {
     return;
@@ -13758,6 +13797,18 @@ csdModal?.addEventListener("click", (event) => {
     return;
   }
 
+  const saveNewItemButton = event.target.closest("[data-csd-save-new-item]");
+  if (saveNewItemButton) {
+    saveCsdAddItem(saveNewItemButton.dataset.csdSaveNewItem || "certainties");
+    return;
+  }
+
+  const cancelNewItemButton = event.target.closest("[data-csd-cancel-new-item]");
+  if (cancelNewItemButton) {
+    cancelCsdAddItem();
+    return;
+  }
+
   const removeButton = event.target.closest("[data-csd-remove-item]");
   if (removeButton) {
     const { key, index } = parseCsdMatrixTarget(removeButton.dataset.csdRemoveItem);
@@ -13801,6 +13852,12 @@ csdModal?.addEventListener("click", (event) => {
   }
 });
 csdModal?.addEventListener("input", (event) => {
+  const newItemInput = event.target.closest("[data-csd-new-item-text]");
+  if (newItemInput) {
+    updateCsdAddDraft(newItemInput.dataset.csdNewItemText || "certainties", newItemInput.value);
+    return;
+  }
+
   const textInput = event.target.closest("[data-csd-item-text]");
   if (textInput) {
     const { key, index } = parseCsdMatrixTarget(textInput.dataset.csdItemText);
@@ -13839,6 +13896,12 @@ discoverySynthesisButton?.addEventListener("click", (event) => {
 productDiscoverySearch.addEventListener("input", () => {
   const product = products.find((item) => item.id === selectedProductId) || products[0];
   renderProductDiscoveries(product);
+});
+
+productManageAudienceButton?.addEventListener("click", () => {
+  selectedProductId = selectedProductId || getCurrentProductId();
+  const product = getProductById(selectedProductId) || products[0];
+  setRoute("product-audience", product.id);
 });
 
 productNewDiscoveryButton.addEventListener("click", () => {
