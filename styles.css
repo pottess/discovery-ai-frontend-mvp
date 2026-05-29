@@ -523,9 +523,12 @@ svg {
 }
 
 .sidebar-list-group-title {
-  color: var(--text);
-  font-size: 13px;
-  font-weight: 850;
+  color: #202020;
+  font-size: 12px;
+  font-weight: 720;
+  letter-spacing: 0.12em;
+  line-height: 1.2;
+  text-transform: uppercase;
 }
 
 .sidebar-product-row {
@@ -739,6 +742,12 @@ svg {
   outline: none;
 }
 
+.sidebar-navigation-line {
+  min-height: 32px;
+  color: #6a6a6a;
+  font-size: 14px;
+}
+
 .sidebar-discovery-row {
   display: grid;
   width: 100%;
@@ -760,6 +769,38 @@ svg {
   color: var(--text);
   background: #f5f5f5;
   outline: none;
+}
+
+.sidebar-discovery-row-compact {
+  min-height: 42px;
+  padding: 5px 0;
+  border-radius: 0;
+  color: #6a6a6a;
+  background: transparent;
+}
+
+.sidebar-discovery-row-compact:hover,
+.sidebar-discovery-row-compact:focus-visible,
+.sidebar-discovery-row-compact.active {
+  color: #111111;
+  background: transparent;
+}
+
+.sidebar-discovery-row-compact .sidebar-discovery-copy {
+  gap: 2px;
+}
+
+.sidebar-discovery-row-compact .sidebar-discovery-copy strong {
+  color: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.25;
+}
+
+.sidebar-discovery-row-compact .sidebar-discovery-copy small {
+  color: #6a6a6a;
+  font-size: 12px;
+  line-height: 1.25;
 }
 
 .sidebar-empty {
@@ -902,9 +943,8 @@ svg {
 .home-product-item {
   display: flex;
   align-items: center;
-  gap: 12px;
   min-height: 82px;
-  padding: 14px;
+  padding: 18px 22px;
   border: 1px solid #e6e6e6;
   border-radius: 8px;
   color: var(--text);
@@ -917,19 +957,6 @@ svg {
   border-color: var(--accent);
   background: #fffaf0;
   transform: translateY(-1px);
-}
-
-.home-product-icon {
-  display: grid;
-  place-items: center;
-  flex: 0 0 auto;
-  width: 42px;
-  height: 42px;
-  border-radius: 999px;
-  color: #151515;
-  background: var(--accent);
-  font-size: 13px;
-  font-weight: 800;
 }
 
 .home-product-copy {

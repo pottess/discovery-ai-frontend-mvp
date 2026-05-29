@@ -2590,7 +2590,6 @@ function renderHomeProductBar() {
   homeProductBar.innerHTML = userProducts.length
     ? userProducts.map((product) => `
       <button class="home-product-item" type="button" data-home-product-id="${escapeHTML(product.id)}" aria-label="Abrir produto ${escapeHTML(product.name)}">
-        <span class="home-product-icon" aria-hidden="true">${escapeHTML(getProductIconLabel(product))}</span>
         <span class="home-product-copy">
           <strong>${escapeHTML(product.name)}</strong>
           <small>${escapeHTML(getProductAreaLabel(product))}</small>
@@ -7485,11 +7484,13 @@ function renderSidebarPanelHeader(kicker = "", title = "", copy = "") {
 
 function renderHomeSidebarPanel() {
   sidebarPanel.innerHTML = `
-    ${renderSidebarPanelHeader("Navegação", "Início", "Acesse seus produtos e discoveries recentes.")}
-    <div class="sidebar-submenu">
-      <button class="sidebar-submenu-link active" type="button" data-sidebar-context="home">Página inicial</button>
-      <button class="sidebar-submenu-link" type="button" data-sidebar-context="products">Todos os produtos</button>
-      <button class="sidebar-submenu-link" type="button" data-sidebar-context="recent">Discoveries recentes</button>
+    <div class="sidebar-products-menu">
+      <span class="sidebar-products-section-label">NAVEGAÇÃO</span>
+      <div class="sidebar-products-groups">
+        <button class="sidebar-product-line sidebar-navigation-line" type="button" data-sidebar-context="home">Página inicial</button>
+        <button class="sidebar-product-line sidebar-navigation-line" type="button" data-sidebar-context="products">Todos os produtos</button>
+        <button class="sidebar-product-line sidebar-navigation-line" type="button" data-sidebar-context="recent">Discoveries recentes</button>
+      </div>
     </div>
   `;
 }
@@ -7605,25 +7606,23 @@ function renderFavoritesSidebarPanel(activeDiscoveryId = selectedDiscoveryId) {
   const hasFavorites = favoriteProducts.length || favoriteDiscoveryEntries.length;
 
   sidebarPanel.innerHTML = `
-    ${renderSidebarPanelHeader("Favoritos", "Favoritos", "Produtos e discoveries salvos para acesso rápido.")}
-    <div class="sidebar-submenu">
+    <div class="sidebar-products-menu">
+      <span class="sidebar-products-section-label">FAVORITOS</span>
       ${!hasFavorites ? '<p class="sidebar-empty">Nenhum favorito ainda.</p>' : ""}
       ${favoriteProducts.length ? `
-        <div class="sidebar-submenu-section">
-          <span class="sidebar-submenu-heading">Produtos favoritos</span>
-          <div class="sidebar-list">${favoriteProducts.map((product) => renderSidebarProductRow(product)).join("")}</div>
+        <div class="sidebar-products-favorites">
+          ${favoriteProducts.map((product) => renderSidebarProductFavoriteLine(product)).join("")}
         </div>
       ` : ""}
       ${favoriteDiscoveryEntries.length ? `
-        <div class="sidebar-submenu-section">
-          <span class="sidebar-submenu-heading">Discoveries favoritos</span>
+        <div class="sidebar-products-groups">
           ${favoriteDiscoveryEntries.map(([productId, productDiscoveries]) => {
             const product = getProductById(productId) || getProductForDiscoverySummary(productDiscoveries[0]);
             return `
               <div class="sidebar-list-group">
                 <span class="sidebar-list-group-title">${escapeHTML(product.name || "Produto")}</span>
                 <div class="sidebar-list">
-                  ${productDiscoveries.map((discovery) => renderSidebarDiscoveryRow(discovery, activeDiscoveryId, true)).join("")}
+                  ${productDiscoveries.map((discovery) => renderSidebarDiscoveryRow(discovery, activeDiscoveryId, true, { compact: true })).join("")}
                 </div>
               </div>
             `;
@@ -7637,26 +7636,30 @@ function renderFavoritesSidebarPanel(activeDiscoveryId = selectedDiscoveryId) {
 function renderRecentDiscoveriesPanel(activeDiscoveryId = selectedDiscoveryId) {
   const recentItems = getRecentDiscoveries(8);
   sidebarPanel.innerHTML = `
-    ${renderSidebarPanelHeader("Discovery", "Recentes", "Acesse rapidamente os discoveries atualizados por produto.")}
-    <div class="sidebar-submenu">
+    <div class="sidebar-products-menu">
+      <span class="sidebar-products-section-label">DISCOVERY</span>
       <div class="sidebar-recent-list">
         ${recentItems.length
-          ? recentItems.map((discovery) => renderSidebarDiscoveryRow(discovery, activeDiscoveryId)).join("")
+          ? recentItems.map((discovery) => renderSidebarDiscoveryRow(discovery, activeDiscoveryId, false, { compact: true })).join("")
           : '<p class="sidebar-empty">Nenhum discovery recente.</p>'}
       </div>
     </div>
   `;
 }
 
-function renderSidebarDiscoveryRow(discovery = {}, activeDiscoveryId = selectedDiscoveryId, isFavorite = false) {
+function renderSidebarDiscoveryRow(discovery = {}, activeDiscoveryId = selectedDiscoveryId, isFavorite = false, options = {}) {
   const title = discovery.title || discovery.name || "Discovery";
   const product = getProductById(discovery.productId) || getProductForDiscoverySummary(discovery);
   const status = discovery.status || discovery.workflow || discovery.currentState || discovery.progressLabel || "";
+  const compactClass = options.compact ? " sidebar-discovery-row-compact" : "";
+  const subtitle = options.compact
+    ? (product.name || discovery.productName || "")
+    : `${product.name || discovery.productName || ""}${status ? ` · ${status}` : ""}`;
   return `
-    <button class="sidebar-discovery-row${discovery.id === activeDiscoveryId ? " active" : ""}" type="button" ${isFavorite ? `data-favorite-discovery-shortcut="${escapeHTML(discovery.id)}"` : `data-sidebar-discovery="${escapeHTML(discovery.id)}"`} data-sidebar-discovery-product="${escapeHTML(product.id)}" title="${escapeHTML(title)}">
+    <button class="sidebar-discovery-row${compactClass}${discovery.id === activeDiscoveryId ? " active" : ""}" type="button" ${isFavorite ? `data-favorite-discovery-shortcut="${escapeHTML(discovery.id)}"` : `data-sidebar-discovery="${escapeHTML(discovery.id)}"`} data-sidebar-discovery-product="${escapeHTML(product.id)}" title="${escapeHTML(title)}">
       <span class="sidebar-discovery-copy">
         <strong>${escapeHTML(title)}</strong>
-        <small>${escapeHTML(product.name || discovery.productName || "")}${status ? ` · ${escapeHTML(status)}` : ""}</small>
+        <small>${escapeHTML(subtitle)}</small>
       </span>
     </button>
   `;
@@ -8216,12 +8219,6 @@ function renderProductArtifacts(product = {}) {
             </span>
           </div>
           <div class="product-artifact-actions">
-            <button type="button" aria-label="Visualizar ${escapeHTML(artifact.title)}" data-product-artifact-action="view">
-              <svg aria-hidden="true" viewBox="0 0 24 24">
-                <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z" />
-                <circle cx="12" cy="12" r="3" />
-              </svg>
-            </button>
             <button type="button" aria-label="Excluir ${escapeHTML(artifact.title)}" data-product-artifact-action="delete">
               <svg aria-hidden="true" viewBox="0 0 24 24">
                 <path d="M3 6h18" />
@@ -10255,12 +10252,6 @@ function renderLocalDiscoveryArtifacts(artifacts = []) {
             <small>10/05/2026</small>
           </span>
           <span class="artifact-row-actions">
-            <button type="button" data-discovery-artifact="${escapeHTML(artifact)}" aria-label="Visualizar ${escapeHTML(artifact)}">
-              <svg aria-hidden="true" viewBox="0 0 24 24">
-                <path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6-10-6-10-6Z" />
-                <circle cx="12" cy="12" r="3" />
-              </svg>
-            </button>
             <button type="button" aria-label="Remover ${escapeHTML(artifact)}">
               <svg aria-hidden="true" viewBox="0 0 24 24">
                 <path d="M3 6h18" />
