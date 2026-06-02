@@ -49,6 +49,18 @@ const MIME_TYPES = {
 };
 const mockAgentRuns = new Map();
 
+const LOCAL_DATA_DIR = path.join(ROOT_DIR, "backend", "data");
+const LOCAL_COLLECTIONS = {
+  "products": { file: "products.json", defaultValue: [] },
+  "discoveries": { file: "discoveries.json", defaultValue: [] },
+  "created-discoveries": { file: "created-discoveries.json", defaultValue: [] },
+  "product-favorites-by-user": { file: "product-favorites-by-user.json", defaultValue: {} },
+  "favorite-discovery-ids": { file: "favorite-discovery-ids.json", defaultValue: [] },
+  "product-audience-by-product": { file: "product-audience-by-product.json", defaultValue: {} },
+  "research-activity-users": { file: "research-activity-users.json", defaultValue: {} },
+  "local-mock-runs": { file: "local-mock-runs.json", defaultValue: {} },
+};
+
 function loadEnvFile(filePath = path.join(ROOT_DIR, ".env")) {
   if (!fs.existsSync(filePath)) {
     return;
@@ -203,6 +215,43 @@ function readJsonBody(request) {
     });
     request.on("error", reject);
   });
+}
+
+function ensureDataDir() {
+  if (!fs.existsSync(LOCAL_DATA_DIR)) {
+    fs.mkdirSync(LOCAL_DATA_DIR, { recursive: true });
+  }
+}
+
+function readLocalJson(collection) {
+  const info = LOCAL_COLLECTIONS[collection];
+  const defaultValue = JSON.parse(JSON.stringify(info.defaultValue));
+  const filePath = path.join(LOCAL_DATA_DIR, info.file);
+  try {
+    if (!fs.existsSync(filePath)) return defaultValue;
+    return JSON.parse(fs.readFileSync(filePath, "utf8"));
+  } catch {
+    return defaultValue;
+  }
+}
+
+function saveLocalJson(collection, data) {
+  ensureDataDir();
+  const info = LOCAL_COLLECTIONS[collection];
+  const filePath = path.join(LOCAL_DATA_DIR, info.file);
+  fs.writeFileSync(filePath, JSON.stringify(data, null, 2), "utf8");
+}
+
+function resolveCollection(response, name) {
+  if (Object.prototype.hasOwnProperty.call(LOCAL_COLLECTIONS, name)) {
+    return LOCAL_COLLECTIONS[name];
+  }
+  sendJson(response, 404, {
+    error: "Coleção não encontrada.",
+    collection: name,
+    allowedCollections: Object.keys(LOCAL_COLLECTIONS),
+  });
+  return null;
 }
 
 function getCrewAiConfig() {
@@ -450,6 +499,7 @@ function createMockAgentRun(body = {}) {
   };
 
   mockAgentRuns.set(runId, run);
+  persistMockAgentRuns();
   return run;
 }
 
@@ -463,7 +513,406 @@ function setMockAgentRun(run = {}) {
     updated_at: new Date().toISOString(),
   };
   mockAgentRuns.set(updatedRun.run_id, updatedRun);
+  persistMockAgentRuns();
   return updatedRun;
+}
+
+function serializeMockAgentRuns() {
+  const obj = {};
+  for (const [runId, run] of mockAgentRuns) {
+    obj[runId] = run;
+  }
+  return obj;
+}
+
+function persistMockAgentRuns() {
+  try {
+    saveLocalJson("local-mock-runs", serializeMockAgentRuns());
+  } catch {
+    // Persistence is best-effort.
+  }
+}
+
+function hydrateMockAgentRunsFromFile() {
+  const stored = readLocalJson("local-mock-runs");
+  if (!stored || typeof stored !== "object" || Array.isArray(stored)) {
+    return;
+  }
+  for (const [runId, run] of Object.entries(stored)) {
+    if (run && typeof run === "object" && run.run_id && run.current_state) {
+      mockAgentRuns.set(String(runId), run);
+    }
+  }
+}
+
+function getSeedProducts() {
+  return [
+    {
+      id: "cora-promocoes",
+      name: "Cora Promoções",
+      tower: "Comercial",
+      tribe: "Revenue",
+      category: "Revenue",
+      description: "Produto para planejar, acompanhar e otimizar mecânicas promocionais no comercial.",
+      lastActivity: "20/11/2025",
+      discoveryCount: 1,
+      doneCount: 1,
+      progressCount: 0,
+      favorite: false,
+      about: "Teste A/B de elementos de gamificação para aumentar engajamento com promoções.",
+      metrics: ["Adesão promocional", "Recorrência", "ROI da promoção"],
+      squad: "Revenue Squad",
+      participants: "Bruno Lima, Camila Rocha",
+      productTeam: { designer: "Marina Costa", pm: "Bruno Lima", architect: "Diego Santos", arquiteto: "", gpm: "Patrícia Gomes" },
+      start: "25/04/2026",
+      end: "20/05/2026",
+      artifacts: ["Análise", "CSD", "Plano de validação"],
+      personas: [
+        {
+          id: "persona-promo-manager",
+          name: "Gestor de Promoções",
+          type: "Usuário interno",
+          description: "Responsável por planejar, configurar e acompanhar campanhas promocionais.",
+          goals: ["Criar promoções com rapidez", "Entender impacto esperado", "Reduzir retrabalho"],
+          pains: ["Baixa visibilidade", "Dependência de planilhas", "Aprovações fora do fluxo"],
+        },
+        {
+          id: "persona-growth-crm-analyst",
+          name: "Analista de Growth/CRM",
+          type: "Usuário interno",
+          description: "Analisa segmentos, ativa comunicações e acompanha conversão das campanhas.",
+          goals: ["Segmentar públicos com precisão", "Aumentar adesão", "Mensurar conversão"],
+          pains: ["Dados dispersos", "Janela curta para ajustes", "Dificuldade para comparar campanhas"],
+        },
+        {
+          id: "persona-promo-eligible-user",
+          name: "Usuário final elegível à promoção",
+          type: "Usuário impactado",
+          description: "Cliente ou usuário que precisa entender regras, benefícios e próximos passos da promoção.",
+          goals: ["Encontrar promoções relevantes", "Entender regras rapidamente", "Receber benefício sem fricção"],
+          pains: ["Regras pouco claras", "Comunicação tardia", "Dúvidas sobre elegibilidade"],
+        },
+        {
+          id: "persona-support-promo-rules",
+          name: "Atendimento/Suporte consultando regras de promoção",
+          type: "Usuário interno",
+          description: "Time que responde dúvidas operacionais e precisa consultar regras válidas com segurança.",
+          goals: ["Resolver dúvidas com agilidade", "Evitar respostas divergentes", "Escalar exceções corretamente"],
+          pains: ["Histórico incompleto", "Regras em múltiplas fontes", "Alto volume de perguntas repetidas"],
+        },
+      ],
+      stakeholders: [
+        { id: "stakeholder-head-product", name: "Head de Produto", area: "Produto", role: "Decision maker", description: "Aprova prioridades e acompanha impacto estratégico.", interest: "Clareza de impacto, risco e priorização" },
+        { id: "stakeholder-marketing-growth", name: "Marketing/Growth", area: "Growth", role: "Influenciador", description: "Define estratégia de comunicação e metas de aquisição ou engajamento.", interest: "Aumento de adesão, recorrência e eficiência das campanhas" },
+        { id: "stakeholder-commercial-revenue", name: "Comercial/Revenue", area: "Revenue", role: "Sponsor de negócio", description: "Acompanha performance comercial, margem e coerência das mecânicas promocionais.", interest: "ROI da promoção, governança comercial e velocidade de execução" },
+        { id: "stakeholder-finance", name: "Financeiro", area: "Financeiro", role: "Aprovador", description: "Avalia impacto financeiro, orçamento e contabilização dos incentivos.", interest: "Controle de custo, previsibilidade e conciliação" },
+        { id: "stakeholder-data-bi", name: "Data/BI", area: "Dados", role: "Parceiro técnico", description: "Garante métricas, segmentações e leitura confiável dos resultados.", interest: "Disponibilidade, qualidade e rastreabilidade dos dados" },
+        { id: "stakeholder-engineering", name: "Engenharia", area: "Tecnologia", role: "Delivery", description: "Avalia esforço técnico, dependências e riscos de implementação.", interest: "Escopo claro, critérios de aceite e integrações estáveis" },
+        { id: "stakeholder-compliance-legal", name: "Compliance/Legal", area: "Governança", role: "Guardião de risco", description: "Valida regras, elegibilidade, comunicação e obrigações regulatórias.", interest: "Redução de risco legal, transparência e aderência às políticas" },
+      ],
+    },
+    {
+      id: "cora-precos",
+      name: "Cora Preços",
+      tower: "Comercial",
+      tribe: "Revenue",
+      category: "Revenue",
+      description: "Produto usado para acompanhar variações de preço, margem e volume em dashboards operacionais.",
+      lastActivity: "20/11/2025",
+      discoveryCount: 1,
+      doneCount: 0,
+      progressCount: 1,
+      favorite: true,
+      about: "Dashboard operacional para acompanhar desvios e investigar anomalias.",
+      metrics: ["Preço médio", "Variação de margem", "Volume monitorado"],
+      squad: "Pricing Squad",
+      participants: "Bruno Lima, Camila Rocha",
+      productTeam: { designer: "Camila Rocha", pm: "Bruno Lima", architect: "Gustavo Oliveira", arquiteto: "", gpm: "Patrícia Gomes" },
+      start: "25/04/2026",
+      end: "20/05/2026",
+      artifacts: ["Análise", "Protótipo", "Critérios de sucesso"],
+      personas: [
+        {
+          id: "persona-pricing-analyst",
+          name: "Analista de Pricing",
+          type: "Usuário interno",
+          description: "Monitora variações de preço, margem e volume para detectar desvios operacionais.",
+          goals: ["Identificar anomalias rapidamente", "Explicar variações de margem", "Priorizar investigações"],
+          pains: ["Cruzamento manual de dados", "Baixa rastreabilidade", "Alertas sem contexto"],
+        },
+        {
+          id: "persona-revenue-manager",
+          name: "Gerente de Revenue",
+          type: "Usuário interno",
+          description: "Acompanha resultados comerciais e toma decisões sobre preço, desconto e margem.",
+          goals: ["Proteger margem", "Comparar cenários", "Atuar antes do impacto escalar"],
+          pains: ["Indicadores dispersos", "Demora para consolidar causas", "Baixa previsibilidade"],
+        },
+        {
+          id: "persona-sales-coordinator",
+          name: "Coordenador Comercial",
+          type: "Usuário impactado",
+          description: "Consulta preços e justificativas para orientar negociações e execução em campo.",
+          goals: ["Entender preço vigente", "Reduzir retrabalho", "Responder dúvidas do time comercial"],
+          pains: ["Divergência de informação", "Regras pouco visíveis", "Dependência de outras áreas"],
+        },
+        {
+          id: "persona-data-analyst",
+          name: "Analista de Dados/BI",
+          type: "Parceiro interno",
+          description: "Mantém datasets e análises que sustentam as decisões de pricing.",
+          goals: ["Garantir qualidade dos dados", "Automatizar análises", "Reduzir consultas ad hoc"],
+          pains: ["Fontes inconsistentes", "Definições de métrica variáveis", "Pedidos urgentes recorrentes"],
+        },
+      ],
+      stakeholders: [
+        { id: "stakeholder-head-product", name: "Head de Produto", area: "Produto", role: "Decision maker", description: "Aprova prioridades e acompanha impacto estratégico.", interest: "Clareza de impacto, risco e priorização" },
+        { id: "stakeholder-commercial-revenue", name: "Comercial/Revenue", area: "Revenue", role: "Sponsor de negócio", description: "Acompanha performance comercial, margem e oportunidades de receita.", interest: "Proteção de margem, velocidade de reação e consistência comercial" },
+        { id: "stakeholder-finance", name: "Financeiro", area: "Financeiro", role: "Aprovador", description: "Avalia impactos financeiros de variações e políticas de preço.", interest: "Margem, previsibilidade e governança financeira" },
+        { id: "stakeholder-data-bi", name: "Data/BI", area: "Dados", role: "Parceiro técnico", description: "Garante métricas confiáveis, segmentações e leitura de performance.", interest: "Qualidade, disponibilidade e rastreabilidade dos dados" },
+        { id: "stakeholder-engineering", name: "Engenharia", area: "Tecnologia", role: "Delivery", description: "Avalia esforço técnico, integrações e estabilidade do dashboard.", interest: "Escopo claro, dependências mapeadas e critérios de aceite" },
+      ],
+    },
+    {
+      id: "cora-agreements",
+      name: "Cora Agreements",
+      tower: "Comercial",
+      tribe: "Revenue",
+      category: "Revenue",
+      description: "O Cora Acordos centraliza, organiza e automatiza a gestão dos acordos comerciais da Ambev, reunindo tudo em um único lugar.",
+      lastActivity: "20/11/2025",
+      discoveryCount: 1,
+      doneCount: 0,
+      progressCount: 1,
+      favorite: true,
+      about: "Gestão de acordos comerciais, regras de negócio e evidências para aprovação.",
+      metrics: ["Acordos ativos", "Tempo de aprovação", "Pendências"],
+      squad: "Revenue Squad",
+      participants: "Ana Souza, Rafael Nunes",
+      productTeam: { designer: "Ana Souza", pm: "Rafael Nunes", architect: "Renato Lima", arquiteto: "", gpm: "Patrícia Gomes" },
+      start: "02/05/2026",
+      end: "28/05/2026",
+      artifacts: ["Mapa de jornada", "Requisitos", "Protótipo"],
+    },
+    {
+      id: "cora-assortment",
+      name: "Cora Assortment",
+      tower: "Comercial",
+      tribe: "Revenue",
+      category: "Revenue",
+      description: "Produto para apoiar decisões de sortimento, cobertura e mix ideal por contexto comercial.",
+      lastActivity: "20/11/2025",
+      discoveryCount: 1,
+      doneCount: 1,
+      progressCount: 1,
+      favorite: false,
+      about: "Priorização de sortimento para melhorar cobertura e reduzir rupturas comerciais.",
+      metrics: ["Cobertura do mix", "Ruptura", "Aderência por canal"],
+      squad: "Revenue Squad",
+      participants: "Marina Costa, João Vidal",
+      productTeam: { designer: "Marina Costa", pm: "João Vidal", architect: "Gustavo Oliveira", arquiteto: "", gpm: "Patrícia Gomes" },
+      start: "18/04/2026",
+      end: "22/05/2026",
+      artifacts: ["Análise", "Matriz de oportunidade", "Roteiro"],
+    },
+    {
+      id: "cora-coolers",
+      name: "Cora Coolers",
+      tower: "Comercial",
+      tribe: "Service Level",
+      category: "Service Level",
+      description: "Produto para monitorar disponibilidade, instalação, manutenção e performance de coolers.",
+      lastActivity: "20/11/2025",
+      discoveryCount: 1,
+      doneCount: 0,
+      progressCount: 0,
+      favorite: false,
+      about: "Acompanhamento de coolers para melhorar nível de serviço e visibilidade operacional.",
+      metrics: ["Coolers ativos", "SLA de manutenção", "Instalações pendentes"],
+      squad: "Service Level Squad",
+      participants: "Lia Martins, Pedro Campos",
+      productTeam: { designer: "Lia Martins", pm: "Pedro Campos", architect: "Diego Santos", arquiteto: "", gpm: "Patrícia Gomes" },
+      start: "08/04/2026",
+      end: "30/04/2026",
+      artifacts: ["Entrevistas", "Análise", "Plano operacional"],
+    },
+    {
+      id: "cora-credito",
+      name: "Cora Crédito",
+      tower: "Comercial",
+      tribe: "Finance",
+      category: "Finance",
+      description: "Produto para apoiar análise, concessão e acompanhamento de crédito comercial.",
+      lastActivity: "20/11/2025",
+      discoveryCount: 1,
+      doneCount: 0,
+      progressCount: 0,
+      favorite: false,
+      about: "Entendimento de critérios, riscos e fricções na jornada de crédito comercial.",
+      metrics: ["Limite utilizado", "Risco de crédito", "Tempo de aprovação"],
+      squad: "Finance Squad",
+      participants: "Carla Dias, Hugo Alves",
+      productTeam: { designer: "Carla Dias", pm: "Hugo Alves", architect: "Renato Lima", arquiteto: "", gpm: "Patrícia Gomes" },
+      start: "12/04/2026",
+      end: "04/05/2026",
+      artifacts: ["Análise", "Critérios", "Síntese"],
+    },
+    {
+      id: "cora-payments",
+      name: "Cora Payments",
+      tower: "Comercial",
+      tribe: "Finance",
+      category: "Finance",
+      description: "Produto para acompanhamento de pagamentos, liquidações e conciliações financeiras.",
+      lastActivity: "20/11/2025",
+      discoveryCount: 1,
+      doneCount: 1,
+      progressCount: 0,
+      favorite: false,
+      about: "Pesquisa sobre divergências no fechamento e trilhas de auditoria.",
+      metrics: ["Pagamentos processados", "Divergências abertas", "Tempo de fechamento"],
+      squad: "Finance Squad",
+      participants: "Carla Dias, Hugo Alves",
+      productTeam: { designer: "Carla Dias", pm: "Hugo Alves", architect: "Renato Lima", arquiteto: "", gpm: "Patrícia Gomes" },
+      start: "12/04/2026",
+      end: "04/05/2026",
+      artifacts: ["Análise", "Requisitos", "Síntese"],
+    },
+    {
+      id: "cora-settlement",
+      name: "Cora Settlement",
+      tower: "Comercial",
+      tribe: "Finance",
+      category: "Finance",
+      description: "Produto para dar visibilidade ao settlement e reduzir retrabalho no fechamento financeiro.",
+      lastActivity: "20/11/2025",
+      discoveryCount: 1,
+      doneCount: 0,
+      progressCount: 1,
+      favorite: false,
+      about: "Mapeamento de conciliação, liquidação e pontos de retrabalho no settlement.",
+      metrics: ["Tempo de liquidação", "Itens pendentes", "Retrabalho"],
+      squad: "Finance Squad",
+      participants: "Carla Dias, Hugo Alves",
+      productTeam: { designer: "Carla Dias", pm: "Hugo Alves", architect: "Renato Lima", arquiteto: "", gpm: "Patrícia Gomes" },
+      start: "12/04/2026",
+      end: "04/05/2026",
+      artifacts: ["Análise", "Mapa de processo", "Plano de validação"],
+    },
+    {
+      id: "cora-transportes",
+      name: "Cora Transportes",
+      tower: "Comercial",
+      tribe: "Last Mile",
+      category: "Last Mile",
+      area: "Supply Chain",
+      description: "Sistema de gestão logística end-to-end para distribuição de bebidas. Inclui rastreamento GPS, otimização de rotas, gestão de motoristas e previsibilidade de entregas.",
+      lastActivity: "20/11/2025",
+      discoveryCount: 1,
+      doneCount: 1,
+      progressCount: 0,
+      favorite: true,
+      about: "Sistema de gestão logística end-to-end para distribuição de bebidas. Inclui rastreamento GPS, otimização de rotas, gestão de motoristas e previsibilidade de entregas.",
+      metrics: ["SLA por rota", "Atrasos críticos", "Tempo de resposta"],
+      squad: "Last Mile Squad",
+      participants: "Bruno Lima, Camila Rocha",
+      productTeam: { designer: "Camila Rocha", pm: "Carlos Mendes", architect: "Ana Ferreira", arquiteto: "", gpm: "Lucas Martins" },
+      start: "25/04/2026",
+      end: "20/05/2026",
+      artifacts: [
+        { id: "analise-mercado-q1-2026", productId: "cora-transportes", title: "Análise de Mercado Q1 2026", date: "10/05/2026", type: "document" },
+        { id: "roadmap-produto", productId: "cora-transportes", title: "Roadmap do Produto", date: "08/05/2026", type: "roadmap" },
+        { id: "pesquisa-satisfacao", productId: "cora-transportes", title: "Pesquisa de Satisfação", date: "05/05/2026", type: "document" },
+      ],
+    },
+  ];
+}
+
+function getSeedDiscoveries() {
+  return [
+    {
+      id: "dashboard-operacional",
+      productId: "cora-precos",
+      product: "Cora Preços",
+      title: "Dashboard operacional",
+      description: "Métricas em tempo real para acompanhar desvios de preço e demanda.",
+      status: "1/3 concluídos",
+      insight: "Usuários precisam comparar variação de preço, margem e volume na mesma leitura.",
+      next: "Validar a visualização de anomalias com operações e produto.",
+      updatedAt: "2026-05-20T12:00:00.000Z",
+    },
+    {
+      id: "cora-transportes",
+      productId: "cora-transportes",
+      product: "Logística",
+      title: "Cora Transportes",
+      description: "Mapeamento de gargalos em rotas, SLA e comunicação operacional.",
+      status: "2/3 concluídos",
+      insight: "Atrasos ganham contexto quando o time cruza rota, janela de entrega e comunicação.",
+      next: "Consolidar critérios de SLA e criar mapa de exceções.",
+      updatedAt: "2026-05-18T12:00:00.000Z",
+    },
+    {
+      id: "conciliacao-de-pagamentos",
+      productId: "cora-payments",
+      product: "Pagamentos",
+      title: "Conciliação de pagamentos",
+      description: "Validação de hipóteses para reduzir retrabalho no fechamento.",
+      status: "3/3 concluídos",
+      insight: "A principal dor é explicar divergências sem depender de planilhas paralelas.",
+      next: "Transformar achados em requisitos para trilha de auditoria.",
+      updatedAt: "2026-05-16T12:00:00.000Z",
+    },
+    {
+      id: "alertas-inteligentes",
+      productId: "cora-settlement",
+      product: "Operações",
+      title: "Alertas inteligentes",
+      description: "Priorização de alertas para analistas com base em impacto e urgência.",
+      status: "1/3 concluídos",
+      insight: "O time quer priorização por impacto, não apenas uma fila cronológica.",
+      next: "Testar critério de severidade com três cenários reais.",
+      updatedAt: "2026-05-14T12:00:00.000Z",
+    },
+    {
+      id: "onboarding-de-produto",
+      productId: "cora-promocoes",
+      product: "Growth",
+      title: "Onboarding de produto",
+      description: "Clareza da primeira ação útil para novos usuários.",
+      status: "0/3 concluídos",
+      insight: "A primeira ação útil ainda não está clara para novos usuários.",
+      next: "Entrevistar clientes que ativaram em menos de sete dias.",
+      updatedAt: "2026-05-12T12:00:00.000Z",
+    },
+    {
+      id: "relatorio-de-repasses",
+      productId: "cora-payments",
+      product: "Financeiro",
+      title: "Relatório de repasses",
+      description: "Pesquisa sobre origem de divergências e histórico de ajustes.",
+      status: "3/3 concluídos",
+      insight: "O fechamento precisa mostrar origem da divergência antes da correção.",
+      next: "Priorizar exportação e histórico de ajustes.",
+      updatedAt: "2026-05-10T12:00:00.000Z",
+    },
+  ];
+}
+
+function seedLocalCollectionIfEmpty(collection, seedData) {
+  try {
+    const current = readLocalJson(collection);
+    if (Array.isArray(current) && current.length === 0) {
+      saveLocalJson(collection, seedData);
+    }
+  } catch {
+    // Seed is best-effort.
+  }
+}
+
+function seedProductsAndDiscoveriesIfEmpty() {
+  seedLocalCollectionIfEmpty("products", getSeedProducts());
+  seedLocalCollectionIfEmpty("discoveries", getSeedDiscoveries());
 }
 
 function sendMockRunNotFound(response, runId = "") {
@@ -851,6 +1300,114 @@ async function handleApiRequest(request, response, url) {
     return true;
   }
 
+  if (request.method === "GET" && url.pathname === "/api/local/health") {
+    sendJson(response, 200, {
+      status: "ok",
+      storage: "json",
+      dataDir: "backend/data",
+      collections: Object.keys(LOCAL_COLLECTIONS),
+    });
+    return true;
+  }
+
+  if (request.method === "GET" && url.pathname === "/api/local") {
+    sendJson(response, 200, {
+      collections: Object.entries(LOCAL_COLLECTIONS).map(([name, info]) => ({
+        name,
+        file: info.file,
+        defaultType: Array.isArray(info.defaultValue) ? "array" : "object",
+      })),
+    });
+    return true;
+  }
+
+  if (url.pathname.startsWith("/api/local/")) {
+    const collection = url.pathname.slice("/api/local/".length);
+
+    if (request.method === "GET") {
+      if (!resolveCollection(response, collection)) return true;
+      try {
+        const data = readLocalJson(collection);
+        sendJson(response, 200, { collection, data });
+      } catch {
+        sendJson(response, 500, { error: "Erro ao ler dados." });
+      }
+      return true;
+    }
+
+    if (request.method === "PUT") {
+      try {
+        const body = await readJsonBody(request);
+        if (!resolveCollection(response, collection)) return true;
+        const data =
+          body !== null && typeof body === "object" && !Array.isArray(body) && "data" in body
+            ? body.data
+            : body;
+        saveLocalJson(collection, data);
+        sendJson(response, 200, { collection, data });
+      } catch (error) {
+        sendJson(response, error.message === "JSON inválido." ? 400 : 500, { error: error.message === "JSON inválido." ? error.message : "Erro ao salvar dados." });
+      }
+      return true;
+    }
+
+    if (request.method === "POST") {
+      try {
+        const body = await readJsonBody(request);
+        if (!resolveCollection(response, collection)) return true;
+        const info = LOCAL_COLLECTIONS[collection];
+        const existing = readLocalJson(collection);
+        let updated;
+        if (Array.isArray(info.defaultValue)) {
+          let items;
+          if (Array.isArray(body)) {
+            items = body;
+          } else if (body.items !== undefined) {
+            items = Array.isArray(body.items) ? body.items : [body.items];
+          } else if (body.data !== undefined) {
+            items = Array.isArray(body.data) ? body.data : [body.data];
+          } else if (body.item !== undefined) {
+            items = [body.item];
+          } else {
+            items = [body];
+          }
+          updated = [...existing, ...items];
+        } else {
+          let incoming;
+          if (body.data !== undefined && typeof body.data === "object" && !Array.isArray(body.data)) {
+            incoming = body.data;
+          } else if (typeof body === "object" && !Array.isArray(body)) {
+            incoming = body;
+          } else {
+            incoming = {};
+          }
+          updated = { ...existing, ...incoming };
+        }
+        saveLocalJson(collection, updated);
+        sendJson(response, 200, { collection, data: updated });
+      } catch (error) {
+        sendJson(response, error.message === "JSON inválido." ? 400 : 500, { error: error.message === "JSON inválido." ? error.message : "Erro ao salvar dados." });
+      }
+      return true;
+    }
+
+    if (request.method === "DELETE") {
+      if (!resolveCollection(response, collection)) return true;
+      try {
+        const info = LOCAL_COLLECTIONS[collection];
+        const defaultValue = JSON.parse(JSON.stringify(info.defaultValue));
+        saveLocalJson(collection, defaultValue);
+        sendJson(response, 200, { collection, data: defaultValue });
+      } catch {
+        sendJson(response, 500, { error: "Erro ao resetar coleção." });
+      }
+      return true;
+    }
+
+    sendJson(response, 404, { error: "Endpoint local não encontrado." });
+    return true;
+  }
+
   if (url.pathname.startsWith("/api/")) {
     sendJson(response, 404, { error: "Endpoint local não encontrado." });
     return true;
@@ -964,4 +1521,6 @@ function startServer(port) {
 loadEnvFile();
 validateStartupConfig();
 configureTlsForLocalDevelopment();
+hydrateMockAgentRunsFromFile();
+seedProductsAndDiscoveriesIfEmpty();
 startServer(Number(process.env.PORT || 4173));

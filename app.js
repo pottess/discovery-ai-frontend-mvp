@@ -273,6 +273,7 @@ const DEFAULT_CREWAI_POLL_INTERVAL_MS = 15000;
 const DEFAULT_CREWAI_POLL_TIMEOUT_MS = 600000;
 const DEFAULT_DISCOVERY_POLL_INTERVAL_MS = 5000;
 const API_BASE_PATH = "./api";
+const LOCAL_API_BASE_PATH = "/api/local";
 const CREWAI_SUCCESS_STATUSES = new Set(["completed", "complete", "success", "succeeded"]);
 const CREWAI_ERROR_STATUSES = new Set(["failed", "failure", "error", "cancelled", "canceled"]);
 const DISCOVERY_FRONTEND_API_MODES = Object.freeze({
@@ -777,6 +778,41 @@ function showDemoModeMessage() {
   showAppToast(DEMO_MODE_MESSAGE, "success");
 }
 
+function getLocalCollectionPath(collection) {
+  return `${LOCAL_API_BASE_PATH}/${collection}`;
+}
+
+async function requestLocalCollection(collection, options = {}) {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 2000);
+  try {
+    const res = await fetch(getLocalCollectionPath(collection), {
+      ...options,
+      signal: controller.signal,
+    });
+    clearTimeout(timeout);
+    if (!res.ok) return null;
+    return await res.json();
+  } catch {
+    clearTimeout(timeout);
+    return null;
+  }
+}
+
+async function loadLocalCollection(collection, fallbackValue) {
+  const result = await requestLocalCollection(collection);
+  if (result === null || typeof result !== "object") return fallbackValue;
+  return Object.prototype.hasOwnProperty.call(result, "data") ? result.data : result;
+}
+
+function saveLocalCollection(collection, data) {
+  requestLocalCollection(collection, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ data }),
+  }).catch(() => {});
+}
+
 function loadCreatedDiscoveries() {
   try {
     const storedDiscoveries = window.localStorage.getItem(CREATED_DISCOVERIES_STORAGE_KEY);
@@ -801,6 +837,7 @@ function saveCreatedDiscoveries() {
   } catch (error) {
     // Local persistence is best-effort in the static prototype.
   }
+  saveLocalCollection("created-discoveries", createdDiscoveries);
 }
 
 function normalizeDiscoveryLifecycleFields(discovery = {}) {
@@ -921,7 +958,12 @@ function loadFavoriteProductsTable() {
 }
 
 function saveFavoriteProductsTable() {
-  window.localStorage.setItem(PRODUCT_FAVORITES_STORAGE_KEY, JSON.stringify(favoriteProductsByUser));
+  try {
+    window.localStorage.setItem(PRODUCT_FAVORITES_STORAGE_KEY, JSON.stringify(favoriteProductsByUser));
+  } catch (error) {
+    // Local persistence is best-effort.
+  }
+  saveLocalCollection("product-favorites-by-user", favoriteProductsByUser);
 }
 
 function getCurrentUserFavoriteProductIds() {
@@ -1011,6 +1053,7 @@ function saveFavoriteDiscoveryIds(ids = getFavoriteDiscoveryIds()) {
   } catch (error) {
     // Local persistence is best-effort in the static prototype.
   }
+  saveLocalCollection("favorite-discovery-ids", favoriteDiscoveryIds);
   return favoriteDiscoveryIds;
 }
 
@@ -2590,7 +2633,6 @@ function renderHomeProductBar() {
   homeProductBar.innerHTML = userProducts.length
     ? userProducts.map((product) => `
       <button class="home-product-item" type="button" data-home-product-id="${escapeHTML(product.id)}" aria-label="Abrir produto ${escapeHTML(product.name)}">
-        <span class="home-product-icon" aria-hidden="true">${escapeHTML(getProductIconLabel(product))}</span>
         <span class="home-product-copy">
           <strong>${escapeHTML(product.name)}</strong>
           <small>${escapeHTML(getProductAreaLabel(product))}</small>
@@ -3165,6 +3207,7 @@ function saveProductAudienceTable() {
   } catch (error) {
     // Product audience persistence is best-effort in the static prototype.
   }
+  saveLocalCollection("product-audience-by-product", productAudienceByProduct);
 }
 
 function normalizeAudienceComparableValue(value = "") {
@@ -4678,6 +4721,428 @@ if (createdDiscoveries.length) {
 }
 migrateFavoriteDiscoveryIds();
 
+function pickMoreRecentDiscovery(a, b) {
+  const getTimestamp = (d) => {
+    const raw = d.updatedAt || d.updated_at || d.lastUpdated || d.createdAt || d.created_at;
+    if (!raw) return 0;
+    const ts = new Date(raw).getTime();
+    return Number.isFinite(ts) ? ts : 0;
+  };
+  const tsA = getTimestamp(a);
+  const tsB = getTimestamp(b);
+  if (tsA === 0 && tsB === 0) return a;
+  return tsA >= tsB ? a : b;
+}
+
+function mergeDiscoveriesByIdPreferRecent(primary, secondary) {
+  const byId = new Map();
+  for (const d of secondary) {
+    if (d && typeof d === "object" && d.id) byId.set(d.id, d);
+  }
+  for (const d of primary) {
+    if (!d || typeof d !== "object" || !d.id) continue;
+    const existing = byId.get(d.id);
+    byId.set(d.id, existing ? pickMoreRecentDiscovery(d, existing) : d);
+  }
+  return Array.from(byId.values());
+}
+
+function mergeProductsByIdPreferRecent(primary, secondary) {
+  const byId = new Map();
+  for (const p of primary) {
+    if (p && typeof p === "object" && p.id) byId.set(p.id, p);
+  }
+  for (const p of secondary) {
+    if (!p || typeof p !== "object" || !p.id) continue;
+    const existing = byId.get(p.id);
+    byId.set(p.id, existing ? pickMoreRecentDiscovery(existing, p) : p);
+  }
+  return Array.from(byId.values());
+}
+
+async function hydrateCreatedDiscoveriesFromLocalApi() {
+  const apiData = await loadLocalCollection("created-discoveries", null);
+  if (!Array.isArray(apiData)) return;
+
+  const localData = loadCreatedDiscoveries();
+
+  let merged;
+  if (apiData.length === 0 && localData.length === 0) {
+    return;
+  } else if (apiData.length === 0 && localData.length > 0) {
+    merged = localData;
+    saveLocalCollection("created-discoveries", localData);
+  } else {
+    merged = mergeDiscoveriesByIdPreferRecent(apiData, localData);
+  }
+
+  const normalized = merged.map((d) => enrichDiscoveryWithFavorite(
+    normalizeDiscoveryAudience(
+      enrichDiscoveryMethodology(
+        normalizeDiscoveryLifecycleFields(
+          normalizeDiscoveryDataModel(d)
+        )
+      )
+    )
+  ));
+
+  // Guard against race condition: merge normalized API data with current in-memory state,
+  // preferring the in-memory version (which may have user edits made during the async fetch).
+  const finalMerged = mergeDiscoveriesByIdPreferRecent(createdDiscoveries, normalized);
+
+  const prevIds = createdDiscoveries.map((d) => d.id).sort().join(",");
+  const nextIds = finalMerged.map((d) => d.id).sort().join(",");
+  if (prevIds === nextIds) return;
+
+  createdDiscoveries = finalMerged;
+  saveCreatedDiscoveries();
+
+  setRoute(getCurrentRoute(), getCurrentProductId(), getCurrentDiscoveryId(), getCurrentInterviewMethodId(), getCurrentInterviewParticipantId());
+  refreshDiscoveryFavoriteControls();
+}
+
+async function hydrateFavoriteDiscoveryIdsFromLocalApi() {
+  const apiData = await loadLocalCollection("favorite-discovery-ids", null);
+  if (!Array.isArray(apiData)) return;
+
+  const localData = loadFavoriteDiscoveryIds();
+  const normalizedApi = normalizeFavoriteDiscoveryIds(apiData);
+  const normalizedLocal = normalizeFavoriteDiscoveryIds(localData);
+
+  if (normalizedApi.length === 0 && normalizedLocal.length === 0) return;
+
+  if (normalizedApi.length === 0 && normalizedLocal.length > 0) {
+    saveLocalCollection("favorite-discovery-ids", normalizedLocal);
+    return;
+  }
+
+  // Union of API + localStorage, then union with current in-memory state (race condition guard)
+  const merged = normalizeFavoriteDiscoveryIds([...normalizedApi, ...normalizedLocal]);
+  const finalIds = normalizeFavoriteDiscoveryIds([...merged, ...getFavoriteDiscoveryIds()]);
+
+  const prevSorted = [...getFavoriteDiscoveryIds()].sort().join(",");
+  const nextSorted = [...finalIds].sort().join(",");
+  if (prevSorted === nextSorted) return;
+
+  saveFavoriteDiscoveryIds(finalIds);
+
+  renderFavoriteDiscoveriesMenu(selectedDiscoveryId);
+  refreshDiscoveryFavoriteControls();
+  syncDiscoveryDetailFavoriteButton(selectedDiscoveryId);
+}
+
+function mergeProductFavoritesTable(tableA, tableB) {
+  const allKeys = new Set([...Object.keys(tableA), ...Object.keys(tableB)]);
+  const merged = {};
+  for (const userId of allKeys) {
+    const idsA = Array.isArray(tableA[userId]) ? tableA[userId] : [];
+    const idsB = Array.isArray(tableB[userId]) ? tableB[userId] : [];
+    merged[userId] = [...new Set([...idsA, ...idsB].map((id) => String(id || "").trim()).filter(Boolean))];
+  }
+  return merged;
+}
+
+async function hydrateFavoriteProductsTableFromLocalApi() {
+  const apiData = await loadLocalCollection("product-favorites-by-user", null);
+  if (apiData === null || typeof apiData !== "object" || Array.isArray(apiData)) return;
+
+  const localData = loadFavoriteProductsTable();
+  const apiEmpty = Object.keys(apiData).length === 0;
+  const localEmpty = Object.values(localData).every((v) => !Array.isArray(v) || v.length === 0);
+
+  if (apiEmpty && localEmpty) return;
+
+  if (apiEmpty) {
+    saveLocalCollection("product-favorites-by-user", localData);
+    return;
+  }
+
+  // Shallow merge per user: union of product IDs, then union with current in-memory state
+  const mergedFromSources = mergeProductFavoritesTable(apiData, localData);
+  const finalTable = mergeProductFavoritesTable(mergedFromSources, favoriteProductsByUser);
+
+  const prevSorted = [...getCurrentUserFavoriteProductIds()].sort().join(",");
+  const nextSorted = [...(finalTable[CURRENT_USER_PROFILE.id] || [])].sort().join(",");
+  if (prevSorted === nextSorted) return;
+
+  favoriteProductsByUser = finalTable;
+  saveFavoriteProductsTable();
+
+  renderProducts();
+  renderFavoriteProductsMenu(selectedProductId, getCurrentRoute());
+}
+
+function mergeProductAudienceTable(tableA, tableB) {
+  const allKeys = new Set([...Object.keys(tableA), ...Object.keys(tableB)]);
+  const merged = {};
+  for (const productId of allKeys) {
+    const audA = tableA[productId] || {};
+    const audB = tableB[productId] || {};
+    merged[productId] = {
+      productTeam: { ...(audB.productTeam || {}), ...(audA.productTeam || {}) },
+      personas: mergeDiscoveriesByIdPreferRecent(
+        Array.isArray(audA.personas) ? audA.personas : [],
+        Array.isArray(audB.personas) ? audB.personas : []
+      ),
+      stakeholders: mergeDiscoveriesByIdPreferRecent(
+        Array.isArray(audA.stakeholders) ? audA.stakeholders : [],
+        Array.isArray(audB.stakeholders) ? audB.stakeholders : []
+      ),
+    };
+  }
+  return merged;
+}
+
+async function hydrateProductAudienceByProductFromLocalApi() {
+  const apiData = await loadLocalCollection("product-audience-by-product", null);
+  if (apiData === null || typeof apiData !== "object" || Array.isArray(apiData)) return;
+
+  const localData = loadProductAudienceTable();
+  const apiEmpty = Object.keys(apiData).length === 0;
+  const localEmpty = Object.keys(localData).length === 0;
+
+  if (apiEmpty && localEmpty) return;
+
+  if (apiEmpty) {
+    saveLocalCollection("product-audience-by-product", localData);
+    return;
+  }
+
+  const apiVsLocal = mergeProductAudienceTable(apiData, localData);
+  const finalTable = mergeProductAudienceTable(productAudienceByProduct, apiVsLocal);
+
+  const changed = Object.keys(finalTable).some((productId) => {
+    const cur = productAudienceByProduct[productId] || {};
+    const nxt = finalTable[productId] || {};
+    const prevP = (Array.isArray(cur.personas) ? cur.personas : []).map((p) => p.id).sort().join(",");
+    const nextP = (Array.isArray(nxt.personas) ? nxt.personas : []).map((p) => p.id).sort().join(",");
+    const prevS = (Array.isArray(cur.stakeholders) ? cur.stakeholders : []).map((s) => s.id).sort().join(",");
+    const nextS = (Array.isArray(nxt.stakeholders) ? nxt.stakeholders : []).map((s) => s.id).sort().join(",");
+    return prevP !== nextP || prevS !== nextS;
+  });
+
+  if (!changed) return;
+
+  productAudienceByProduct = finalTable;
+  products.forEach((product) => {
+    const merged = productAudienceByProduct[product.id];
+    if (!merged) return;
+    if (merged.productTeam) {
+      product.productTeam = merged.productTeam;
+      product.team = merged.productTeam;
+    }
+    if (Array.isArray(merged.personas)) product.personas = merged.personas;
+    if (Array.isArray(merged.stakeholders)) product.stakeholders = merged.stakeholders;
+  });
+
+  saveProductAudienceTable();
+  renderProductAudienceRoute(selectedProductId || getCurrentProductId(), getProductAudienceRouteInfo());
+  renderProducts();
+}
+
+async function hydrateProductsFromLocalApi() {
+  const apiData = await loadLocalCollection("products", null);
+  if (!Array.isArray(apiData) || apiData.length === 0) return;
+
+  const validApiProducts = apiData
+    .filter((p) => p && typeof p === "object" && typeof p.id === "string" && p.id.trim() && typeof p.name === "string" && p.name.trim())
+    .map((p) => normalizeProductDataModel(p));
+
+  if (validApiProducts.length === 0) return;
+
+  // API is primary (authoritative store); in-memory hardcoded is secondary (fallback)
+  const merged = mergeProductsByIdPreferRecent(validApiProducts, products);
+  if (merged.length === 0) return;
+
+  // Change detection by id list, name and productTeam.pm
+  const prevById = new Map(products.map((p) => [p.id, p]));
+  const changed =
+    merged.length !== products.length ||
+    merged.some((p) => {
+      const cur = prevById.get(p.id);
+      if (!cur) return true;
+      const sameTeam =
+        (cur.productTeam?.pm || "") === (p.productTeam?.pm || "") &&
+        (cur.productTeam?.designer || "") === (p.productTeam?.designer || "") &&
+        (cur.productTeam?.gpm || "") === (p.productTeam?.gpm || "") &&
+        (cur.productTeam?.architect || "") === (p.productTeam?.architect || "");
+      return cur.name !== p.name || !sameTeam;
+    });
+
+  if (!changed) return;
+
+  products.length = 0;
+  for (const p of merged) products.push(p);
+
+  // Re-apply audience data (personas/stakeholders/productTeam from productAudienceByProduct)
+  products.forEach((product) => {
+    const audience = productAudienceByProduct[product.id];
+    if (!audience) return;
+    if (audience.productTeam) {
+      product.productTeam = audience.productTeam;
+      product.team = audience.productTeam;
+    }
+    if (Array.isArray(audience.personas)) product.personas = audience.personas;
+    if (Array.isArray(audience.stakeholders)) product.stakeholders = audience.stakeholders;
+  });
+
+  renderProducts();
+  renderSidebar();
+}
+
+async function hydrateDiscoveriesFromLocalApi() {
+  const apiData = await loadLocalCollection("discoveries", null);
+  if (!Array.isArray(apiData) || apiData.length === 0) return;
+
+  const validApiDiscoveries = apiData.filter(
+    (d) => d && typeof d === "object" && typeof d.id === "string" && d.id.trim() &&
+      ((typeof d.title === "string" && d.title.trim()) || (typeof d.name === "string" && d.name.trim()))
+  );
+  if (validApiDiscoveries.length === 0) return;
+
+  // Only add entries whose id is not already present in the hardcoded array — never replace hardcoded
+  const existingIds = new Set(discoveries.map((d) => d.id));
+  const newDiscoveries = validApiDiscoveries
+    .filter((d) => !existingIds.has(d.id))
+    .map((d) => enrichDiscoveryWithFavorite(
+      normalizeDiscoveryAudience(
+        enrichDiscoveryMethodology(
+          normalizeDiscoveryLifecycleFields(
+            normalizeDiscoveryDataModel(d)
+          )
+        )
+      )
+    ));
+
+  if (newDiscoveries.length === 0) return;
+
+  for (const d of newDiscoveries) discoveries.push(d);
+
+  renderResearchRepository();
+  refreshDiscoveryFavoriteControls();
+}
+
+function serializeProductForLocalJson(product) {
+  const { isFavorite, team, indicators, ...raw } = product || {};
+  return raw;
+}
+
+function saveProductsToLocalApi() {
+  saveLocalCollection("products", products.map(serializeProductForLocalJson));
+}
+
+function serializeDiscoveryForLocalJson(discovery) {
+  const {
+    progressPercent, methodology, selectedMethodology, methodologyType, methods,
+    methodologyRecommendation, agentProcessingStatus, agent_processing_status,
+    workflow, current_state, updated_at, csdMatrix, name: _discoveryName, isFavorite,
+    ...raw
+  } = discovery || {};
+  return raw;
+}
+
+function saveDiscoveriesToLocalApi() {
+  saveLocalCollection("discoveries", discoveries.map(serializeDiscoveryForLocalJson));
+}
+
+function mergeResearchActivityUsersTable(tableA, tableB) {
+  const allKeys = new Set([...Object.keys(tableA), ...Object.keys(tableB)]);
+  const merged = {};
+  for (const scopeKey of allKeys) {
+    const usersA = Array.isArray(tableA[scopeKey]) ? tableA[scopeKey] : [];
+    const usersB = Array.isArray(tableB[scopeKey]) ? tableB[scopeKey] : [];
+    merged[scopeKey] = mergeDiscoveriesByIdPreferRecent(usersA, usersB);
+  }
+  return merged;
+}
+
+async function hydrateResearchActivityUsersFromLocalApi() {
+  const apiData = await loadLocalCollection("research-activity-users", null);
+  if (apiData === null || typeof apiData !== "object" || Array.isArray(apiData)) return;
+
+  const localData = loadResearchActivityUsersTable();
+  const apiEmpty = Object.keys(apiData).length === 0;
+  const localEmpty = Object.keys(localData).length === 0;
+
+  if (apiEmpty && localEmpty) return;
+
+  if (apiEmpty) {
+    saveLocalCollection("research-activity-users", localData);
+    return;
+  }
+
+  const inMemoryTable = {};
+  const currentScopeKey = getResearchActivityScopeKey(currentResearchActivityScope);
+  if (currentScopeKey && interviewParticipants.length > 0) {
+    inMemoryTable[currentScopeKey] = interviewParticipants;
+  }
+
+  const apiVsLocal = mergeResearchActivityUsersTable(apiData, localData);
+  const finalTable = mergeResearchActivityUsersTable(inMemoryTable, apiVsLocal);
+
+  const changed = Object.keys(finalTable).some((scopeKey) => {
+    const prev = (Array.isArray(localData[scopeKey]) ? localData[scopeKey] : []).map((u) => u.id).sort().join(",");
+    const next = (Array.isArray(finalTable[scopeKey]) ? finalTable[scopeKey] : []).map((u) => u.id).sort().join(",");
+    return prev !== next;
+  });
+
+  if (!changed) return;
+
+  saveResearchActivityUsersTable(finalTable);
+
+  if (currentScopeKey && interviewParticipantsBody && Array.isArray(finalTable[currentScopeKey])) {
+    const prevIds = interviewParticipants.map((u) => u.id).sort().join(",");
+    const nextIds = finalTable[currentScopeKey].map((u) => u.id).sort().join(",");
+    if (prevIds !== nextIds) {
+      interviewParticipants = finalTable[currentScopeKey];
+      renderInterviewParticipants();
+    }
+  }
+}
+
+function mergeLocalMockRunsTable(tableA, tableB) {
+  const allKeys = new Set([...Object.keys(tableA), ...Object.keys(tableB)]);
+  const merged = {};
+  for (const runId of allKeys) {
+    const runA = tableA[runId];
+    const runB = tableB[runId];
+    if (!runA) { merged[runId] = runB; continue; }
+    if (!runB) { merged[runId] = runA; continue; }
+    merged[runId] = pickMoreRecentDiscovery(runA, runB);
+  }
+  return merged;
+}
+
+async function hydrateLocalMockRunsFromLocalApi() {
+  const apiData = await loadLocalCollection("local-mock-runs", null);
+  if (apiData === null || typeof apiData !== "object" || Array.isArray(apiData)) return;
+
+  const localData = loadLocalMockRuns();
+  const apiEmpty = Object.keys(apiData).length === 0;
+  const localEmpty = Object.keys(localData).length === 0;
+
+  if (apiEmpty && localEmpty) return;
+
+  if (apiEmpty) {
+    saveLocalCollection("local-mock-runs", localData);
+    return;
+  }
+
+  const apiVsLocal = mergeLocalMockRunsTable(apiData, localData);
+  const finalTable = mergeLocalMockRunsTable(localMockRunsMemory, apiVsLocal);
+
+  const prevIds = Object.keys(localMockRunsMemory).sort().join(",");
+  const nextIds = Object.keys(finalTable).sort().join(",");
+  const sameState = prevIds === nextIds && Object.keys(finalTable).every((runId) => {
+    const cur = localMockRunsMemory[runId];
+    const nxt = finalTable[runId];
+    return cur && nxt && cur.current_state === nxt.current_state && cur.updated_at === nxt.updated_at;
+  });
+  if (sameState) return;
+
+  saveLocalMockRuns(finalTable);
+}
+
 function buildCrewAiMethodologyInput(methodology = getSelectedMethodologyPackage(), csd = {}) {
   return {
     id: methodology.id,
@@ -5486,6 +5951,7 @@ function saveLocalMockRuns(runs = {}) {
   } catch {
     // Mock persistence is best-effort for demo mode.
   }
+  saveLocalCollection("local-mock-runs", localMockRunsMemory);
 }
 
 function getLocalMockRun(runId) {
@@ -7485,11 +7951,13 @@ function renderSidebarPanelHeader(kicker = "", title = "", copy = "") {
 
 function renderHomeSidebarPanel() {
   sidebarPanel.innerHTML = `
-    ${renderSidebarPanelHeader("Navegação", "Início", "Acesse seus produtos e discoveries recentes.")}
-    <div class="sidebar-submenu">
-      <button class="sidebar-submenu-link active" type="button" data-sidebar-context="home">Página inicial</button>
-      <button class="sidebar-submenu-link" type="button" data-sidebar-context="products">Todos os produtos</button>
-      <button class="sidebar-submenu-link" type="button" data-sidebar-context="recent">Discoveries recentes</button>
+    <div class="sidebar-products-menu">
+      <span class="sidebar-products-section-label">NAVEGAÇÃO</span>
+      <div class="sidebar-products-groups">
+        <button class="sidebar-product-line sidebar-navigation-line" type="button" data-sidebar-context="home">Página inicial</button>
+        <button class="sidebar-product-line sidebar-navigation-line" type="button" data-sidebar-context="products">Todos os produtos</button>
+        <button class="sidebar-product-line sidebar-navigation-line" type="button" data-sidebar-context="recent">Discoveries recentes</button>
+      </div>
     </div>
   `;
 }
@@ -7605,25 +8073,23 @@ function renderFavoritesSidebarPanel(activeDiscoveryId = selectedDiscoveryId) {
   const hasFavorites = favoriteProducts.length || favoriteDiscoveryEntries.length;
 
   sidebarPanel.innerHTML = `
-    ${renderSidebarPanelHeader("Favoritos", "Favoritos", "Produtos e discoveries salvos para acesso rápido.")}
-    <div class="sidebar-submenu">
+    <div class="sidebar-products-menu">
+      <span class="sidebar-products-section-label">FAVORITOS</span>
       ${!hasFavorites ? '<p class="sidebar-empty">Nenhum favorito ainda.</p>' : ""}
       ${favoriteProducts.length ? `
-        <div class="sidebar-submenu-section">
-          <span class="sidebar-submenu-heading">Produtos favoritos</span>
-          <div class="sidebar-list">${favoriteProducts.map((product) => renderSidebarProductRow(product)).join("")}</div>
+        <div class="sidebar-products-favorites">
+          ${favoriteProducts.map((product) => renderSidebarProductFavoriteLine(product)).join("")}
         </div>
       ` : ""}
       ${favoriteDiscoveryEntries.length ? `
-        <div class="sidebar-submenu-section">
-          <span class="sidebar-submenu-heading">Discoveries favoritos</span>
+        <div class="sidebar-products-groups">
           ${favoriteDiscoveryEntries.map(([productId, productDiscoveries]) => {
             const product = getProductById(productId) || getProductForDiscoverySummary(productDiscoveries[0]);
             return `
               <div class="sidebar-list-group">
                 <span class="sidebar-list-group-title">${escapeHTML(product.name || "Produto")}</span>
                 <div class="sidebar-list">
-                  ${productDiscoveries.map((discovery) => renderSidebarDiscoveryRow(discovery, activeDiscoveryId, true)).join("")}
+                  ${productDiscoveries.map((discovery) => renderSidebarDiscoveryRow(discovery, activeDiscoveryId, true, { compact: true })).join("")}
                 </div>
               </div>
             `;
@@ -7637,26 +8103,30 @@ function renderFavoritesSidebarPanel(activeDiscoveryId = selectedDiscoveryId) {
 function renderRecentDiscoveriesPanel(activeDiscoveryId = selectedDiscoveryId) {
   const recentItems = getRecentDiscoveries(8);
   sidebarPanel.innerHTML = `
-    ${renderSidebarPanelHeader("Discovery", "Recentes", "Acesse rapidamente os discoveries atualizados por produto.")}
-    <div class="sidebar-submenu">
+    <div class="sidebar-products-menu">
+      <span class="sidebar-products-section-label">DISCOVERY</span>
       <div class="sidebar-recent-list">
         ${recentItems.length
-          ? recentItems.map((discovery) => renderSidebarDiscoveryRow(discovery, activeDiscoveryId)).join("")
+          ? recentItems.map((discovery) => renderSidebarDiscoveryRow(discovery, activeDiscoveryId, false, { compact: true })).join("")
           : '<p class="sidebar-empty">Nenhum discovery recente.</p>'}
       </div>
     </div>
   `;
 }
 
-function renderSidebarDiscoveryRow(discovery = {}, activeDiscoveryId = selectedDiscoveryId, isFavorite = false) {
+function renderSidebarDiscoveryRow(discovery = {}, activeDiscoveryId = selectedDiscoveryId, isFavorite = false, options = {}) {
   const title = discovery.title || discovery.name || "Discovery";
   const product = getProductById(discovery.productId) || getProductForDiscoverySummary(discovery);
   const status = discovery.status || discovery.workflow || discovery.currentState || discovery.progressLabel || "";
+  const compactClass = options.compact ? " sidebar-discovery-row-compact" : "";
+  const subtitle = options.compact
+    ? (product.name || discovery.productName || "")
+    : `${product.name || discovery.productName || ""}${status ? ` · ${status}` : ""}`;
   return `
-    <button class="sidebar-discovery-row${discovery.id === activeDiscoveryId ? " active" : ""}" type="button" ${isFavorite ? `data-favorite-discovery-shortcut="${escapeHTML(discovery.id)}"` : `data-sidebar-discovery="${escapeHTML(discovery.id)}"`} data-sidebar-discovery-product="${escapeHTML(product.id)}" title="${escapeHTML(title)}">
+    <button class="sidebar-discovery-row${compactClass}${discovery.id === activeDiscoveryId ? " active" : ""}" type="button" ${isFavorite ? `data-favorite-discovery-shortcut="${escapeHTML(discovery.id)}"` : `data-sidebar-discovery="${escapeHTML(discovery.id)}"`} data-sidebar-discovery-product="${escapeHTML(product.id)}" title="${escapeHTML(title)}">
       <span class="sidebar-discovery-copy">
         <strong>${escapeHTML(title)}</strong>
-        <small>${escapeHTML(product.name || discovery.productName || "")}${status ? ` · ${escapeHTML(status)}` : ""}</small>
+        <small>${escapeHTML(subtitle)}</small>
       </span>
     </button>
   `;
@@ -8216,12 +8686,6 @@ function renderProductArtifacts(product = {}) {
             </span>
           </div>
           <div class="product-artifact-actions">
-            <button type="button" aria-label="Visualizar ${escapeHTML(artifact.title)}" data-product-artifact-action="view">
-              <svg aria-hidden="true" viewBox="0 0 24 24">
-                <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z" />
-                <circle cx="12" cy="12" r="3" />
-              </svg>
-            </button>
             <button type="button" aria-label="Excluir ${escapeHTML(artifact.title)}" data-product-artifact-action="delete">
               <svg aria-hidden="true" viewBox="0 0 24 24">
                 <path d="M3 6h18" />
@@ -10255,12 +10719,6 @@ function renderLocalDiscoveryArtifacts(artifacts = []) {
             <small>10/05/2026</small>
           </span>
           <span class="artifact-row-actions">
-            <button type="button" data-discovery-artifact="${escapeHTML(artifact)}" aria-label="Visualizar ${escapeHTML(artifact)}">
-              <svg aria-hidden="true" viewBox="0 0 24 24">
-                <path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6-10-6-10-6Z" />
-                <circle cx="12" cy="12" r="3" />
-              </svg>
-            </button>
             <button type="button" aria-label="Remover ${escapeHTML(artifact)}">
               <svg aria-hidden="true" viewBox="0 0 24 24">
                 <path d="M3 6h18" />
@@ -12756,6 +13214,7 @@ function saveResearchActivityUsersTable(table = {}) {
   } catch (error) {
     // Local persistence is best-effort in the static prototype.
   }
+  saveLocalCollection("research-activity-users", table);
 }
 
 function loadResearchActivityUsers(scope = currentResearchActivityScope) {
@@ -15015,6 +15474,14 @@ appShell?.classList.toggle("sidebar-pinned", isSidebarPinned);
 setSidebarOpen(isSidebarPinned, { saveSection: false });
 setRoute(getCurrentRoute(), getCurrentProductId(), getCurrentDiscoveryId(), getCurrentInterviewMethodId(), getCurrentInterviewParticipantId());
 refreshDiscoveryFavoriteControls();
+hydrateCreatedDiscoveriesFromLocalApi();
+hydrateFavoriteDiscoveryIdsFromLocalApi();
+hydrateFavoriteProductsTableFromLocalApi();
+hydrateProductAudienceByProductFromLocalApi();
+hydrateResearchActivityUsersFromLocalApi();
+hydrateLocalMockRunsFromLocalApi();
+hydrateProductsFromLocalApi();
+hydrateDiscoveriesFromLocalApi();
 if (!HAS_STATIC_DISCOVERY_FRONTEND_CONFIG && (!isLocalMockApiMode() || !getRequestedDiscoveryFrontendApiMode())) {
   loadFrontendApiModeFromConfig().then((modeChanged) => {
     if (!modeChanged) {
