@@ -13,6 +13,8 @@ coverage/
 
 backend/.env
 backend/.venv
+backend/data/*.json
+!backend/data/.gitkeep
 
 __pycache__/
 *.pyc
