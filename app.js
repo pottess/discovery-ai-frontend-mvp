@@ -259,6 +259,61 @@ let isEvaluatingDiscoveryMethodology = false;
 let currentDiscoveryDraft = null;
 let currentMethodologyEvaluation = null;
 let currentKickoffPayload = null; // stored when real API kickoff succeeds at methodology step
+const METHODOLOGY_AGENT_STEPS = Object.freeze([
+  {
+    title: "D.O.R. Builder",
+    task: "build_d_o_r_framework",
+    description: "Organizando problema, objetivo, CSD e contexto disponível.",
+    output: "Briefing estruturado",
+  },
+  {
+    title: "Readiness Specialist",
+    task: "validate_discovery_readiness",
+    description: "Checando se há clareza suficiente para recomendar a discovery.",
+    output: "Prontidão e lacunas",
+  },
+  {
+    title: "Methodology Strategist",
+    task: "define_discovery_methodology",
+    description: "Comparando métodos possíveis com o tipo de problema informado.",
+    output: "Metodologia recomendada",
+  },
+  {
+    title: "Scope Prioritizer",
+    task: "prioritize_discovery_scope",
+    description: "Separando perguntas críticas, riscos e itens fora de escopo.",
+    output: "Escopo priorizado",
+  },
+  {
+    title: "Research Planner",
+    task: "create_research_execution_plan",
+    description: "Sequenciando os métodos recomendados e estimando esforço.",
+    output: "Plano de pesquisa",
+  },
+  {
+    title: "Participant Strategist",
+    task: "define_participant_strategy",
+    description: "Avaliando públicos, stakeholders e amostra necessária.",
+    output: "Estratégia de participantes",
+  },
+  {
+    title: "Research Ops",
+    task: "define_research_operational_structure",
+    description: "Conferindo dependências, artefatos e operação da pesquisa.",
+    output: "Estrutura operacional",
+  },
+  {
+    title: "Protocol Designer",
+    task: "create_research_execution_protocols",
+    description: "Preparando protocolos e a recomendação para aprovação humana.",
+    output: "Protocolos iniciais",
+  },
+]);
+const METHODOLOGY_AGENT_STEP_MS = 9000;
+let methodologyAgentAnimationTimer = null;
+let methodologyAgentActiveIndex = 0;
+let methodologyAgentStatusMessage = "Preparando agentes de discovery...";
+let methodologyAgentCompleted = false;
 let crewKickoffStartedAt = 0;
 let crewKickoffElapsedTimer = null;
 let activeDiscoveryRunPoll = {
@@ -4324,6 +4379,7 @@ function resetNewDiscoveryFlow() {
   isEvaluatingDiscoveryMethodology = false;
   currentDiscoveryDraft = null;
   currentMethodologyEvaluation = null;
+  stopMethodologyAgentAnimation();
   methodologyEvaluationLoading.hidden = true;
   methodologyEvaluationResult.hidden = true;
   selectedMethodologyId = "optimized";
@@ -4416,6 +4472,11 @@ function setMethodologyEvaluationUiState(state = "result") {
   const hasResult = state === "result";
   methodologyEvaluationLoading.hidden = !isLoading;
   methodologyEvaluationResult.hidden = !hasResult;
+  if (isLoading) {
+    startMethodologyAgentAnimation();
+  } else {
+    stopMethodologyAgentAnimation();
+  }
   if (isLoading || hasResult) {
     window.setTimeout(() => {
       newDiscoveryMethodologyForm?.querySelector(".flow-body")?.scrollTo({ top: 0 });
@@ -4851,38 +4912,190 @@ function normalizeMethodologyEvaluationResponse(payload = {}) {
   };
 }
 
+function getMethodologyAgentIndexForStep(step = 1) {
+  const numericStep = Math.max(1, Number(step) || 1);
+  const legacyStepMap = [0, 2, 4, 6];
+  if (numericStep <= legacyStepMap.length) {
+    return legacyStepMap[numericStep - 1];
+  }
+  return Math.min(METHODOLOGY_AGENT_STEPS.length - 1, numericStep - 1);
+}
+
+function getMethodologyAgentPhase(activeIndex = methodologyAgentActiveIndex, completed = methodologyAgentCompleted) {
+  if (completed) return "Conclusão";
+  if (activeIndex <= 1) return "Briefing";
+  if (activeIndex <= 3) return "Metodologia";
+  if (activeIndex <= 5) return "Planejamento";
+  return "Operação";
+}
+
+function getMethodologyAgentProgressPercent(activeIndex = methodologyAgentActiveIndex, completed = methodologyAgentCompleted) {
+  if (completed) return 100;
+  const progress = Math.round(((activeIndex + 1) / METHODOLOGY_AGENT_STEPS.length) * 90);
+  return Math.max(12, Math.min(92, progress));
+}
+
+function renderMethodologyAgentLoading({
+  message = methodologyAgentStatusMessage,
+  activeIndex = methodologyAgentActiveIndex,
+  completed = methodologyAgentCompleted,
+} = {}) {
+  if (!methodologyEvaluationLoading) {
+    return;
+  }
+
+  const boundedActiveIndex = Math.max(0, Math.min(METHODOLOGY_AGENT_STEPS.length - 1, activeIndex));
+  const activeAgent = METHODOLOGY_AGENT_STEPS[boundedActiveIndex] || METHODOLOGY_AGENT_STEPS[0];
+  const progressPercent = getMethodologyAgentProgressPercent(boundedActiveIndex, completed);
+  const phase = getMethodologyAgentPhase(boundedActiveIndex, completed);
+  const statusTitle = completed
+    ? "Agentes concluíram a recomendação"
+    : "Agentes preparando a metodologia";
+  const statusMessage = completed
+    ? "Plano inicial pronto para revisão."
+    : message || activeAgent.description;
+
+  methodologyEvaluationLoading.innerHTML = `
+    <div class="agent-processing-card" role="status" aria-live="polite" aria-busy="${completed ? "false" : "true"}">
+      <header class="agent-processing-header">
+        <div>
+          <span class="agent-processing-eyebrow">${escapeHTML(phase)}</span>
+          <h3>${escapeHTML(statusTitle)}</h3>
+          <p>${escapeHTML(statusMessage)}</p>
+        </div>
+        <span class="agent-progress-pill ${completed ? "is-complete" : ""}">${progressPercent}%</span>
+      </header>
+
+      <div class="agent-progress-track" aria-hidden="true">
+        <span class="${completed ? "is-complete" : ""}" style="width: ${progressPercent}%"></span>
+      </div>
+
+      <div class="agent-processing-grid">
+        <ol class="agent-step-list">
+          ${METHODOLOGY_AGENT_STEPS.map((agent, index) => {
+            const itemState = completed || index < boundedActiveIndex
+              ? "complete"
+              : index === boundedActiveIndex
+                ? "active"
+                : "queued";
+            const stateLabel = itemState === "complete" ? "ok" : itemState === "active" ? "pensando" : "fila";
+            const iconLabel = itemState === "complete" ? "✓" : index + 1;
+            return `
+              <li class="agent-step-item is-${itemState}">
+                <span class="agent-step-icon" aria-hidden="true">${escapeHTML(String(iconLabel))}</span>
+                <div>
+                  <strong>${escapeHTML(agent.title)}</strong>
+                  <small>${escapeHTML(agent.task)}</small>
+                </div>
+                <span class="agent-step-pill">${escapeHTML(stateLabel)}</span>
+              </li>
+            `;
+          }).join("")}
+        </ol>
+
+        <aside class="agent-workspace ${completed ? "is-complete" : ""}">
+          ${completed ? `
+            <div class="agent-complete-mark" aria-hidden="true">✓</div>
+            <div>
+              <strong>100% concluído</strong>
+              <p>Os agentes montaram a recomendação de metodologia, plano inicial e próximos gates do discovery.</p>
+            </div>
+          ` : `
+            <div class="agent-workspace-heading">
+              <span class="agent-thinking-orbit" aria-hidden="true"></span>
+              <div>
+                <strong>${escapeHTML(activeAgent.title)}</strong>
+                <p>${escapeHTML(activeAgent.description)}</p>
+              </div>
+            </div>
+            <div class="agent-preview-stack" aria-hidden="true">
+              <span class="agent-skeleton agent-skeleton-wide"></span>
+              <span class="agent-skeleton"></span>
+              <span class="agent-skeleton agent-skeleton-short"></span>
+            </div>
+            <div class="agent-output-note">
+              <strong>${escapeHTML(activeAgent.output)}</strong>
+              <span>${escapeHTML(getMethodologyAgentPhase(boundedActiveIndex, false))}</span>
+            </div>
+          `}
+        </aside>
+      </div>
+    </div>
+  `;
+}
+
+function startMethodologyAgentAnimation(message = "Preparando agentes de discovery...") {
+  if (!methodologyEvaluationLoading) {
+    return;
+  }
+
+  methodologyAgentActiveIndex = 0;
+  methodologyAgentCompleted = false;
+  methodologyAgentStatusMessage = message;
+  window.clearInterval(methodologyAgentAnimationTimer);
+  methodologyAgentAnimationTimer = window.setInterval(() => {
+    if (methodologyAgentCompleted || methodologyEvaluationLoading.hidden) {
+      return;
+    }
+    if (methodologyAgentActiveIndex < METHODOLOGY_AGENT_STEPS.length - 1) {
+      methodologyAgentActiveIndex += 1;
+      methodologyAgentStatusMessage = METHODOLOGY_AGENT_STEPS[methodologyAgentActiveIndex].description;
+    }
+    renderMethodologyAgentLoading();
+  }, METHODOLOGY_AGENT_STEP_MS);
+  renderMethodologyAgentLoading();
+}
+
+function stopMethodologyAgentAnimation() {
+  window.clearInterval(methodologyAgentAnimationTimer);
+  methodologyAgentAnimationTimer = null;
+  methodologyAgentCompleted = false;
+}
+
+function completeMethodologyAgentAnimation() {
+  if (!methodologyEvaluationLoading || methodologyEvaluationLoading.hidden) {
+    stopMethodologyAgentAnimation();
+    return Promise.resolve();
+  }
+
+  window.clearInterval(methodologyAgentAnimationTimer);
+  methodologyAgentAnimationTimer = null;
+  methodologyAgentCompleted = false;
+
+  return new Promise((resolve) => {
+    const finishRemainingAgents = () => {
+      if (methodologyEvaluationLoading.hidden) {
+        resolve();
+        return;
+      }
+
+      if (methodologyAgentActiveIndex < METHODOLOGY_AGENT_STEPS.length - 1) {
+        methodologyAgentActiveIndex += 1;
+        methodologyAgentStatusMessage = METHODOLOGY_AGENT_STEPS[methodologyAgentActiveIndex].description;
+        renderMethodologyAgentLoading();
+        window.setTimeout(finishRemainingAgents, 180);
+        return;
+      }
+
+      methodologyAgentCompleted = true;
+      methodologyAgentStatusMessage = "Plano inicial pronto para revisão.";
+      renderMethodologyAgentLoading({ completed: true });
+      window.setTimeout(resolve, 650);
+    };
+
+    finishRemainingAgents();
+  });
+}
+
 function renderMethodologyProcessingState(message = "Analisando prontidão da discovery...", step = 1) {
   if (!methodologyEvaluationLoading) {
     return;
   }
 
-  const isReal = isMvpBackendMode();
-  const steps = isReal
-    ? [
-        "Processando D.O.R.",
-        "Avaliando prontidão",
-        "Definindo metodologia",
-        "Priorizando escopo",
-      ]
-    : [
-        "Analisando prontidão",
-        "Definindo metodologia",
-        "Montando plano inicial",
-      ];
-
-  methodologyEvaluationLoading.innerHTML = `
-    <div class="artifact-loading-state" role="status">
-      <span aria-hidden="true"></span>
-      <strong>${escapeHTML(message)}</strong>
-    </div>
-    <ol class="crew-kickoff-log">
-      ${steps.map((label, index) => {
-        const num = index + 1;
-        const cls = num < step ? " class=\"log-done\"" : num === step ? " class=\"log-active\"" : "";
-        return `<li${cls}>${escapeHTML(label)}</li>`;
-      }).join("")}
-    </ol>
-  `;
+  const nextIndex = getMethodologyAgentIndexForStep(step);
+  methodologyAgentActiveIndex = Math.max(methodologyAgentActiveIndex, nextIndex);
+  methodologyAgentStatusMessage = message;
+  renderMethodologyAgentLoading();
 }
 
 const METHODOLOGY_FALLBACK_METHODS = Object.freeze({
@@ -5095,11 +5308,11 @@ async function evaluateDiscoveryMethodology(discoveryDraft = {}) {
   if (isMvpBackendMode()) {
     return evaluateDiscoveryMethodologyWithRealApi(discoveryDraft);
   }
-  renderMethodologyProcessingState("Analisando prontidão da discovery...");
+  renderMethodologyProcessingState("Analisando prontidão da discovery...", 1);
   await sleep(450);
-  renderMethodologyProcessingState("Definindo metodologia ideal...");
+  renderMethodologyProcessingState("Definindo metodologia ideal...", 2);
   await sleep(450);
-  renderMethodologyProcessingState("Montando plano inicial de pesquisa...");
+  renderMethodologyProcessingState("Montando plano inicial de pesquisa...", 3);
   await sleep(450);
   return createDemoMethodologyEvaluationResponse(discoveryDraft);
 }
@@ -5249,7 +5462,9 @@ async function handleDiscoveryMethodologyEvaluation(csd = collectCsdInfo()) {
 
   try {
     const payload = await evaluateDiscoveryMethodology(currentDiscoveryDraft);
-    currentMethodologyEvaluation = normalizeMethodologyEvaluationResponse(payload);
+    const normalizedEvaluation = normalizeMethodologyEvaluationResponse(payload);
+    await completeMethodologyAgentAnimation();
+    currentMethodologyEvaluation = normalizedEvaluation;
     selectedMethodologyId = currentMethodologyEvaluation.recommendedMethodology?.id
       || currentMethodologyEvaluation.recommendedMethodology?.methodologyId
       || currentMethodologyEvaluation.frameworks[0]?.methodologyId

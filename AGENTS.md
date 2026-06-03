@@ -1,354 +1,577 @@
+Substitua o conteúdo de AGENTS.md pelo conteúdo abaixo.
+
+Não altere outros arquivos.
+Não rode Crew.
+Não execute /kickoff.
+Não faça commit.
+
+---
+
 # AGENTS.md
 
 ## Visão Geral
 
-Este projeto é um protótipo estático de frontend para um repositório de discoveries, com um pequeno proxy Node local para integrar com a CrewAI sem expor o bearer token no navegador.
+Discovery AI é um produto MVP para conduzir workflows de Product Discovery com apoio de agentes CrewAI.
 
-## Correção de Arquitetura do MVP
+O projeto não deve mais ser tratado como apenas um frontend estático. A arquitetura atual possui:
 
-Agentes estão no MVP. O processamento CrewAI e a inteligência de discovery são parte central do Discovery AI, enquanto o frontend permanece como camada de interação do workflow.
+- Frontend em HTML/CSS/JS puro;
+- Servidor Node local (`server.js`) para servir o app, expor APIs locais e fazer proxy;
+- Backend Python/FastAPI com CrewAI em `backend/src/discovery_ai/api.py`;
+- Agentes e tasks em `backend/src/discovery_ai/config/agents.yaml` e `tasks.yaml`;
+- Persistência local temporária em JSON;
+- Próxima evolução planejada: Postgres/Supabase para uso multiusuário dentro da empresa.
 
-O assistente conversacional de pesquisa é futuro. Integrações externas e conectores de automação são futuro. O workflow de agentes, os estados de processamento, os contratos de output, os outputs estruturados e as aprovações humanas continuam no MVP.
+O objetivo do MVP é validar o workflow agent-driven de discovery, com gates humanos, uploads de evidência, metodologia recomendada, roadmap e síntese incremental.
 
-The MVP validates the agent-driven discovery workflow without depending on enterprise integrations.
+---
 
-Integrações externas podem ser simuladas no MVP usando:
+## Arquitetura Atual
 
-- input manual;
-- upload de arquivos;
-- dados mockados;
-- fixture outputs;
-- `localStorage`;
-- respostas mockadas do backend.
+```text
+Frontend
+  ↓
+server.js
+  ↓
+FastAPI CrewAI local
+  ↓
+CrewAI agents/tasks
+  ↓
+OpenAI
+```
 
-Ficam fora do MVP: Teams, Outlook, Tech Metrics, DataDog, bases de produto, plataformas de analytics, repositórios de pesquisa, Jira/Linear, notificações Slack/Teams, SSO/permissões, dashboards avançados, assistente conversacional e recuperação automatizada de dados externos.
+Principais arquivos:
 
-Arquivos principais:
+- `index.html`: estrutura visual principal.
+- `styles.css`: estilos do app.
+- `app.js`: navegação, estado de UI, full page flow de nova discovery, edição/exclusão e renderização.
+- `server.js`: servidor local, proxy, API local JSON e upload inicial de arquivos.
+- `backend/src/discovery_ai/api.py`: API FastAPI local da CrewAI.
+- `backend/src/discovery_ai/crew.py`: definição das crews, agentes e LLMs.
+- `backend/src/discovery_ai/config/agents.yaml`: regras e papéis dos agentes.
+- `backend/src/discovery_ai/config/tasks.yaml`: tarefas, outputs esperados e contratos de cada fase.
+- `backend/data/`: persistência local temporária.
+- `backend/data/uploads/`: uploads locais para testes com FileReadTool.
 
-- `index.html`: estrutura das telas e modais.
-- `styles.css`: estilos do app, incluindo o Full Page Flow de novo discovery.
-- `app.js`: navegação por hash, estados mockados, fluxo de novo discovery e polling da CrewAI.
-- `server.js`: servidor estático e proxy para `/kickoff` e `/status/{kickoff_id}`.
+---
 
-## Como Rodar
+## Como Rodar Localmente
 
-Use Node.js sem dependências externas:
+Terminal 1 — Front/Node:
 
 ```bash
-node server.js
+npm run dev
 ```
 
 ou:
 
 ```bash
-npm start
+node server.js
 ```
 
-Por padrão o servidor tenta abrir em `http://localhost:4173/index.html`. Se a porta estiver ocupada, ele tenta a próxima porta automaticamente, exceto quando `PORT` estiver definido.
+Terminal 2 — Backend Python/CrewAI:
+
+```bash
+cd backend
+uv run serve_api
+```
+
+URLs principais:
+
+```text
+Frontend:
+http://127.0.0.1:4173/index.html
+
+FastAPI:
+http://127.0.0.1:8000
+
+Swagger:
+http://127.0.0.1:8000/docs
+
+Health:
+http://127.0.0.1:8000/health
+```
+
+---
 
 ## Variáveis de Ambiente
 
-Crie um `.env` local baseado em `.env.example`.
-
-Obrigatórias para integração CrewAI:
-
-```env
-CREWAI_API_KEY=
-CREWAI_API_BASE_URL=
-```
-
-Polling configurável:
-
-```env
-CREWAI_POLL_INTERVAL_MS=15000
-CREWAI_POLL_TIMEOUT_MS=600000
-```
-
-Use apenas em desenvolvimento local se a rede inserir certificado self-signed:
-
-```env
-CREWAI_ALLOW_SELF_SIGNED=true
-```
-
-Nunca exponha `CREWAI_API_KEY` no frontend. O token deve ficar somente no `.env` lido pelo `server.js`.
-
-## Integração CrewAI
-
-O frontend chama apenas endpoints locais:
-
-- `POST /api/crewai/kickoff`
-- `GET /api/crewai/status/:kickoffId`
-- `GET /api/config`
-
-O `server.js` encaminha para a CrewAI com `Authorization: Bearer <token>`.
-
-Payload enviado no kickoff:
-
-```json
-{
-  "inputs": {
-    "discovery_id": "draft-id-gerado",
-    "Methodology_Appoved": {
-      "id": "optimized",
-      "name": "Discovery Otimizado",
-      "duration": "3-4 semanas",
-      "description": "Abordagem ágil focada em validações essenciais",
-      "csd": {
-        "certezas": ["Promocoes atuais tem baixa adesao"],
-        "suposicoes": ["Ranking pode aumentar recorrencia"],
-        "duvidas": ["Quais incentivos geram maior valor"]
-      },
-      "items": [
-        {
-          "name": "Pesquisa em Profundidade",
-          "duration": "1-2 semanas",
-          "description": "Entrevistas qualitativas com usuários-chave para entender contexto, dores e necessidades",
-          "sample": "8-12 participantes"
-        }
-      ]
-    }
-  }
-}
-```
-
-O botão final **Criar discovery**:
-
-1. Gera o `draftId`.
-2. Chama `/api/crewai/kickoff`.
-3. Recebe `kickoff_id`.
-4. Faz polling do status usando intervalo/timeout vindos de `/api/config`.
-5. Só cria e abre a Discovery Page quando a CrewAI retorna status final de sucesso.
-
-## Backend CrewAI Mapeado
-
-O código-fonte da Crew que atende essa integração está em:
+Arquivo local:
 
 ```text
-azure_document_processing_automation_v2_crewai-project/
+.env
 ```
 
-Arquivos principais da Crew:
+Base:
 
-- `src/azure_document_processing_automation/crew.py`: instancia agentes, tarefas, modelos, ferramentas e define o processo da Crew.
-- `src/azure_document_processing_automation/main.py`: ponto de entrada local; chama `AzureDocumentProcessingAutomationCrew().crew().kickoff(inputs=inputs)`.
-- `src/azure_document_processing_automation/config/agents.yaml`: papel, objetivo e contexto de cada agente.
-- `src/azure_document_processing_automation/config/tasks.yaml`: descrição, output esperado, agente responsável e dependências entre tarefas.
-- `pyproject.toml`: projeto CrewAI com `crewai[file-processing,litellm,tools]==1.14.4`.
+```env
+DISCOVERY_FRONTEND_API_MODE=mvp_backend
+DISCOVERY_AI_API_BASE_URL=http://127.0.0.1:8000
 
-A pasta da Crew não implementa um servidor HTTP próprio. Em produção/desenvolvimento integrado, a API HTTP vem do deploy da CrewAI/AMP, que expõe:
+OPENAI_API_KEY=
+DISCOVERY_AI_LLM_MODEL=openai/gpt-4o
 
-- `POST /kickoff`
-- `GET /status/{kickoff_id}`
+SERPER_API_KEY=
+```
 
-O `server.js` deste frontend é apenas um proxy local para esses endpoints remotos.
+Observações:
 
-### Contrato Atual Frontend -> Backend
+- `OPENAI_API_KEY` é obrigatória para rodar agentes reais.
+- `SERPER_API_KEY` é opcional por enquanto; será necessária para desk research com busca externa.
+- `DISCOVERY_AI_LLM_MODEL` deve ser um modelo textual válido.
+- Modelos de imagem não devem ser usados em chamadas textuais da Crew.
 
-Payload enviado pelo frontend no kickoff:
+Modelos bloqueados no backend:
+
+```text
+gpt-image
+dall-e
+image
+```
+
+---
+
+## Modos de Operação
+
+### Mock
+
+Usado para testar o front sem chamar agentes reais.
+
+```env
+DISCOVERY_FRONTEND_API_MODE=mock
+```
+
+### MVP Backend
+
+Usado para chamar a API FastAPI local e executar a CrewAI real.
+
+```env
+DISCOVERY_FRONTEND_API_MODE=mvp_backend
+DISCOVERY_AI_API_BASE_URL=http://127.0.0.1:8000
+```
+
+O arquivo `config.vercel.js` pode forçar modo mock em deploy estático. Em ambiente Node local, `server.js` deve servir esse arquivo dinamicamente com base no `.env`.
+
+---
+
+## Regras de Arquitetura
+
+Sempre separar regras em três camadas:
+
+### Product Rules
+
+Vivem no produto/código de workflow.
+
+Exemplos:
+
+- O kickoff inicial não executa a discovery inteira.
+- A discovery é incremental.
+- O gate real de execução é o upload de evidência.
+- Cada upload gera uma análise isolada.
+- Cada análise isolada alimenta a síntese geral.
+- Usuário pode editar ou excluir discoveries criadas.
+- Dados locais não devem ser perdidos entre reloads.
+
+### Orchestrator Rules
+
+Vivem na API e na máquina de estados.
+
+Exemplos:
+
+- Qual fase pode rodar.
+- Qual endpoint avança o workflow.
+- Qual crew sequencial é executada em cada fase.
+- Quais agentes estão permitidos ou bloqueados.
+- Quando aguardar ação humana.
+- Quando reprocessar síntese.
+
+No MVP, o orquestrador principal é a API + máquina de estados, não um manager agent livre.
+
+### Agent Rules
+
+Vivem em `agents.yaml` e `tasks.yaml`.
+
+Exemplos:
+
+- Como o agente de metodologia decide métodos.
+- Como o agente de entrevista interpreta transcrições.
+- Como o agente de survey interpreta CSV/Excel.
+- Como o agente de síntese consolida evidências.
+- Como o agente de QA avalia qualidade de insights.
+
+Não colocar regras especializadas de análise no front.
+
+---
+
+## Workflow Real do MVP
+
+### Fase 1 — Discovery Framework
+
+Executada no `/kickoff`.
+
+Objetivo:
+
+- entender problema;
+- avaliar D.O.R.;
+- avaliar readiness;
+- recomendar metodologia;
+- recomendar frameworks;
+- priorizar escopo;
+- parar.
+
+Tasks:
+
+- `build_d_o_r_framework`
+- `validate_discovery_readiness`
+- `define_discovery_methodology`
+- `prioritize_discovery_scope`
+
+Estado esperado após o kickoff:
+
+```text
+RESEARCH_APPROVAL_PENDING
+```
+
+Não executar nessa fase:
+
+- planejamento detalhado;
+- participantes;
+- operação;
+- roteiro;
+- desk research;
+- processamento de evidências;
+- síntese;
+- oportunidades;
+- solução;
+- protótipo;
+- validação;
+- handoff.
+
+---
+
+### Fase 2 — Planejamento
+
+Ainda em evolução.
+
+Objetivo:
+
+- transformar metodologia em plano acionável;
+- gerar roadmap;
+- ordenar frameworks;
+- estimar tempo/esforço;
+- gerar roteiros/protocolos quando necessário.
+
+Tasks previstas:
+
+- `create_research_execution_plan`
+- `create_research_execution_protocols`
+
+Fora do MVP inicial:
+
+- `participant_strategy_specialist`
+- `research_operations_strategist`
+
+Motivo:
+
+O MVP não possui base de usuários nem integrações de recrutamento. Participantes serão inseridos manualmente.
+
+---
+
+### Fase 3 — Execução pelo Usuário
+
+O usuário executa os métodos fora da ferramenta.
+
+Exemplos:
+
+- entrevistas;
+- teste de usabilidade;
+- survey;
+- desk research;
+- teste de conceito;
+- workshop;
+- análise heurística.
+
+O sistema não executa automaticamente esses métodos.
+
+---
+
+### Fase 4 — Upload e Processamento Incremental
+
+O gate real é o upload de evidência.
+
+Cada upload deve conter:
+
+- `frameworkId`;
+- tipo de evidência;
+- arquivo ou texto;
+- metadados.
+
+Fluxo desejado:
+
+```text
+upload de evidência
+  ↓
+router identifica framework/tipo
+  ↓
+processor especializado analisa
+  ↓
+resultado isolado do framework
+  ↓
+síntese geral é atualizada
+  ↓
+insights são revisados
+```
+
+Arquitetura futura:
+
+- `evidence_router_agent`
+- `interview_evidence_processor`
+- `usability_test_evidence_processor`
+- `survey_results_processor`
+- `desk_research_evidence_processor`
+- `workshop_synthesis_processor`
+- `concept_test_processor`
+- `heuristic_analysis_processor`
+
+Hoje o processamento ainda usa estrutura provisória.
+
+---
+
+## Metodologia e Frameworks
+
+O agente `discovery_methodology_strategist` deve retornar sempre métodos estruturados.
+
+Contrato esperado:
 
 ```json
 {
-  "inputs": {
-    "discovery_id": "draft-id-gerado",
-    "Methodology_Appoved": {
-      "id": "optimized",
-      "name": "Discovery Otimizado",
-      "duration": "3-4 semanas",
-      "description": "Abordagem ágil focada em validações essenciais",
-      "csd": {
-        "certezas": ["Promocoes atuais tem baixa adesao"],
-        "suposicoes": ["Ranking pode aumentar recorrencia"],
-        "duvidas": ["Quais incentivos geram maior valor"]
-      },
-      "items": [
-        {
-          "name": "Pesquisa em Profundidade",
-          "duration": "1-2 semanas",
-          "description": "Entrevistas qualitativas com usuários-chave para entender contexto, dores e necessidades",
-          "sample": "8-12 participantes"
-        }
-      ]
+  "recommended_methodology": "exploratory | evaluative | validation | mixed",
+  "methodology_label": "string",
+  "methodology_rationale": "string",
+  "confidence_score": 0,
+  "recommended_methods": [
+    {
+      "method_id": "heuristic_analysis | prototype | usability_test | concept_test | interview | survey | desk_research | workshop",
+      "method_name": "string",
+      "why_recommended": "string",
+      "when_to_use": "string",
+      "expected_evidence": "string",
+      "estimated_effort": "low | medium | high",
+      "sequence_order": 1
     }
-  }
+  ],
+  "not_recommended_methods": [
+    {
+      "method_id": "string",
+      "reason": "string"
+    }
+  ],
+  "priority_questions": [],
+  "scope_statement": "string",
+  "out_of_scope": [],
+  "workflow_recommendation": "RESEARCH_APPROVAL_PENDING"
 }
 ```
 
-Hoje o frontend envia `discovery_id` e `Methodology_Appoved`. O campo `Methodology_Appoved` carrega a metodologia selecionada e o CSD preenchido pelo usuário: `certezas`, `suposicoes` e `duvidas`. Os demais campos coletados no Full Page Flow do frontend, como título, problema, objetivo, dores, participantes, prazo, arquivos e links, ficam no estado mockado/local do frontend e não são enviados para a CrewAI.
+Regras importantes:
 
-Se a evolução do produto exigir que a Crew use esses dados, altere os dois lados juntos:
+- Problema de tela, fluxo ou interface com clareza razoável deve priorizar:
+  - análise heurística;
+  - prototipação;
+  - teste de usabilidade;
+  - teste de conceito.
+- Entrevista em profundidade só deve ser recomendada quando houver incerteza real sobre público, motivação ou necessidade.
+- Desk research não é fallback genérico; deve ser usada quando houver benchmark, contexto externo, mercado, regulação, links ou materiais relevantes.
 
-- No frontend: expandir `kickoffCrewAiDiscovery` para enviar mais campos em `inputs`.
-- Na Crew: atualizar `main.py` para refletir inputs de teste locais e ajustar `agents.yaml`/`tasks.yaml` para interpolar os novos campos.
-- No proxy: normalmente nada muda, pois `server.js` repassa o JSON recebido para `/kickoff`.
+---
 
-### Contrato Atual Backend -> Frontend
+## Arquivos e FileReadTool
 
-O frontend espera que `POST /kickoff` retorne:
+A D.O.R. deve considerar:
 
-```json
-{
-  "kickoff_id": "id-da-execucao"
-}
+- objetivo;
+- problema;
+- CSD;
+- conhecimento prévio;
+- arquivos enviados pelo usuário.
+
+Arquivos são complementares, não obrigatórios.
+
+Fluxo atual:
+
+```text
+front
+  ↓
+/api/discovery/upload-files
+  ↓
+backend/data/uploads/<discoveryId>/
+  ↓
+/api/discovery/kickoff com files[]
+  ↓
+api.py valida paths
+  ↓
+inputs["file"] e inputs["files"]
+  ↓
+FileReadTool
 ```
 
-Durante o polling, o frontend consulta `GET /status/{kickoff_id}` e tenta encontrar o status em uma destas chaves:
+Formatos aceitos inicialmente:
 
-- `state`
-- `result.state`
-- `data.state`
-- `status`
-- `result.status`
-- `data.status`
+- `.txt`
+- `.csv`
+- `.json`
+- `.md`
 
-Status tratados como sucesso:
+PDF e DOCX ainda não são suportados diretamente. Devem ser convertidos para texto em etapa futura.
 
-- `completed`
-- `complete`
-- `success`
-- `succeeded`
+---
 
-Status tratados como erro:
+## Persistência Atual
 
-- `failed`
-- `failure`
-- `error`
-- `cancelled`
-- `canceled`
+Persistência local temporária:
 
-Quando chega em sucesso, o frontend guarda o resultado bruto em `crewAiStatusPayload` e tenta extrair conteúdo de:
-
-- `result`
-- `data.result`
-- `output`
-- `response`
-
-Esse resultado ainda não é renderizado como fonte principal da Discovery Page; a página criada usa majoritariamente os dados do próprio formulário e mantém o retorno da Crew salvo no objeto local do discovery.
-
-### Como a Crew Funciona
-
-A Crew é sequencial (`Process.sequential`) e executa uma cadeia longa de tarefas de Discovery. O `crew.py` registra todos os agentes com `@agent`, todas as tarefas com `@task` e monta a Crew com:
-
-- `process=Process.sequential`
-- `verbose=True`
-- `chat_llm=LLM(model="openai/gpt-4.1-mini")`
-
-Quase todos os agentes usam `LLM(model="openai/gpt-4.1")`. O agente `primary_research_evidence_processor` usa `openai/gpt-4.1-mini`. Todos estão com:
-
-- `reasoning=False`
-- `inject_date=True`
-- `allow_delegation=False`
-- `max_iter=25`
-
-Ferramentas configuradas:
-
-- `FileReadTool` em agentes que precisam ler arquivos/contexto.
-- `ScrapeWebsiteTool` e `SerperDevTool` no agente de desk research.
-- `custom_tool.py` existe apenas como exemplo/template e não está conectado à Crew.
-
-Variáveis esperadas pela Crew:
-
-- `OPENAI_API_KEY`, porque os modelos são OpenAI via CrewAI/LiteLLM.
-- `SERPER_API_KEY`, se o `SerperDevTool` for usado em execução real.
-
-Apesar do nome do projeto mencionar Azure e o prompt do agente de pesquisa primária falar em Azure Blob Storage, não há SDK, ferramenta ou integração Azure implementada no código atual. Hoje isso é apenas uma expectativa descrita no prompt/output da tarefa.
-
-Essa ausência de integração Azure não remove a CrewAI do MVP. Ela significa apenas que armazenamento externo e conectores corporativos devem ser simulados ou tratados manualmente durante o MVP.
-
-### Sequência de Tarefas
-
-A ordem implementada em `crew.py` segue a ordem dos métodos `@task`:
-
-1. `control_discovery_workflow_state_machine`
-2. `build_d_o_r_framework`
-3. `validate_discovery_readiness`
-4. `define_discovery_methodology`
-5. `prioritize_discovery_scope`
-6. `create_research_execution_plan`
-7. `define_participant_strategy`
-8. `define_research_operational_structure`
-9. `create_research_execution_protocols`
-10. `execute_desk_research_evidence_collection`
-11. `process_primary_research_evidence`
-12. `synthesize_discovery_evidence`
-13. `review_insight_quality`
-14. `map_discovery_opportunities`
-15. `generate_solution_hypotheses`
-16. `define_prototype_requirements`
-17. `generate_prototype_execution_artifacts`
-18. `define_validation_strategy`
-19. `design_validation_experiment`
-20. `generate_strategic_recommendation`
-21. `prepare_discovery_handoff_package`
-
-Os `context` em `tasks.yaml` encadeiam outputs anteriores como contexto para as próximas tarefas. Embora a primeira tarefa descreva uma máquina de estados com aprovações humanas, a implementação atual é uma Crew sequencial simples: não há Flow CrewAI, router, persistência de estado, endpoint de aprovação, pausa/resume real ou branching programático no código local.
-
-### Outputs Esperados pela Crew
-
-`tasks.yaml` descreve outputs estruturados por texto, mas o código não define modelos Pydantic, `output_pydantic`, `output_json` ou guardrails. Na prática, a forma final do retorno depende do comportamento do CrewAI/AMP e dos textos gerados pelos agentes.
-
-Os principais tipos conceituais descritos nos prompts são:
-
-- `WorkflowStateOutput`
-- `DiscoveryReadinessOutput`
-- `MethodologyOutput`
-- `ScopePrioritizationOutput`
-- `ResearchPlannerOutput`
-- `ParticipantStrategyOutput`
-- `ResearchOpsOutput`
-- `ResearchScriptOutput`
-- `DeskResearchOutput`
-- `PrimaryResearchExecutionOutput`
-- `SynthesisOutput`
-- `InsightQualityReviewOutput`
-- `OpportunityMappingOutput`
-- `SolutionHypothesisOutput`
-- `PrototypeDefinitionOutput`
-- `PrototypeGenerationOutput`
-- `ValidationStrategyOutput`
-- `ExperimentDesignOutput`
-- `RecommendationOutput`
-- `HandoffDeliveryOutput`
-
-Para o frontend consumir dados de forma confiável, uma evolução importante é transformar esses outputs em contrato real, com schema validado no backend ou uma camada normalizadora no `server.js`.
-
-### Cuidados ao Evoluir Front e Back
-
-- Não coloque `CREWAI_API_KEY` no frontend. O navegador deve continuar chamando apenas `/api/crewai/*`.
-- Se novos campos forem necessários no backend, mande-os dentro de `inputs` e mantenha nomes estáveis em snake_case.
-- Preserve `discovery_id`; ele é o identificador comum entre frontend, kickoff e prompts da Crew.
-- Não assuma que o status remoto virá sempre no mesmo campo; o frontend hoje aceita múltiplos formatos por segurança.
-- Se o backend passar a retornar um JSON estruturado confiável, ajuste `getCrewAiResult` e a criação da Discovery Page para renderizar esse payload em vez de apenas armazená-lo.
-- Se arquivos anexados precisarem entrar no backend, será necessário criar contrato específico de upload/referência. Hoje o kickoff só envia JSON e não há integração real com Blob Storage no código local.
-- Se aprovações humanas virarem produto real, a Crew sequencial atual não basta sozinha; será preciso implementar estado persistente, eventos de aprovação e retomada do workflow no backend.
-- O `pyproject.toml` declara o script `run_with_trigger`, mas `main.py` não implementa essa função. Corrija antes de depender desse entrypoint.
-
-## Checagens Recomendadas
-
-Antes de finalizar mudanças em JavaScript:
-
-```bash
-node --check app.js
-node --check server.js
+```text
+backend/data/*.json
 ```
 
-Para validar o proxy sem expor o token:
+Principais coleções:
 
-```bash
-curl -i http://localhost:4173/api/config
+- `created-discoveries.json`
+- `product-audience-by-product.json`
+- `product-favorites-by-user.json`
+- `favorite-discovery-ids.json`
+- `research-activity-users.json`
+- `local-mock-runs.json`
+- `products.json`
+- `discoveries.json`
+- `real-runs.json`
+
+Uploads locais:
+
+```text
+backend/data/uploads/
 ```
 
-Com o servidor rodando e `.env` configurado, testar kickoff:
+A persistência local é suficiente para desenvolvimento, mas não é adequada para uso corporativo multiusuário.
 
-```bash
-curl -i -X POST http://localhost:4173/api/crewai/kickoff \
-  -H 'Content-Type: application/json' \
-  --data '{"inputs":{"discovery_id":"draft-teste"}}'
+---
+
+## Próxima Evolução: Postgres/Supabase
+
+Para publicar para pessoas da empresa testarem, migrar dados principais para Postgres.
+
+Prioridade de migração:
+
+1. `products`
+2. `product_team`
+3. `personas`
+4. `stakeholders`
+5. `discoveries`
+6. `discovery_runs`
+7. `evidence_uploads`
+8. `framework_results`
+9. `synthesis`
+10. `insights`
+
+JSON local deve virar fallback/dev mode, não fonte de verdade em produção.
+
+Variáveis futuras:
+
+```env
+DATABASE_URL=
+SUPABASE_URL=
+SUPABASE_SERVICE_ROLE_KEY=
 ```
+
+Não publicar MVP corporativo dependendo apenas de `backend/data/*.json`.
+
+---
+
+## Edição e Exclusão
+
+Discoveries criadas pelo usuário podem ser:
+
+- editadas;
+- excluídas.
+
+Editar significa:
+
+```text
+reabrir intake
+preservar dados preenchidos
+preservar arquivos e links
+resetar D.O.R./metodologia/run
+executar novo kickoff
+atualizar a mesma discovery
+```
+
+Excluir significa:
+
+```text
+remover da UI
+remover da persistência
+remover runs associadas quando possível
+```
+
+Discoveries seed não devem ser editadas/excluídas.
+
+---
 
 ## Cuidados de Implementação
 
-- O app usa roteamento por `location.hash`; preserve URLs como `#products`, `#product/:id` e `#discovery/:id/:productId`.
-- O Full Page Flow deve rolar internamente, sem rolar a página de fundo.
-- Não adicione dependências sem necessidade; o proxy foi feito apenas com módulos nativos do Node.
-- Não commite `.env`; ele já está no `.gitignore`.
-- Ao mexer no polling, mantenha valores em milissegundos e defaults seguros no frontend caso `/api/config` falhe.
+- Não rodar Crew real sem necessidade; custa tokens e tempo.
+- Não executar `/kickoff` em auditorias.
+- Não fazer commit sem revisar `git status`.
+- Não commitar `.env`.
+- Não commitar dados locais sensíveis ou uploads.
+- Não commitar arquivos grandes em `backend/data/uploads`.
+- Não transformar regras de produto em prompt de agente.
+- Não colocar regras específicas de análise no front.
+- Não reintroduzir frontend em modo demo quando `.env` estiver em `mvp_backend`.
+
+Antes de mudar JavaScript:
+
+```bash
+npm run check
+```
+
+Antes de mudar Python:
+
+```bash
+python3 -m py_compile backend/src/discovery_ai/api.py backend/src/discovery_ai/crew.py
+```
+
+Antes de testar backend:
+
+```bash
+curl http://127.0.0.1:8000/health
+```
+
+---
+
+## Estado Atual do Produto
+
+O MVP já valida:
+
+- criação de discovery;
+- edição/exclusão;
+- kickoff real com CrewAI;
+- D.O.R.;
+- readiness;
+- metodologia;
+- escopo;
+- roadmap;
+- upload inicial de arquivos;
+- renderização de metodologia e frameworks;
+- persistência local temporária.
+
+Ainda em evolução:
+
+- Postgres/Supabase;
+- upload robusto com PDF/DOCX;
+- processadores especializados por framework;
+- síntese incremental por upload;
+- Fase 2 real de planejamento;
+- endpoints de transição de workflow;
+- autenticação corporativa;
+- publicação para usuários da empresa.
