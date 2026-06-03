@@ -222,6 +222,7 @@ let selectedInterviewMethodId = "entrevista-em-profundidade";
 let selectedSidebarContext = { type: "home" };
 let isSidebarPinned = false;
 let draftDiscovery = null;
+let editingDiscoveryId = "";
 let activeAudienceTab = "personas";
 let audienceShowArchived = false;
 let pendingAudienceDelete = null;
@@ -249,11 +250,13 @@ let newDiscoveryDeadlineDraft = "";
 let newDiscoverySupportFiles = [];
 let newDiscoverySupportLinksDraft = [""];
 let newDiscoveryCsdDraft = {};
+let newDiscoveryCurrentStep = "setup";
 let selectedMethodologyId = "optimized";
 let isCreatingNewDiscovery = false;
 let isEvaluatingDiscoveryMethodology = false;
 let currentDiscoveryDraft = null;
 let currentMethodologyEvaluation = null;
+let currentKickoffPayload = null; // stored when real API kickoff succeeds at methodology step
 let crewKickoffStartedAt = 0;
 let crewKickoffElapsedTimer = null;
 let activeDiscoveryRunPoll = {
@@ -712,6 +715,15 @@ const RESEARCH_ACTIVITY_USERS_STORAGE_KEY = "discoveryIa.researchActivityUsers";
 const LOCAL_MOCK_RUNS_STORAGE_KEY = "discoveryIa.localMockRuns";
 const DEFAULT_AUDIENCE_TIMESTAMP = "2026-05-25T12:00:00.000Z";
 
+const SEED_DISCOVERY_IDS = new Set([
+  "dashboard-operacional",
+  "cora-transportes",
+  "conciliacao-de-pagamentos",
+  "alertas-inteligentes",
+  "onboarding-de-produto",
+  "relatorio-de-repasses",
+]);
+
 const PERSONA_TYPES = Object.freeze({
   PRIMARY_USER: "PRIMARY_USER",
   SECONDARY_USER: "SECONDARY_USER",
@@ -772,6 +784,10 @@ function renderApiModeBadge() {
 
 function isDemoApiMode() {
   return DISCOVERY_FRONTEND_API_MODE === DISCOVERY_FRONTEND_API_MODES.LOCAL_MOCK;
+}
+
+function isMvpBackendMode() {
+  return DISCOVERY_FRONTEND_API_MODE === DISCOVERY_FRONTEND_API_MODES.MVP_BACKEND;
 }
 
 function showDemoModeMessage() {
@@ -1974,24 +1990,40 @@ function getDiscoveryProgressPercent(status = "") {
 }
 
 function normalizeMethodologyRecommendation(source = {}, discovery = {}) {
-  const methodologySource = source.methodologyRecommendation || source.recommendation || source.methodology || methodologyPackages.optimized;
+  const methodologySource = source.methodologyRecommendation
+    || source.recommendation
+    || source.methodology
+    || (source.id || source.name || source.title || source.methods ? source : methodologyPackages.optimized);
   const packageReference = getMethodologyPackageByReference(methodologySource) || methodologyPackages.optimized;
   const generatedAt = source.generatedAt || source.generated_at || discovery.updatedAt || discovery.updated_at || "2026-05-20T12:00:00.000Z";
+  const methodsSource = Array.isArray(methodologySource.methods) ? methodologySource.methods : packageReference.methods;
 
   return {
     id: methodologySource.recommendationId
       || methodologySource.recommendation_id
       || (String(methodologySource.id || "").endsWith("-recommendation") ? methodologySource.id : `${packageReference.id}-recommendation`),
     methodologyId: methodologySource.methodologyId || methodologySource.methodology_id || packageReference.id,
-    name: methodologySource.name || methodologySource.methodology_name || packageReference.name,
+    name: methodologySource.name || methodologySource.title || methodologySource.methodology_name || packageReference.name,
+    title: methodologySource.title || methodologySource.name || methodologySource.methodology_name || packageReference.name,
     duration: methodologySource.duration || packageReference.duration,
     description: methodologySource.description || packageReference.description,
     rationale: methodologySource.rationale || methodologySource.reasoning || "Recomendação mockada a partir do objetivo, CSD e restrições do discovery.",
     confidence: methodologySource.confidence || "medium",
-    methods: Array.isArray(methodologySource.methods) ? methodologySource.methods : packageReference.methods,
+    confidenceScore: Number(methodologySource.confidenceScore ?? methodologySource.confidence_score ?? 0) || undefined,
+    methods: methodsSource.map((method, index) => ({
+      ...method,
+      id: method.id || slugify(method.name || method.title) || `method-${index + 1}`,
+      name: method.name || method.title || `Método ${index + 1}`,
+      title: method.title || method.name || `Método ${index + 1}`,
+      whyRecommended: method.whyRecommended || method.why_recommended || "",
+      required: method.required !== false,
+      cannotExecute: Boolean(method.cannotExecute),
+      limitationReason: method.limitationReason || "",
+    })),
     constraints: Array.isArray(methodologySource.constraints) ? methodologySource.constraints : [],
     risks: Array.isArray(methodologySource.risks) ? methodologySource.risks : [],
-    generatedBy: methodologySource.generatedBy || methodologySource.generated_by || "mock_agent_adapter",
+    generatedBy: methodologySource.generatedBy || methodologySource.generated_by || ["mock_agent_adapter"],
+    signalsUsed: methodologySource.signalsUsed || methodologySource.signals_used || {},
     generatedAt,
   };
 }
@@ -2809,10 +2841,12 @@ function createRepositoryDiscoveryCard(discovery = {}, product = getProductForDi
   const favoriteLabel = isDiscoveryFavorite(discoveryId) ? "Remover dos favoritos" : "Favoritar discovery";
   const route = status === "done" && hasSynthesisOutput(discovery) ? "synthesis" : "discovery";
 
+  const isEditable = Boolean(findCreatedDiscovery(discoveryId)) && !isSeedDiscovery(discoveryId);
+  const discId = escapeHTML(discoveryId);
   return `
-    <article class="discovery-card repository-discovery-card" data-status="${escapeHTML(status)}" data-title="${escapeHTML(discovery.title || discovery.name || "")}" data-product="${escapeHTML(product.name)}" data-product-id="${escapeHTML(product.id)}" data-discovery-id="${escapeHTML(discoveryId)}" data-route="${escapeHTML(route)}">
+    <article class="discovery-card repository-discovery-card" data-status="${escapeHTML(status)}" data-title="${escapeHTML(discovery.title || discovery.name || "")}" data-product="${escapeHTML(product.name)}" data-product-id="${escapeHTML(product.id)}" data-discovery-id="${discId}" data-route="${escapeHTML(route)}">
       <div class="card-topline">
-        <button class="star-button${favoriteClass}" type="button" aria-label="${escapeHTML(favoriteLabel)}" aria-pressed="${String(isDiscoveryFavorite(discoveryId))}" data-discovery-favorite="${escapeHTML(discoveryId)}" data-discovery-product-id="${escapeHTML(product.id)}">
+        <button class="star-button${favoriteClass}" type="button" aria-label="${escapeHTML(favoriteLabel)}" aria-pressed="${String(isDiscoveryFavorite(discoveryId))}" data-discovery-favorite="${discId}" data-discovery-product-id="${escapeHTML(product.id)}">
           <svg aria-hidden="true" viewBox="0 0 24 24">
             <polygon points="12 2 15.1 8.3 22 9.3 17 14.2 18.2 21 12 17.8 5.8 21 7 14.2 2 9.3 8.9 8.3 12 2"></polygon>
           </svg>
@@ -2822,7 +2856,19 @@ function createRepositoryDiscoveryCard(discovery = {}, product = getProductForDi
       <span class="repository-card-product">${escapeHTML(product.name)}</span>
       <h3>${escapeHTML(discovery.title || discovery.name || "Discovery")}</h3>
       <p>${escapeHTML(getProductDiscoveryDescription(discovery))}</p>
-      <button class="text-action" type="button">Abrir discovery <span aria-hidden="true">›</span></button>
+      <div class="card-topline">
+        <button class="text-action" type="button">Abrir discovery <span aria-hidden="true">›</span></button>
+        ${isEditable ? `
+          <span>
+            <button class="btn btn-icon" type="button" data-edit-discovery="${discId}" title="Editar discovery" aria-label="Editar discovery">
+              <svg aria-hidden="true" viewBox="0 0 24 24" width="14" height="14"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+            </button>
+            <button class="btn btn-icon" type="button" data-delete-discovery="${discId}" title="Excluir discovery" aria-label="Excluir discovery">
+              <svg aria-hidden="true" viewBox="0 0 24 24" width="14" height="14"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/></svg>
+            </button>
+          </span>
+        ` : ""}
+      </div>
     </article>
   `;
 }
@@ -3368,7 +3414,16 @@ function normalizeProductStakeholder(stakeholder = {}, product = {}, index = 0) 
 }
 
 function getProductAudienceSource(product = {}, storedAudience = {}, key = "personas") {
-  const hasStoredAudience = Boolean(storedAudience && typeof storedAudience === "object" && !Array.isArray(storedAudience));
+  // Trust stored audience only when it was explicitly saved (_savedAt) or already has
+  // actual items. An entry with empty arrays and no _savedAt is treated as "not yet
+  // user-initialized" — otherwise seed data would be permanently overwritten by an
+  // empty initial write.
+  const isStoredObject = Boolean(storedAudience && typeof storedAudience === "object" && !Array.isArray(storedAudience));
+  const hasStoredAudience = isStoredObject && Boolean(
+    storedAudience._savedAt ||
+    (Array.isArray(storedAudience.personas) && storedAudience.personas.length > 0) ||
+    (Array.isArray(storedAudience.stakeholders) && storedAudience.stakeholders.length > 0)
+  );
   if (hasStoredAudience) {
     return Array.isArray(storedAudience[key]) ? storedAudience[key] : [];
   }
@@ -4080,6 +4135,7 @@ function updateNewDiscoveryProgress(value) {
 }
 
 function setNewDiscoveryStep(step) {
+  newDiscoveryCurrentStep = step;
   newDiscoverySetupForm.hidden = step !== "setup";
   newDiscoveryParticipantsForm.hidden = step !== "participants";
   newDiscoveryCsdForm.hidden = step !== "csd";
@@ -4105,6 +4161,8 @@ function setNewDiscoveryStep(step) {
 function resetNewDiscoveryFlow() {
   setNewDiscoveryCreateState(false);
   setNewDiscoveryStatus("");
+  editingDiscoveryId = "";
+  currentKickoffPayload = null;
   resetCrewKickoffPanel();
   newDiscoverySetupForm.reset();
   newDiscoveryParticipantsForm.reset();
@@ -4120,6 +4178,7 @@ function resetNewDiscoveryFlow() {
   newDiscoverySupportFiles = [];
   newDiscoverySupportLinksDraft = [""];
   newDiscoveryCsdDraft = {};
+  newDiscoveryCurrentStep = "setup";
   showCsdValidationMessage("");
   isEvaluatingDiscoveryMethodology = false;
   currentDiscoveryDraft = null;
@@ -4144,6 +4203,50 @@ function resetNewDiscoveryFlow() {
   });
   setNewDiscoveryStep("setup");
   updateNewDiscoveryProgress(0);
+}
+
+function collectSetupInfo() {
+  newDiscoveryTitleDraft = newDiscoverySetupTitle.value.trim();
+  newDiscoveryProblemDraft = newDiscoverySetupProblem.value.trim();
+  newDiscoveryObjectiveDraft = newDiscoverySetupObjective.value.trim();
+}
+
+function collectCsdDraftInfo() {
+  newDiscoveryCsdDraft = collectCsdInfo();
+  return newDiscoveryCsdDraft;
+}
+
+function navigateNewDiscoveryBack() {
+  if (isCreatingNewDiscovery || isEvaluatingDiscoveryMethodology) {
+    return;
+  }
+
+  if (newDiscoveryCurrentStep === "methodology") {
+    collectCsdDraftInfo();
+    setNewDiscoveryStep("csd");
+    updateNewDiscoveryProgress(75);
+    window.setTimeout(() => document.querySelector("[data-csd-list] input")?.focus(), 0);
+    return;
+  }
+
+  if (newDiscoveryCurrentStep === "csd") {
+    collectCsdDraftInfo();
+    collectParticipantInfo();
+    setNewDiscoveryStep("participants");
+    updateNewDiscoveryProgress(50);
+    window.setTimeout(() => flowSelectButtons[0]?.focus(), 0);
+    return;
+  }
+
+  if (newDiscoveryCurrentStep === "participants") {
+    collectParticipantInfo();
+    setNewDiscoveryStep("setup");
+    updateNewDiscoveryProgress(0);
+    window.setTimeout(() => newDiscoverySetupTitle.focus(), 0);
+    return;
+  }
+
+  closeNewDiscoveryModal();
 }
 
 function openNewDiscoveryParticipantsStep() {
@@ -4202,18 +4305,37 @@ function openNewDiscoveryMethodologyStep({ state = "result" } = {}) {
 }
 
 function getSelectedMethodologyPackage(methodologyId = selectedMethodologyId) {
+  const recommendedMethodology = currentMethodologyEvaluation?.recommendedMethodology;
+  if (
+    recommendedMethodology
+    && [recommendedMethodology.id, recommendedMethodology.methodologyId, recommendedMethodology.methodology_id]
+      .filter(Boolean)
+      .includes(methodologyId)
+  ) {
+    return recommendedMethodology;
+  }
+
   return methodologyPackages[methodologyId] || methodologyPackages.optimized;
 }
 
-function buildMethodsFromMethodology(methodologyId = selectedMethodologyId) {
-  return getSelectedMethodologyPackage(methodologyId).methods.map((method) => ({
-    id: slugify(method.name),
-    name: method.name,
+function buildMethodsFromMethodology(methodologySource = selectedMethodologyId) {
+  const methodology = typeof methodologySource === "object" && methodologySource
+    ? methodologySource
+    : getSelectedMethodologyPackage(methodologySource);
+
+  return (methodology.methods || []).map((method, index) => ({
+    id: method.id || slugify(method.name || method.title) || `method-${index + 1}`,
+    name: method.name || method.title || `Método ${index + 1}`,
+    title: method.title || method.name || `Método ${index + 1}`,
     duration: method.duration,
     description: method.description,
     sample: method.sample,
+    required: method.required !== false,
+    cannotExecute: Boolean(method.cannotExecute),
+    limitationReason: method.limitationReason || "",
+    whyRecommended: method.whyRecommended || method.why_recommended || "",
     progress: 0,
-    status: "Pendente",
+    status: method.cannotExecute ? "Limitação informada" : "Pendente",
     entry: createMethodEntry(),
   }));
 }
@@ -4246,34 +4368,307 @@ function buildDiscoveryDraftForMethodology(csd = collectCsdInfo()) {
   };
 }
 
-function createDemoMethodologyEvaluationResponse() {
+function getMethodologyDecisionSignals(formState = {}) {
+  const csd = formState.csd || {};
+  const participantGroups = formState.participants || {};
+  const participantCount = [
+    participantGroups.responsaveis,
+    participantGroups.personas,
+    participantGroups.stakeholders,
+    formState.persona,
+    formState.stakeholders,
+  ].reduce((count, values) => count + (Array.isArray(values) ? values.length : 0), 0);
+  const linkCount = (Array.isArray(formState.links) ? formState.links : [formState.links]).filter(Boolean).length;
+  const fileCount = Array.isArray(formState.files) ? formState.files.length : 0;
+  const text = normalizeText([
+    formState.title,
+    formState.problem,
+    formState.objective,
+    formState.description,
+  ].filter(Boolean).join(" "));
+  const deadlineText = String(formState.deadline || formState.periodEnd || "").trim();
+  const deadlineDate = parseBrazilianDate(deadlineText);
+  const daysUntilDeadline = deadlineDate
+    ? Math.ceil((deadlineDate.getTime() - new Date().setHours(0, 0, 0, 0)) / 86400000)
+    : null;
+  const hasKeyword = (keywords) => keywords.some((keyword) => text.includes(normalizeText(keyword)));
+
   return {
-    readinessScore: 78,
-    frameworks: [
-      {
-        id: "optimized",
-        methodologyId: "optimized",
-        name: "Discovery Otimizado",
-        duration: "3-4 semanas",
-        justification: "Framework recomendado pelo serviço de avaliação para validar hipóteses centrais com evidência qualitativa, survey e teste de usabilidade.",
-      },
-      {
-        id: "complete",
-        methodologyId: "complete",
-        name: "Discovery Completo",
-        duration: "6-8 semanas",
-        justification: "Alternativa recomendada quando o time precisar aprofundar riscos, segmentos, operação e validações antes do handoff.",
-      },
+    certaintyCount: (csd.certezas || []).length,
+    assumptionCount: (csd.suposicoes || []).length,
+    doubtCount: (csd.duvidas || []).length,
+    linkCount,
+    fileCount,
+    evidenceCount: linkCount + fileCount,
+    participantCount,
+    hasParticipants: participantCount > 0,
+    hasDeadline: Boolean(deadlineText),
+    isUrgent: Number.isFinite(daysUntilDeadline) ? daysUntilDeadline <= 21 : hasKeyword(["urgente", "rápido", "rapido", "curto prazo"]),
+    hasEvaluativeIntent: hasKeyword(["usabilidade", "protótipo", "prototipo", "fluxo", "experiência", "experiencia", "entendimento", "jornada", "interface", "tela"]),
+    hasValidativeIntent: hasKeyword(["validar", "hipótese", "hipotese", "aderência", "aderencia", "confirmar demanda", "medir", "priorizar", "teste de conceito", "experimento"]),
+    hasExploratoryIntent: hasKeyword(["entender", "descobrir", "mapear", "explorar", "diagnosticar", "problema amplo", "oportunidade"]),
+    hasSolutionSignal: hasKeyword(["solução", "solucao", "protótipo", "prototipo", "fluxo", "mvp", "interface", "tela"]),
+    previousMethodology: formState.suggestedMethodology || formState.methodology || formState.methodologyRecommendation || "",
+  };
+}
+
+function createRecommendedMethod({ id, title, description, whyRecommended, required = true }) {
+  return {
+    id,
+    title,
+    name: title,
+    description,
+    whyRecommended,
+    required,
+    cannotExecute: false,
+    limitationReason: "",
+  };
+}
+
+function getRecommendedMethodologyMethods(methodologyId = "discovery-mista", signals = {}) {
+  const sharedWhy = `Baseado na CSD (${signals.certaintyCount || 0} certezas, ${signals.assumptionCount || 0} suposições, ${signals.doubtCount || 0} dúvidas).`;
+  const methodsByMethodology = {
+    "discovery-exploratoria": [
+      createRecommendedMethod({
+        id: "entrevistas-em-profundidade",
+        title: "Entrevistas em profundidade",
+        description: "Conversas qualitativas para compreender contexto, dores, comportamento e linguagem dos usuários.",
+        whyRecommended: `Há alta proporção de dúvidas em relação às certezas. ${sharedWhy}`,
+      }),
+      createRecommendedMethod({
+        id: "desk-research",
+        title: "Desk research",
+        description: "Levantamento de dados secundários, materiais existentes, benchmarks e documentos de contexto.",
+        whyRecommended: signals.evidenceCount ? "Há materiais/links disponíveis que podem reduzir incertezas rapidamente." : "Ajuda a criar base inicial antes de acionar participantes.",
+      }),
+      createRecommendedMethod({
+        id: "mapeamento-de-jornada",
+        title: "Mapeamento de jornada",
+        description: "Organização dos passos, atores, dores e momentos críticos da experiência atual.",
+        whyRecommended: "A incerteza sobre problema e usuários pede uma visão estruturada da jornada antes de priorizar solução.",
+      }),
     ],
+    "discovery-avaliativa": [
+      createRecommendedMethod({
+        id: "teste-de-usabilidade",
+        title: "Teste de usabilidade",
+        description: "Sessões moderadas para observar execução de tarefas em fluxo, protótipo ou interface existente.",
+        whyRecommended: "O objetivo/problema menciona fluxo, protótipo, experiência ou usabilidade.",
+      }),
+      createRecommendedMethod({
+        id: "analise-heuristica",
+        title: "Análise heurística",
+        description: "Avaliação especialista para identificar fricções, inconsistências e riscos de compreensão.",
+        whyRecommended: signals.isUrgent ? "Prazo curto favorece uma avaliação rápida antes de testes com usuários." : "Complementa testes com uma leitura estruturada de problemas de interface.",
+      }),
+      createRecommendedMethod({
+        id: "entrevista-pos-teste",
+        title: "Entrevista pós-teste",
+        description: "Perguntas de aprofundamento após a execução das tarefas para entender percepção, confiança e dúvidas.",
+        whyRecommended: "Ajuda a explicar o porquê dos comportamentos observados no teste.",
+      }),
+    ],
+    "discovery-validativa": [
+      createRecommendedMethod({
+        id: "teste-de-conceito",
+        title: "Teste de conceito",
+        description: "Validação leve de proposta, valor percebido, clareza e intenção de adoção.",
+        whyRecommended: "Há muitas suposições e sinais de validação de hipótese/demanda.",
+      }),
+      createRecommendedMethod({
+        id: "experimento-leve",
+        title: "Experimento leve",
+        description: "Teste controlado de baixo esforço para observar comportamento, aderência ou preferência.",
+        whyRecommended: signals.isUrgent ? "Permite aprender com pouco tempo disponível." : "Ajuda a transformar suposições em evidência prática.",
+      }),
+      createRecommendedMethod({
+        id: "pesquisa-quantitativa-simples",
+        title: "Pesquisa quantitativa simples",
+        description: "Questionário curto para medir aderência, prioridade, demanda e segmentar respostas.",
+        whyRecommended: signals.hasParticipants ? "Há público/stakeholders definidos para coleta direcionada." : "Útil para estimar aderência antes de aprofundar execução.",
+      }),
+    ],
+    "discovery-mista": [
+      createRecommendedMethod({
+        id: "desk-research",
+        title: "Desk research",
+        description: "Análise de materiais, dados disponíveis e referências para orientar escopo.",
+        whyRecommended: signals.evidenceCount ? "Links/arquivos já informados podem acelerar a leitura inicial." : "Cria base para equilibrar descoberta e validação.",
+      }),
+      createRecommendedMethod({
+        id: "entrevistas",
+        title: "Entrevistas",
+        description: "Pesquisa qualitativa para aprofundar dúvidas, suposições e critérios de decisão.",
+        whyRecommended: `A CSD está equilibrada ou o problema é amplo. ${sharedWhy}`,
+      }),
+      createRecommendedMethod({
+        id: "teste-de-conceito",
+        title: "Teste de conceito",
+        description: "Validação de direção, clareza e valor percebido antes de detalhar solução.",
+        whyRecommended: "Ajuda a reduzir suposições sem pular direto para implementação.",
+      }),
+      createRecommendedMethod({
+        id: "priorizacao-de-oportunidades",
+        title: "Priorização de oportunidades",
+        description: "Matriz simples para ordenar oportunidades por impacto, confiança, esforço e risco.",
+        whyRecommended: "Problemas amplos precisam de foco explícito para orientar próximos passos.",
+      }),
+    ],
+  };
+
+  return methodsByMethodology[methodologyId] || methodsByMethodology["discovery-mista"];
+}
+
+function chooseRecommendedMethodology(signals = {}) {
+  const previous = normalizeText(typeof signals.previousMethodology === "object"
+    ? signals.previousMethodology.id || signals.previousMethodology.name || signals.previousMethodology.title
+    : signals.previousMethodology);
+  const scores = {
+    "discovery-exploratoria": 0,
+    "discovery-avaliativa": 0,
+    "discovery-validativa": 0,
+    "discovery-mista": 0,
+  };
+
+  scores["discovery-exploratoria"] += signals.doubtCount * 2;
+  scores["discovery-exploratoria"] += signals.doubtCount > signals.certaintyCount + 2 ? 6 : 0;
+  scores["discovery-exploratoria"] += signals.hasExploratoryIntent ? 4 : 0;
+  scores["discovery-exploratoria"] += !signals.hasParticipants ? 1 : 0;
+
+  scores["discovery-avaliativa"] += signals.hasEvaluativeIntent ? 8 : 0;
+  scores["discovery-avaliativa"] += signals.hasSolutionSignal ? 4 : 0;
+  scores["discovery-avaliativa"] += signals.certaintyCount >= signals.doubtCount ? 2 : 0;
+
+  scores["discovery-validativa"] += signals.assumptionCount > Math.max(signals.certaintyCount, signals.doubtCount)
+    ? signals.assumptionCount * 2
+    : signals.assumptionCount;
+  scores["discovery-validativa"] += signals.assumptionCount > signals.certaintyCount && signals.assumptionCount >= signals.doubtCount ? 5 : 0;
+  scores["discovery-validativa"] += signals.hasValidativeIntent ? 6 : 0;
+  scores["discovery-validativa"] += signals.hasParticipants ? 2 : 0;
+
+  const counts = [signals.certaintyCount, signals.assumptionCount, signals.doubtCount];
+  const spread = Math.max(...counts) - Math.min(...counts);
+  scores["discovery-mista"] += spread <= 2 ? 7 : 0;
+  scores["discovery-mista"] += signals.hasExploratoryIntent && signals.hasValidativeIntent ? 4 : 0;
+  scores["discovery-mista"] += signals.evidenceCount > 0 ? 2 : 0;
+  scores["discovery-mista"] += signals.isUrgent ? 1 : 0;
+
+  if (previous.includes("explor")) scores["discovery-exploratoria"] += 2;
+  if (previous.includes("avali") || previous.includes("usabil")) scores["discovery-avaliativa"] += 2;
+  if (previous.includes("valid")) scores["discovery-validativa"] += 2;
+  if (previous.includes("mist") || previous.includes("mixed")) scores["discovery-mista"] += 2;
+
+  return Object.entries(scores).sort((a, b) => b[1] - a[1])[0][0];
+}
+
+function buildRecommendedMethodologyRationale(methodologyId, signals = {}) {
+  const methodologyLabels = {
+    "discovery-exploratoria": "Discovery Exploratória",
+    "discovery-avaliativa": "Discovery Avaliativa",
+    "discovery-validativa": "Discovery Validativa",
+    "discovery-mista": "Discovery Mista",
+  };
+  const reasonByMethodology = {
+    "discovery-exploratoria": "indicando alta incerteza sobre o problema, usuários ou contexto.",
+    "discovery-avaliativa": "e o objetivo/problema traz sinais de fluxo, protótipo, usabilidade ou experiência a avaliar.",
+    "discovery-validativa": "indicando necessidade de validar hipóteses, medir aderência ou confirmar demanda.",
+    "discovery-mista": "indicando equilíbrio entre descoberta e validação ou um problema amplo que precisa de foco.",
+  };
+  const supportingSignals = [
+    `${signals.certaintyCount} certeza(s)`,
+    `${signals.assumptionCount} suposição(ões)`,
+    `${signals.doubtCount} dúvida(s)`,
+    signals.evidenceCount ? `${signals.evidenceCount} evidência(s) de apoio` : "",
+    signals.participantCount ? `${signals.participantCount} pessoa(s)/grupo(s) informado(s)` : "",
+    signals.isUrgent ? "prazo curto/urgente" : "",
+  ].filter(Boolean);
+
+  return `Recomendamos uma ${methodologyLabels[methodologyId]} porque a matriz CSD possui ${supportingSignals.slice(0, 3).join(", ")}, ${reasonByMethodology[methodologyId]} Sinais adicionais usados: ${supportingSignals.slice(3).join(", ") || "sem anexos, links ou participantes adicionais informados"}.`;
+}
+
+function buildRecommendedMethodologyFromDiscoveryInput(formState = {}) {
+  const signals = getMethodologyDecisionSignals(formState);
+  const methodologyId = chooseRecommendedMethodology(signals);
+  const titleByMethodology = {
+    "discovery-exploratoria": "Discovery Exploratória",
+    "discovery-avaliativa": "Discovery Avaliativa",
+    "discovery-validativa": "Discovery Validativa",
+    "discovery-mista": "Discovery Mista",
+  };
+  const confidenceBase = {
+    "discovery-exploratoria": 0.7,
+    "discovery-avaliativa": 0.74,
+    "discovery-validativa": 0.73,
+    "discovery-mista": 0.69,
+  }[methodologyId];
+  const signalBoost = Math.min(0.17, (signals.evidenceCount * 0.03) + (signals.hasParticipants ? 0.04 : 0) + (signals.hasDeadline ? 0.02 : 0));
+  const confidenceScore = Math.min(0.92, Number((confidenceBase + signalBoost).toFixed(2)));
+
+  return {
+    id: methodologyId,
+    methodologyId,
+    title: titleByMethodology[methodologyId],
+    name: titleByMethodology[methodologyId],
+    duration: signals.isUrgent ? "2-3 semanas" : "3-4 semanas",
+    description: "Abordagem recomendada pelos agentes a partir dos sinais preenchidos no cadastro da discovery.",
+    rationale: buildRecommendedMethodologyRationale(methodologyId, signals),
+    confidenceScore,
+    confidence: confidenceScore >= 0.84 ? "alta" : "média-alta",
+    generatedBy: [
+      "discovery_readiness_specialist",
+      "discovery_methodology_strategist",
+      "research_planning_strategist",
+    ],
+    signalsUsed: {
+      certaintyCount: signals.certaintyCount,
+      assumptionCount: signals.assumptionCount,
+      doubtCount: signals.doubtCount,
+      fileCount: signals.fileCount,
+      linkCount: signals.linkCount,
+      participantCount: signals.participantCount,
+      hasEvaluativeIntent: signals.hasEvaluativeIntent,
+      hasValidativeIntent: signals.hasValidativeIntent,
+      hasExploratoryIntent: signals.hasExploratoryIntent,
+      hasSolutionSignal: signals.hasSolutionSignal,
+      hasDeadline: signals.hasDeadline,
+      isUrgent: signals.isUrgent,
+      previousMethodology: signals.previousMethodology || "",
+    },
+    methods: getRecommendedMethodologyMethods(methodologyId, signals),
+    constraints: [],
+    risks: [
+      "A recomendação é heurística e local; ainda não substitui análise real da CrewAI.",
+      "Métodos marcados como não executáveis devem ser considerados no planejamento real.",
+    ],
+  };
+}
+
+function createDemoMethodologyEvaluationResponse(discoveryDraft = {}) {
+  const recommendedMethodology = buildRecommendedMethodologyFromDiscoveryInput({
+    title: discoveryDraft.title || newDiscoveryTitleDraft,
+    problem: discoveryDraft.problem || newDiscoveryProblemDraft,
+    objective: discoveryDraft.objective || newDiscoveryObjectiveDraft,
+    participants: newDiscoveryParticipantsDraft,
+    csd: discoveryDraft.csd || newDiscoveryCsdDraft,
+    links: newDiscoverySupportLinksDraft,
+    files: newDiscoverySupportFiles,
+    deadline: newDiscoveryDeadlineDraft,
+    suggestedMethodology: currentMethodologyEvaluation?.recommendedMethodology || "",
+  });
+
+  return {
+    readinessScore: Math.round(recommendedMethodology.confidenceScore * 100),
+    recommendedMethodology,
+    frameworks: [recommendedMethodology],
     missingInformation: [
       "Critérios de sucesso mensuráveis para a decisão final.",
-      "Evidências iniciais anexadas ou links de contexto.",
+      "Disponibilidade real dos participantes para executar os métodos recomendados.",
       "Restrições de prazo, risco técnico e dependências de entrega.",
     ],
     recommendations: [
       "Revisar a CSD com o time antes de iniciar pesquisa.",
       "Priorizar evidências que reduzam as suposições de maior risco.",
-      "Manter gates humanos para aprovar plano de pesquisa, insights e recomendação.",
+      "Registrar limitações de execução sem remover etapas do plano.",
     ],
   };
 }
@@ -4296,6 +4691,7 @@ function normalizeMethodologyEvaluationResponse(payload = {}) {
   return {
     readinessScore: Math.max(0, Math.min(100, Number(payload.readinessScore ?? payload.readiness_score ?? 0) || 0)),
     frameworks,
+    recommendedMethodology: payload.recommendedMethodology || payload.recommended_methodology || frameworks[0] || null,
     missingInformation: Array.isArray(payload.missingInformation)
       ? payload.missingInformation
       : Array.isArray(payload.missing_information)
@@ -4305,9 +4701,306 @@ function normalizeMethodologyEvaluationResponse(payload = {}) {
   };
 }
 
+function renderMethodologyProcessingState(message = "Analisando prontidão da discovery...", step = 1) {
+  if (!methodologyEvaluationLoading) {
+    return;
+  }
+
+  const isReal = isMvpBackendMode();
+  const steps = isReal
+    ? [
+        "Processando D.O.R.",
+        "Avaliando prontidão",
+        "Definindo metodologia",
+        "Priorizando escopo",
+      ]
+    : [
+        "Analisando prontidão",
+        "Definindo metodologia",
+        "Montando plano inicial",
+      ];
+
+  methodologyEvaluationLoading.innerHTML = `
+    <div class="artifact-loading-state" role="status">
+      <span aria-hidden="true"></span>
+      <strong>${escapeHTML(message)}</strong>
+    </div>
+    <ol class="crew-kickoff-log">
+      ${steps.map((label, index) => {
+        const num = index + 1;
+        const cls = num < step ? " class=\"log-done\"" : num === step ? " class=\"log-active\"" : "";
+        return `<li${cls}>${escapeHTML(label)}</li>`;
+      }).join("")}
+    </ol>
+  `;
+}
+
+const METHODOLOGY_FALLBACK_METHODS = Object.freeze({
+  "discovery-exploratoria": [
+    { id: "entrevistas-profundidade", title: "Entrevistas em profundidade", description: "Conversas semi-estruturadas para entender contexto, comportamentos e necessidades dos usuários." },
+    { id: "desk-research", title: "Desk research", description: "Mapeamento de dados secundários, benchmarks e literatura existente sobre o problema." },
+  ],
+  "discovery-avaliativa": [
+    { id: "teste-usabilidade", title: "Teste de usabilidade", description: "Observação de usuários interagindo com interfaces ou protótipos para identificar fricções." },
+    { id: "analise-heuristica", title: "Análise heurística", description: "Avaliação especializada da experiência com base em princípios de usabilidade." },
+  ],
+  "discovery-validativa": [
+    { id: "teste-conceito", title: "Teste de conceito", description: "Avaliação da aderência de uma proposta ou hipótese com o público-alvo." },
+    { id: "survey", title: "Survey", description: "Coleta de dados quantitativos sobre percepções e comportamentos." },
+  ],
+  "discovery-mista": [
+    { id: "entrevistas-profundidade", title: "Entrevistas em profundidade", description: "Conversas semi-estruturadas para entender contexto e necessidades." },
+    { id: "survey", title: "Survey", description: "Coleta de dados quantitativos sobre percepções e comportamentos." },
+    { id: "teste-conceito", title: "Teste de conceito", description: "Avaliação da aderência de proposta com o público-alvo." },
+  ],
+});
+
+function mapApiMethodologyToLocalId(apiMethodology = "") {
+  const normalized = normalizeText(String(apiMethodology || ""));
+  if (normalized.includes("generativ") || normalized.includes("explorator")) return "discovery-exploratoria";
+  if (normalized.includes("avaliat") || normalized.includes("evaluativ")) return "discovery-avaliativa";
+  if (normalized.includes("validat")) return "discovery-validativa";
+  if (normalized.includes("mist") || normalized.includes("mixed")) return "discovery-mista";
+  return "discovery-exploratoria";
+}
+
+function mapKickoffToMethodologyEvaluation(kickoffPayload = {}) {
+  const artifacts = kickoffPayload.artifacts || {};
+  const readiness = artifacts.readiness || {};
+  const researchPlan = artifacts.research_plan_package || {};
+  const scope = artifacts.scope || {};
+
+  const rawScore = readiness.readiness_score ?? readiness.readinessScore ?? 0;
+  const readinessScore = Number(rawScore) > 1 ? Math.round(Number(rawScore)) : Math.round(Number(rawScore) * 100);
+
+  const rawMethodology = researchPlan.recommended_methodology || "";
+  const methodologyId = mapApiMethodologyToLocalId(rawMethodology);
+  const methodRationale = Array.isArray(researchPlan.method_rationale)
+    ? researchPlan.method_rationale.join(". ")
+    : researchPlan.methodology_rationale || researchPlan.methodology_summary || "Metodologia definida pelos agentes CrewAI.";
+
+  // Broaden method extraction: check all locations the Crew may put methods
+  const rawMethods = (
+    (Array.isArray(kickoffPayload.recommended_methods) && kickoffPayload.recommended_methods.length
+      ? kickoffPayload.recommended_methods : null)
+    || (Array.isArray(researchPlan.recommended_methods) && researchPlan.recommended_methods.length
+      ? researchPlan.recommended_methods : null)
+    || (Array.isArray(researchPlan.sequencing_recommendation) && researchPlan.sequencing_recommendation.length
+      ? researchPlan.sequencing_recommendation : null)
+    || (Array.isArray(researchPlan.strategic_focus_areas) && researchPlan.strategic_focus_areas.length
+      ? researchPlan.strategic_focus_areas : null)
+    || (Array.isArray(artifacts.methodology?.recommended_methods) && artifacts.methodology.recommended_methods.length
+      ? artifacts.methodology.recommended_methods : null)
+    || []
+  );
+
+  const isFallbackMethods = rawMethods.length === 0;
+  const mappedMethods = rawMethods.map((method, index) => {
+    const methodName = typeof method === "string"
+      ? method
+      : (method.method_name || method.name || method.title || method.method || `Método ${index + 1}`);
+    return {
+      id: typeof method === "object" ? (method.method_id || slugify(methodName)) : slugify(methodName),
+      title: methodName,
+      name: methodName,
+      description: typeof method === "object"
+        ? (method.when_to_use || method.expected_evidence || method.rationale || method.description || method.reasoning || method.justification || "") : "",
+      duration: typeof method === "object" ? (method.estimated_effort || method.duration || "") : "",
+      whyRecommended: typeof method === "object"
+        ? (method.why_recommended || method.justification || method.why || "") : "",
+      cannotExecute: false,
+    };
+  });
+  const fallbackBase = METHODOLOGY_FALLBACK_METHODS[methodologyId] || METHODOLOGY_FALLBACK_METHODS["discovery-exploratoria"];
+  const resolvedMethods = isFallbackMethods
+    ? fallbackBase.map((m) => ({ ...m, name: m.title, whyRecommended: "", cannotExecute: false }))
+    : mappedMethods;
+
+  const titleByMethodology = {
+    "discovery-exploratoria": "Discovery Exploratória",
+    "discovery-avaliativa": "Discovery Avaliativa",
+    "discovery-validativa": "Discovery Validativa",
+    "discovery-mista": "Discovery Mista",
+  };
+
+  const recommendedMethodology = {
+    id: methodologyId,
+    methodologyId,
+    title: titleByMethodology[methodologyId] || researchPlan.methodology_label || rawMethodology || "Metodologia recomendada",
+    name: titleByMethodology[methodologyId] || researchPlan.methodology_label || rawMethodology || "Metodologia recomendada",
+    rationale: methodRationale,
+    description: researchPlan.methodology_rationale || researchPlan.methodology_summary || methodRationale,
+    confidenceScore: researchPlan.confidence_score > 0
+      ? researchPlan.confidence_score / 100
+      : readinessScore > 0 ? readinessScore / 100 : 0.7,
+    confidence: readinessScore >= 80 ? "alta" : "média-alta",
+    duration: "3-4 semanas",
+    generatedBy: ["d_o_r_builder", "discovery_readiness_specialist", "discovery_methodology_strategist"],
+    methods: resolvedMethods,
+    _isFallbackMethods: isFallbackMethods,
+    risks: Array.isArray(researchPlan.risks) ? researchPlan.risks : [],
+    constraints: Array.isArray(researchPlan.constraints) ? researchPlan.constraints : [],
+    scopeStatement: scope.scope_statement || researchPlan.scope_statement || "",
+    priorityQuestions: scope.priority_questions || scope.must_answer_questions || [],
+    outOfScope: scope.out_of_scope || [],
+  };
+
+  const missingInformation = [
+    ...(Array.isArray(readiness.critical_gaps) ? readiness.critical_gaps : []),
+    ...(Array.isArray(readiness.blockers) ? readiness.blockers : []),
+    ...(Array.isArray(readiness.clarification_questions) ? readiness.clarification_questions : []),
+  ];
+
+  return {
+    readinessScore,
+    recommendedMethodology,
+    frameworks: [recommendedMethodology],
+    missingInformation,
+    recommendations: Array.isArray(researchPlan.sequencing_recommendation) ? researchPlan.sequencing_recommendation : [],
+  };
+}
+
+async function evaluateDiscoveryMethodologyWithRealApi(discoveryDraft = {}) {
+  renderMethodologyProcessingState("Processando D.O.R. e briefing inicial...", 1);
+  currentKickoffPayload = null;
+
+  const kickoffInput = buildDiscoveryRunInput({
+    discoveryId: discoveryDraft.id || createNewDiscoveryDraftId(discoveryDraft.title || ""),
+    productId: discoveryDraft.product?.id || selectedProductId || "",
+    title: discoveryDraft.title || newDiscoveryTitleDraft,
+    problem: discoveryDraft.problem || newDiscoveryProblemDraft,
+    objective: discoveryDraft.objective || newDiscoveryObjectiveDraft,
+    participants: newDiscoveryParticipantsDraft,
+    csd: discoveryDraft.csd || {},
+    links: newDiscoverySupportLinksDraft,
+    deadline: newDiscoveryDeadlineDraft,
+    files: newDiscoverySupportFiles,
+  });
+
+  // Advance the step indicator while the Crew runs (approximate agent durations)
+  const progressTimers = [
+    window.setTimeout(() => renderMethodologyProcessingState("Avaliando prontidão para discovery...", 2), 8000),
+    window.setTimeout(() => renderMethodologyProcessingState("Definindo metodologia e frameworks...", 3), 40000),
+    window.setTimeout(() => renderMethodologyProcessingState("Priorizando escopo da pesquisa...", 4), 85000),
+  ];
+  const clearProgressTimers = () => progressTimers.forEach((t) => window.clearTimeout(t));
+
+  try {
+    const kickoffPayload = await kickoffDiscoveryRun(kickoffInput);
+    clearProgressTimers();
+    currentKickoffPayload = kickoffPayload;
+    return mapKickoffToMethodologyEvaluation(kickoffPayload);
+  } catch (error) {
+    clearProgressTimers();
+    console.warn("[mvp_backend] Kickoff real falhou; usando heurística local como fallback.", error);
+    currentKickoffPayload = null;
+    return createDemoMethodologyEvaluationResponse(discoveryDraft);
+  }
+}
+
 async function evaluateDiscoveryMethodology(discoveryDraft = {}) {
-  await sleep(700);
+  if (isMvpBackendMode()) {
+    return evaluateDiscoveryMethodologyWithRealApi(discoveryDraft);
+  }
+  renderMethodologyProcessingState("Analisando prontidão da discovery...");
+  await sleep(450);
+  renderMethodologyProcessingState("Definindo metodologia ideal...");
+  await sleep(450);
+  renderMethodologyProcessingState("Montando plano inicial de pesquisa...");
+  await sleep(450);
   return createDemoMethodologyEvaluationResponse(discoveryDraft);
+}
+
+function getCurrentRecommendedMethodology() {
+  return currentMethodologyEvaluation?.recommendedMethodology || currentMethodologyEvaluation?.frameworks?.[0] || getSelectedMethodologyPackage();
+}
+
+function getCurrentMethodologyExecutionConstraints(methodology = getCurrentRecommendedMethodology()) {
+  return (methodology?.methods || [])
+    .filter((method) => method.cannotExecute)
+    .map((method) => ({
+      methodId: method.id || slugify(method.name || method.title),
+      methodTitle: method.title || method.name,
+      cannotExecute: true,
+      limitationReason: method.limitationReason || "",
+    }));
+}
+
+function renderRecommendedMethodologyCard(methodology = {}) {
+  const methods = Array.isArray(methodology.methods) ? methodology.methods : [];
+  const confidenceScore = Number(methodology.confidenceScore ?? methodology.confidence_score ?? 0);
+  const confidenceLabel = confidenceScore
+    ? `${Math.round(confidenceScore * 100)}% de confiança`
+    : methodology.confidence || "Confiança não informada";
+
+  return `
+    <article class="methodology-choice-card active" data-methodology-recommendation="${escapeHTML(methodology.id || methodology.methodologyId || "")}">
+      <span class="methodology-radio" aria-hidden="true"></span>
+      <div class="methodology-card-content">
+        <h3>${escapeHTML(methodology.title || methodology.name || "Metodologia recomendada")}</h3>
+        <p>${escapeHTML(methodology.rationale || methodology.justification || methodology.description || "Metodologia recomendada pelos agentes de discovery.")}</p>
+        <span class="methodology-duration"><strong>Duração estimada:</strong> ${escapeHTML(methodology.duration || "3-4 semanas")}</span>
+        <span class="methodology-duration"><strong>Confiança:</strong> ${escapeHTML(confidenceLabel)}</span>
+        ${Array.isArray(methodology.generatedBy) && methodology.generatedBy.length ? `
+          <small><strong>Gerado por:</strong> ${escapeHTML(methodology.generatedBy.join(", "))}</small>
+        ` : ""}
+        ${methodology.scopeStatement ? `
+          <h4>Escopo definido</h4>
+          <p>${escapeHTML(methodology.scopeStatement)}</p>
+        ` : ""}
+        ${Array.isArray(methodology.priorityQuestions) && methodology.priorityQuestions.length ? `
+          <h4>Perguntas prioritárias (${methodology.priorityQuestions.length})</h4>
+          <ul class="methodology-priority-questions">${methodology.priorityQuestions.map((q) => `<li>${escapeHTML(q)}</li>`).join("")}</ul>
+        ` : ""}
+        ${Array.isArray(methodology.outOfScope) && methodology.outOfScope.length ? `
+          <h4>Fora do escopo</h4>
+          <ul class="methodology-out-of-scope">${methodology.outOfScope.map((item) => `<li>${escapeHTML(item)}</li>`).join("")}</ul>
+        ` : ""}
+        ${methodology._isFallbackMethods ? `
+          <p class="methodology-fallback-notice"><em>Métodos sugeridos por fallback — a Crew não retornou frameworks estruturados para esta execução.</em></p>
+        ` : ""}
+        <h4>Etapas recomendadas (${methods.length})</h4>
+        <div class="methodology-method-list">
+          ${methods.length ? methods.map((method, index) => `
+            <div class="methodology-method-item${method.cannotExecute ? " is-limited" : ""}">
+              <div>
+                <strong>${escapeHTML(method.title || method.name || `Método ${index + 1}`)}</strong>
+                ${method.duration ? `<mark>${escapeHTML(method.duration)}</mark>` : ""}
+              </div>
+              ${method.description ? `<p>${escapeHTML(method.description)}</p>` : ""}
+              ${method.whyRecommended ? `<p><strong>Por que:</strong> ${escapeHTML(method.whyRecommended)}</p>` : ""}
+              ${method.sample ? `<small><strong>Amostra:</strong> ${escapeHTML(method.sample)}</small>` : ""}
+              <label>
+                <input type="checkbox" data-methodology-method-constraint="${escapeHTML(method.id || slugify(method.name || method.title) || `method-${index + 1}`)}" ${method.cannotExecute ? "checked" : ""} />
+                <span>Não consigo executar esta etapa</span>
+              </label>
+              ${method.cannotExecute ? `
+                <label>
+                  <span>Motivo ou observação</span>
+                  <textarea rows="2" data-methodology-limitation-reason="${escapeHTML(method.id || slugify(method.name || method.title) || `method-${index + 1}`)}" placeholder="Ex.: sem agenda, sem acesso a usuários, dependência externa">${escapeHTML(method.limitationReason || "")}</textarea>
+                </label>
+              ` : ""}
+            </div>
+          `).join("") : `<p class="methodology-empty-state">Nenhuma etapa retornada pelos agentes.</p>`}
+        </div>
+      </div>
+    </article>
+  `;
+}
+
+function updateRecommendedMethodologyConstraint(methodId = "", patch = {}) {
+  const recommendedMethodology = getCurrentRecommendedMethodology();
+  if (!recommendedMethodology?.methods) {
+    return;
+  }
+
+  recommendedMethodology.methods = recommendedMethodology.methods.map((method, index) => {
+    const currentMethodId = method.id || slugify(method.name || method.title) || `method-${index + 1}`;
+    return currentMethodId === methodId ? { ...method, id: currentMethodId, ...patch } : method;
+  });
+  currentMethodologyEvaluation.recommendedMethodology = recommendedMethodology;
+  currentMethodologyEvaluation.frameworks = [recommendedMethodology];
+  renderMethodologyEvaluationResult(currentMethodologyEvaluation);
 }
 
 function renderMethodologyEvaluationResult(result = currentMethodologyEvaluation) {
@@ -4319,39 +5012,27 @@ function renderMethodologyEvaluationResult(result = currentMethodologyEvaluation
     return;
   }
 
+  const resultTitle = methodologyEvaluationResult?.querySelector(".methodology-result-header h3");
+  const resultCopy = methodologyEvaluationResult?.querySelector(".methodology-result-header p");
+  const frameworksTitle = methodologyEvaluationResult?.querySelector("#methodology-frameworks-title");
+  const isRealResult = isMvpBackendMode() && Boolean(currentKickoffPayload || result._run_id);
+  if (resultTitle) {
+    resultTitle.textContent = "Metodologia recomendada";
+  }
+  if (resultCopy) {
+    resultCopy.textContent = isRealResult
+      ? "Recomendação gerada pelos agentes CrewAI a partir dos dados da discovery."
+      : "Recomendação mockada pelos agentes a partir dos dados preenchidos no cadastro.";
+  }
+  if (frameworksTitle) {
+    frameworksTitle.textContent = isRealResult ? "Metodologia recomendada pela Crew" : "Metodologia ideal";
+  }
+
   methodologyReadinessScore.textContent = `${result.readinessScore}% pronto`;
-  methodologyFrameworks.innerHTML = result.frameworks.length
-    ? result.frameworks.map((framework, index) => {
-      const isActive = framework.methodologyId === selectedMethodologyId || (!selectedMethodologyId && index === 0);
-      const methodologyPackage = getMethodologyPackageByReference(framework.methodologyId || framework.name);
-      const methods = Array.isArray(methodologyPackage?.methods) ? methodologyPackage.methods : [];
-      return `
-        <button class="methodology-choice-card${isActive ? " active" : ""}" type="button" data-methodology-option="${escapeHTML(framework.methodologyId)}" aria-pressed="${String(isActive)}">
-          <span class="methodology-radio" aria-hidden="true"></span>
-          <div class="methodology-card-content">
-            <h3>${escapeHTML(framework.name)}</h3>
-            <p>${escapeHTML(framework.justification)}</p>
-            ${framework.duration ? `<span class="methodology-duration"><strong>Duração estimada:</strong> ${escapeHTML(framework.duration)}</span>` : ""}
-            ${methods.length ? `
-              <h4>Metodologias Incluídas (${methods.length})</h4>
-              <div class="methodology-method-list">
-                ${methods.map((method) => `
-                  <div class="methodology-method-item">
-                    <div>
-                      <strong>${escapeHTML(method.name)}</strong>
-                      ${method.duration ? `<mark>${escapeHTML(method.duration)}</mark>` : ""}
-                    </div>
-                    ${method.description ? `<p>${escapeHTML(method.description)}</p>` : ""}
-                    ${method.sample ? `<small><strong>Amostra:</strong> ${escapeHTML(method.sample)}</small>` : ""}
-                  </div>
-                `).join("")}
-              </div>
-            ` : ""}
-          </div>
-        </button>
-      `;
-    }).join("")
-    : `<p class="methodology-empty-state">Nenhum framework retornado pelo serviço.</p>`;
+  const recommendedMethodology = result.recommendedMethodology || result.frameworks[0];
+  methodologyFrameworks.innerHTML = recommendedMethodology
+    ? renderRecommendedMethodologyCard(recommendedMethodology)
+    : `<p class="methodology-empty-state">Nenhuma metodologia retornada pelo serviço.</p>`;
 
   methodologyMissingInformation.innerHTML = result.missingInformation.length
     ? result.missingInformation.map((item) => `<li>${escapeHTML(item)}</li>`).join("")
@@ -4376,7 +5057,10 @@ async function handleDiscoveryMethodologyEvaluation(csd = collectCsdInfo()) {
   try {
     const payload = await evaluateDiscoveryMethodology(currentDiscoveryDraft);
     currentMethodologyEvaluation = normalizeMethodologyEvaluationResponse(payload);
-    selectedMethodologyId = currentMethodologyEvaluation.frameworks[0]?.methodologyId || selectedMethodologyId;
+    selectedMethodologyId = currentMethodologyEvaluation.recommendedMethodology?.id
+      || currentMethodologyEvaluation.recommendedMethodology?.methodologyId
+      || currentMethodologyEvaluation.frameworks[0]?.methodologyId
+      || selectedMethodologyId;
     renderMethodologyEvaluationResult(currentMethodologyEvaluation);
     setNewDiscoveryStatus("");
     openNewDiscoveryMethodologyStep({ state: "result" });
@@ -4462,7 +5146,11 @@ function normalizeDiscoveryMethod(method = {}, packageMethod = {}, index = 0) {
     description: method.description || method.summary || method.rationale || packageMethod.description || "",
     sample: method.sample || method.sample_size || method.participant_sample || method.participants || packageMethod.sample || "",
     progress: normalizedProgress,
-    status: method.status || method.state || (normalizedProgress >= 100 ? "Concluído" : "Pendente"),
+    status: method.status || method.state || (method.cannotExecute ? "Limitação informada" : normalizedProgress >= 100 ? "Concluído" : "Pendente"),
+    required: method.required !== false,
+    cannotExecute: Boolean(method.cannotExecute),
+    limitationReason: method.limitationReason || method.limitation_reason || "",
+    whyRecommended: method.whyRecommended || method.why_recommended || "",
     entry,
     notes: method.notes || "",
     evidence: Array.isArray(method.evidence) ? method.evidence : [],
@@ -4931,8 +5619,13 @@ async function hydrateProductAudienceByProductFromLocalApi() {
       product.productTeam = merged.productTeam;
       product.team = merged.productTeam;
     }
-    if (Array.isArray(merged.personas)) product.personas = merged.personas;
-    if (Array.isArray(merged.stakeholders)) product.stakeholders = merged.stakeholders;
+    const mergedExplicit = merged._savedAt ||
+      (Array.isArray(merged.personas) && merged.personas.length > 0) ||
+      (Array.isArray(merged.stakeholders) && merged.stakeholders.length > 0);
+    if (mergedExplicit) {
+      if (Array.isArray(merged.personas)) product.personas = merged.personas;
+      if (Array.isArray(merged.stakeholders)) product.stakeholders = merged.stakeholders;
+    }
   });
 
   saveProductAudienceTable();
@@ -4974,7 +5667,9 @@ async function hydrateProductsFromLocalApi() {
   products.length = 0;
   for (const p of merged) products.push(p);
 
-  // Re-apply audience data (personas/stakeholders/productTeam from productAudienceByProduct)
+  // Re-apply audience data — only apply personas/stakeholders when the audience was
+  // explicitly saved (_savedAt) or already contains actual items, so seed data from
+  // products.json is never overwritten by an empty initial audience entry.
   products.forEach((product) => {
     const audience = productAudienceByProduct[product.id];
     if (!audience) return;
@@ -4982,8 +5677,13 @@ async function hydrateProductsFromLocalApi() {
       product.productTeam = audience.productTeam;
       product.team = audience.productTeam;
     }
-    if (Array.isArray(audience.personas)) product.personas = audience.personas;
-    if (Array.isArray(audience.stakeholders)) product.stakeholders = audience.stakeholders;
+    const audienceExplicit = audience._savedAt ||
+      (Array.isArray(audience.personas) && audience.personas.length > 0) ||
+      (Array.isArray(audience.stakeholders) && audience.stakeholders.length > 0);
+    if (audienceExplicit) {
+      if (Array.isArray(audience.personas)) product.personas = audience.personas;
+      if (Array.isArray(audience.stakeholders)) product.stakeholders = audience.stakeholders;
+    }
   });
 
   renderProducts();
@@ -5167,6 +5867,7 @@ const CREWAI_COMPATIBILITY_EMPTY_INPUTS = {
   '"discovery_id": "string", "readiness_status": "READY | PARTIALLY_READY | NOT_READY", "readiness_score": 0, "strengths": [], "critical_gaps": [], "blockers": [], "clarification_required": true, "clarification_questions": [], "uncertainty_profile": {"problem_uncertainty": "LOW | MEDIUM | HIGH", "user_uncertainty": "LOW | MEDIUM | HIGH", "validation_uncertainty": "LOW | MEDIUM | HIGH"': "",
   '"insight_number":1, "insight":""': "",
   '"discovery_id": "string", "scope_status": "DEFINED", "scope_statement": "string", "priority_questions": [], "out_of_scope": [], "must_answer_questions": [], "strategic_focus_areas": [], "workflow_recommendation": "PROCEED_TO_RESEARCH_PLANNING"': "",
+  '"discovery_id": "string", "recommended_methodology": "exploratory | evaluative | validation | mixed", "methodology_label": "string", "methodology_rationale": "string", "confidence_score": 0, "recommended_methods": [], "not_recommended_methods": [], "priority_questions": [], "scope_statement": "string", "out_of_scope": [], "workflow_recommendation": "RESEARCH_APPROVAL_PENDING"': "",
   '"discovery_id": "string", "methodology_status": "DEFINED", "recommended_methodology": "GENERATIVE | EVALUATIVE | VALIDATIVE | MIXED", "methodology_summary": "string", "method_rationale": [], "recommended_methods": [], "sequencing_recommendation": [], "constraints": [], "risks": []': "",
   '"discovery_id": "string", "dor_status": "COMPLETED | PARTIALLY_COMPLETED | INSUFFICIENT_INFORMATION", "title": "string", "objective": "string", "problem": "string", "owners": [], "users": [], "stakeholders": [], "certainties": [], "assumptions": [], "open_questions": [], "deadline": null, "attached_files": [],  "completeness_score": 0, "missing_required_fields": [], "clarification_required": true, "clarification_questions": []': "",
 };
@@ -5239,7 +5940,13 @@ function buildDiscoveryRunInput({
 }
 
 function setSelectedMethodology(methodologyId) {
-  selectedMethodologyId = methodologyPackages[methodologyId] ? methodologyId : "optimized";
+  const recommendedMethodology = currentMethodologyEvaluation?.recommendedMethodology;
+  const recommendedIds = [
+    recommendedMethodology?.id,
+    recommendedMethodology?.methodologyId,
+    recommendedMethodology?.methodology_id,
+  ].filter(Boolean);
+  selectedMethodologyId = methodologyPackages[methodologyId] || recommendedIds.includes(methodologyId) ? methodologyId : "optimized";
   getMethodologyOptionButtons().forEach((button) => {
     const isActive = button.dataset.methodologyOption === selectedMethodologyId;
     button.classList.toggle("active", isActive);
@@ -6603,11 +7310,28 @@ function renderArtifactListItem(item) {
   const meta = [
     item.status,
     item.confidence,
+    item.confidence_score,
     item.priority,
     item.owner,
     item.type,
     item.updated_at || item.updatedAt,
   ].map(formatArtifactDisplayValue).filter(Boolean);
+
+  if (!title && !body && !meta.length) {
+    const entries = Object.entries(item)
+      .filter(([, entryValue]) => !isEmptyArtifactValue(entryValue))
+      .slice(0, 6);
+
+    if (entries.length) {
+      return `
+        <li>
+          ${entries.map(([key, entryValue]) => `
+            <span><strong>${escapeHTML(key.replace(/_/g, " "))}:</strong> ${escapeHTML(formatArtifactDisplayValue(entryValue))}</span>
+          `).join("")}
+        </li>
+      `;
+    }
+  }
 
   if (!title && !body && !meta.length) {
     return `<li>${escapeHTML(formatArtifactDisplayValue(item))}</li>`;
@@ -6759,9 +7483,10 @@ function renderInsightsArtifact(artifact) {
       { label: "Confiança", keys: ["confidence", "confidence_level"] },
     ],
     lists: [
-      { title: "Principais insights", value: Array.isArray(artifact) ? artifact : getArtifactValue(artifact, ["insights", "key_insights", "updated_insights"]) },
-      { title: "Padrões", keys: ["patterns", "themes"] },
-      { title: "Contradições", keys: ["contradictions", "tensions"] },
+      { title: "Principais insights", value: Array.isArray(artifact) ? artifact : getArtifactValue(artifact, ["generated_insights", "validated_insights", "insights", "key_insights", "updated_insights"]) },
+      { title: "Padrões", keys: ["patterns", "key_patterns", "themes"] },
+      { title: "Contradições", keys: ["tensions_and_contradictions", "contradictions", "tensions"] },
+      { title: "Mapa de rastreabilidade", keys: ["traceability_map", "evidence_traceability"] },
       { title: "Evidências conectadas", keys: ["evidence", "evidence_refs", "supporting_evidence"] },
     ],
   });
@@ -7355,6 +8080,70 @@ async function pollCrewAiStatus(kickoffId) {
 
 function openNewDiscoveryModal() {
   resetNewDiscoveryFlow();
+  document.body.classList.add("flow-open");
+  newDiscoveryModal.hidden = false;
+  window.setTimeout(() => newDiscoverySetupTitle.focus(), 0);
+}
+
+function openEditDiscoveryModal(discoveryId = "") {
+  const normalizedId = String(discoveryId || "").trim();
+  if (!normalizedId) return;
+
+  if (isSeedDiscovery(normalizedId)) {
+    showAppToast("Discovery de exemplo não pode ser editada.", "error");
+    return;
+  }
+
+  const discovery = findCreatedDiscovery(normalizedId);
+  if (!discovery) {
+    showAppToast("Discovery não encontrada.", "error");
+    return;
+  }
+
+  resetNewDiscoveryFlow();
+  editingDiscoveryId = normalizedId;
+
+  // Ensure correct product context
+  if (discovery.productId) selectedProductId = discovery.productId;
+
+  // Pre-populate setup fields
+  newDiscoverySetupTitle.value = discovery.title || discovery.name || "";
+  newDiscoverySetupProblem.value = discovery.problem || "";
+  newDiscoverySetupObjective.value = discovery.objective || "";
+  newDiscoveryTitleDraft = newDiscoverySetupTitle.value;
+  newDiscoveryProblemDraft = newDiscoverySetupProblem.value;
+  newDiscoveryObjectiveDraft = newDiscoverySetupObjective.value;
+
+  // Pre-populate CSD inputs (reset leaves 3 empty rows per column)
+  const csd = discovery.csd || {};
+  ["certezas", "suposicoes", "duvidas"].forEach((key) => {
+    const items = Array.isArray(csd[key]) ? csd[key].filter(Boolean) : [];
+    const list = document.querySelector(`[data-csd-list="${key}"]`);
+    if (!list) return;
+    const existingRows = [...list.querySelectorAll(".csd-row")];
+    items.forEach((text, index) => {
+      if (index < existingRows.length) {
+        existingRows[index].querySelector("input").value = text;
+      } else {
+        const row = document.createElement("div");
+        row.className = "csd-row";
+        row.innerHTML = `<input type="text" placeholder="Placeholder" /><button type="button" data-csd-remove aria-label="Remover item"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M3 6h18" /><path d="M8 6V4h8v2" /><path d="M19 6l-1 14H6L5 6" /><path d="M10 11v6" /><path d="M14 11v6" /></svg></button>`;
+        row.querySelector("input").value = text;
+        list.appendChild(row);
+      }
+    });
+  });
+  newDiscoveryCsdDraft = csd;
+
+  // Pre-populate persona/stakeholder selections
+  newDiscoverySelectedPersonaIdsDraft = Array.isArray(discovery.personaIds) ? [...discovery.personaIds] : [];
+  newDiscoverySelectedStakeholderIdsDraft = Array.isArray(discovery.stakeholderIds) ? [...discovery.stakeholderIds] : [];
+
+  // Pre-populate links
+  const links = Array.isArray(discovery.links) ? discovery.links.filter(Boolean) : [];
+  newDiscoverySupportLinksDraft = links.length ? [...links, ""] : [""];
+  renderSupportLinkRows();
+
   document.body.classList.add("flow-open");
   newDiscoveryModal.hidden = false;
   window.setTimeout(() => newDiscoverySetupTitle.focus(), 0);
@@ -8211,6 +9000,58 @@ function findCreatedDiscovery(discoveryId = "") {
   return createdDiscoveries.find((discovery) => discovery.id === discoveryId) || null;
 }
 
+function isSeedDiscovery(discoveryId = "") {
+  return SEED_DISCOVERY_IDS.has(String(discoveryId || "").trim());
+}
+
+function deleteCreatedDiscovery(discoveryId = "") {
+  const normalizedId = String(discoveryId || "").trim();
+  if (!normalizedId) return;
+
+  if (isSeedDiscovery(normalizedId)) {
+    showAppToast("Discovery de exemplo não pode ser excluída.", "error");
+    return;
+  }
+
+  const target = findCreatedDiscovery(normalizedId);
+  if (!target) {
+    showAppToast("Discovery não encontrada.", "error");
+    return;
+  }
+
+  if (!window.confirm(`Excluir o discovery "${target.title || normalizedId}"? Esta ação não pode ser desfeita.`)) {
+    return;
+  }
+
+  createdDiscoveries = createdDiscoveries.filter((d) => d.id !== normalizedId);
+  saveCreatedDiscoveries();
+
+  // Remove associated run from localMockRunsMemory
+  const runs = loadLocalMockRuns();
+  const updatedRuns = Object.fromEntries(
+    Object.entries(runs).filter(([, run]) => {
+      const runDiscoveryId = run.discovery_id || run.discoveryId || run.inputs?.discovery_id || "";
+      return runDiscoveryId !== normalizedId;
+    })
+  );
+  if (Object.keys(updatedRuns).length !== Object.keys(runs).length) {
+    saveLocalMockRuns(updatedRuns);
+  }
+
+  // Navigate away if viewing the deleted discovery
+  if (selectedDiscoveryId === normalizedId) {
+    const product = getProductById(target.productId) || products[0];
+    setRoute("product", product.id);
+  }
+
+  const product = getProductById(selectedProductId) || products[0];
+  renderResearchRepository();
+  renderProductDiscoveries(product);
+  renderFavoriteDiscoveriesMenu(selectedDiscoveryId);
+  refreshDiscoveryFavoriteControls();
+  showAppToast("Discovery excluída com sucesso.", "success");
+}
+
 function getNormalizedDiscoveryResult(activeDiscovery = {}) {
   const normalizedResult = normalizeCrewAiDiscoveryResult(activeDiscovery.crewAiResult || activeDiscovery.crewAiStatusPayload || {});
   const localInsights = normalizeCrewAiInsights(activeDiscovery.insights || []);
@@ -8362,10 +9203,12 @@ function createDiscoveryCard(discovery, index, product = getProductById(selected
   const description = getProductDiscoveryDescription(discovery);
   const statusBadge = getDiscoveryCardStatus({ ...discovery, statusType: isDone ? "green" : discovery.statusType });
 
+  const isEditable = Boolean(findCreatedDiscovery(discoveryId)) && !isSeedDiscovery(discoveryId);
+  const discId = escapeHTML(discoveryId);
   return `
-    <article class="discovery-card product-discovery-card" data-product-discovery-index="${index}" data-product-discovery-id="${escapeHTML(discoveryId)}" data-product-discovery-route="${escapeHTML(route)}">
+    <article class="discovery-card product-discovery-card" data-product-discovery-index="${index}" data-product-discovery-id="${discId}" data-product-discovery-route="${escapeHTML(route)}">
       <div class="discovery-card-top card-topline">
-        <button class="star-button discovery-card-favorite${favoriteClass}" type="button" aria-label="${escapeHTML(favoriteLabel)}" aria-pressed="${String(isFavorite)}" data-discovery-favorite="${escapeHTML(discoveryId)}" data-discovery-product-id="${escapeHTML(product.id)}">
+        <button class="star-button discovery-card-favorite${favoriteClass}" type="button" aria-label="${escapeHTML(favoriteLabel)}" aria-pressed="${String(isFavorite)}" data-discovery-favorite="${discId}" data-discovery-product-id="${escapeHTML(product.id)}">
           <svg aria-hidden="true" viewBox="0 0 24 24">
             <polygon points="12 2 15.1 8.3 22 9.3 17 14.2 18.2 21 12 17.8 5.8 21 7 14.2 2 9.3 8.9 8.3 12 2"></polygon>
           </svg>
@@ -8376,6 +9219,16 @@ function createDiscoveryCard(discovery, index, product = getProductById(selected
       <p class="discovery-card-description">${escapeHTML(description)}</p>
       <footer class="discovery-card-footer">
         <button class="text-action" type="button">Continuar <span aria-hidden="true">›</span></button>
+        ${isEditable ? `
+          <span>
+            <button class="btn btn-icon" type="button" data-edit-discovery="${discId}" title="Editar discovery" aria-label="Editar discovery">
+              <svg aria-hidden="true" viewBox="0 0 24 24" width="14" height="14"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+            </button>
+            <button class="btn btn-icon" type="button" data-delete-discovery="${discId}" title="Excluir discovery" aria-label="Excluir discovery">
+              <svg aria-hidden="true" viewBox="0 0 24 24" width="14" height="14"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/></svg>
+            </button>
+          </span>
+        ` : ""}
       </footer>
     </article>
   `;
@@ -8462,12 +9315,14 @@ function persistProductAudience(product = {}) {
   productAudienceByProduct = {
     ...productAudienceByProduct,
     [product.id]: {
+      _savedAt: new Date().toISOString(),
       productTeam: getProductTeam(product),
       personas: product.personas,
       stakeholders: product.stakeholders,
     },
   };
   saveProductAudienceTable();
+  saveProductsToLocalApi();
   renderProductAudienceSummary(product);
   renderNewDiscoveryPeopleSelection();
 }
@@ -9345,10 +10200,11 @@ function createRecentDiscoveryCard(activeDiscovery = {}) {
   const favoriteClass = isDiscoveryFavorite(activeDiscovery.id) ? " active" : "";
   const favoriteLabel = isDiscoveryFavorite(activeDiscovery.id) ? "Remover dos favoritos" : "Favoritar discovery";
 
+  const discId = escapeHTML(activeDiscovery.id);
   return `
-    <article class="discovery-card" data-status="done" data-title="${escapeHTML(activeDiscovery.name)}" data-product="${escapeHTML(product.category || product.name)}" data-product-id="${escapeHTML(product.id)}" data-discovery-id="${escapeHTML(activeDiscovery.id)}" data-route="discovery" data-prompt="Ver detalhes de ${escapeHTML(activeDiscovery.name)}">
+    <article class="discovery-card" data-status="done" data-title="${escapeHTML(activeDiscovery.name)}" data-product="${escapeHTML(product.category || product.name)}" data-product-id="${escapeHTML(product.id)}" data-discovery-id="${discId}" data-route="discovery" data-prompt="Ver detalhes de ${escapeHTML(activeDiscovery.name)}">
       <div class="card-topline">
-        <button class="star-button${favoriteClass}" type="button" aria-label="${escapeHTML(favoriteLabel)}" aria-pressed="${String(isDiscoveryFavorite(activeDiscovery.id))}" data-discovery-favorite="${escapeHTML(activeDiscovery.id)}">
+        <button class="star-button${favoriteClass}" type="button" aria-label="${escapeHTML(favoriteLabel)}" aria-pressed="${String(isDiscoveryFavorite(activeDiscovery.id))}" data-discovery-favorite="${discId}">
           <svg aria-hidden="true" viewBox="0 0 24 24">
             <polygon points="12 2 15.1 8.3 22 9.3 17 14.2 18.2 21 12 17.8 5.8 21 7 14.2 2 9.3 8.9 8.3 12 2"></polygon>
           </svg>
@@ -9362,7 +10218,17 @@ function createRecentDiscoveryCard(activeDiscovery = {}) {
       </div>
       <h3>${escapeHTML(activeDiscovery.name)}</h3>
       <p>${escapeHTML(cardText)}</p>
-      <button class="text-action" type="button">Ver detalhes <span aria-hidden="true">›</span></button>
+      <div class="card-topline">
+        <button class="text-action" type="button">Ver detalhes <span aria-hidden="true">›</span></button>
+        <span>
+          <button class="btn btn-icon" type="button" data-edit-discovery="${discId}" title="Editar discovery" aria-label="Editar discovery">
+            <svg aria-hidden="true" viewBox="0 0 24 24" width="14" height="14"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+          </button>
+          <button class="btn btn-icon" type="button" data-delete-discovery="${discId}" title="Excluir discovery" aria-label="Excluir discovery">
+            <svg aria-hidden="true" viewBox="0 0 24 24" width="14" height="14"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/></svg>
+          </button>
+        </span>
+      </div>
     </article>
   `;
 }
@@ -10666,7 +11532,9 @@ function renderDiscoveryWorkflowCockpit(activeDiscovery = {}) {
 }
 
 function renderDiscoveryArtifactGroups(groups = {}) {
+  // discovery_charter is always shown in the page header and CSD panel — skip it here
   const renderedGroups = DISCOVERY_ARTIFACT_GROUPS
+    .filter((group) => group.key !== "discovery_charter")
     .map((group) => group.renderer(groups[group.key]))
     .filter(Boolean)
     .join("");
@@ -11358,13 +12226,15 @@ function getInsightReviewPanelData(activeDiscovery = {}) {
       || AGENT_OUTPUT_EMPTY_MESSAGE,
     keyPatterns: getArtifactValue(insights, ["key_patterns", "patterns", "themes"])
       || [],
-    validatedInsights: getArtifactValue(insights, ["validated_insights", "insights", "key_insights", "updated_insights"])
+    generatedInsights: getArtifactValue(insights, ["generated_insights", "validated_insights", "insights", "key_insights", "updated_insights"])
       || getDiscoveryInsightTexts(activeDiscovery)
       || [],
     evidenceStrength: getArtifactValue(insights, ["evidence_strength", "confidence", "confidence_level", "evidence_confidence", "supporting_evidence"])
       || AGENT_OUTPUT_EMPTY_MESSAGE,
-    contradictions: getArtifactValue(insights, ["contradictions", "warnings", "tensions", "risks"])
+    contradictions: getArtifactValue(insights, ["tensions_and_contradictions", "contradictions", "warnings", "tensions", "risks"])
       || [],
+    traceabilityMap: getArtifactValue(insights, ["traceability_map", "evidence_traceability"])
+      || AGENT_OUTPUT_EMPTY_MESSAGE,
     unsupportedClaims: getArtifactValue(insights, ["unsupported_claims", "unsupported", "weak_claims", "claims_without_evidence"])
       || [],
   };
@@ -11396,10 +12266,11 @@ function renderInsightReviewPanel(activeDiscovery = {}) {
 
       <div class="insight-review-grid">
         ${renderInsightReviewBlock("Resumo da síntese", panelData.summary, AGENT_OUTPUT_EMPTY_MESSAGE)}
+        ${renderInsightReviewBlock("Insights gerados", panelData.generatedInsights, AGENT_OUTPUT_EMPTY_MESSAGE)}
         ${renderInsightReviewBlock("Padrões-chave", panelData.keyPatterns, AGENT_OUTPUT_EMPTY_MESSAGE)}
-        ${renderInsightReviewBlock("Insights validados", panelData.validatedInsights, AGENT_OUTPUT_EMPTY_MESSAGE)}
+        ${renderInsightReviewBlock("Tensões e contradições", panelData.contradictions, "Nenhuma tensão ou contradição informada.")}
+        ${renderInsightReviewBlock("Mapa de rastreabilidade", panelData.traceabilityMap, AGENT_OUTPUT_EMPTY_MESSAGE)}
         ${renderInsightReviewBlock("Força da evidência/confiança", panelData.evidenceStrength, AGENT_OUTPUT_EMPTY_MESSAGE)}
-        ${renderInsightReviewBlock("Contradições ou alertas", panelData.contradictions, "Nenhuma contradição ou alerta informado.")}
         ${renderInsightReviewBlock("Claims sem suporte", panelData.unsupportedClaims, "Nenhum claim sem suporte informado.")}
       </div>
 
@@ -12616,9 +13487,21 @@ function renderDiscoveryPage(productId, discoveryId) {
   if (discoveryTimelineTitle) {
     discoveryTimelineTitle.textContent = "Prazo discovery";
   }
+  const currentDiscoveryState = normalizeWorkflowValue(
+    activeDiscovery.current_state || activeDiscovery.workflow_state || activeDiscovery.state || ""
+  );
+  const isBeforeEvidencePhase = [
+    WORKFLOW_STATES.DISCOVERY_CREATED,
+    WORKFLOW_STATES.DOR_ANALYZING,
+    WORKFLOW_STATES.RESEARCH_APPROVAL_PENDING,
+  ].includes(currentDiscoveryState);
   discoveryInsights.innerHTML = insightTexts.length
     ? insightTexts.map((insight) => `<li>${escapeHTML(insight)}</li>`).join("")
-    : `<li class="insights-empty-state">${hasCrewResult ? AGENT_OUTPUT_EMPTY_MESSAGE : AGENT_WAITING_MESSAGE}</li>`;
+    : `<li class="insights-empty-state">${
+        isBeforeEvidencePhase
+          ? "Insights ainda não disponíveis — serão gerados após upload e processamento de evidências."
+          : hasCrewResult ? AGENT_OUTPUT_EMPTY_MESSAGE : AGENT_WAITING_MESSAGE
+      }</li>`;
   if (discoveryTags) {
     const tags = Array.isArray(activeDiscovery.tags) ? activeDiscovery.tags : [];
     discoveryTags.innerHTML = tags.map((tag) => `<span>${escapeHTML(tag)}</span>`).join("");
@@ -14080,6 +14963,20 @@ if (repositoryStatusFilter) {
 
 if (discoveryGrid) {
   discoveryGrid.addEventListener("click", (event) => {
+    const editButton = event.target.closest("[data-edit-discovery]");
+    if (editButton) {
+      event.stopPropagation();
+      openEditDiscoveryModal(editButton.dataset.editDiscovery);
+      return;
+    }
+
+    const deleteButton = event.target.closest("[data-delete-discovery]");
+    if (deleteButton) {
+      event.stopPropagation();
+      deleteCreatedDiscovery(deleteButton.dataset.deleteDiscovery);
+      return;
+    }
+
     const starButton = event.target.closest(".star-button");
     if (starButton) {
       event.stopPropagation();
@@ -14109,6 +15006,20 @@ if (discoveryGrid) {
 
 if (repositoryTree) {
   repositoryTree.addEventListener("click", (event) => {
+    const editButton = event.target.closest("[data-edit-discovery]");
+    if (editButton) {
+      event.stopPropagation();
+      openEditDiscoveryModal(editButton.dataset.editDiscovery);
+      return;
+    }
+
+    const deleteButton = event.target.closest("[data-delete-discovery]");
+    if (deleteButton) {
+      event.stopPropagation();
+      deleteCreatedDiscovery(deleteButton.dataset.deleteDiscovery);
+      return;
+    }
+
     const productFavoriteButton = event.target.closest("[data-product-favorite]");
     if (productFavoriteButton) {
       event.preventDefault();
@@ -14525,6 +15436,20 @@ productTeamEditForm?.addEventListener("submit", (event) => {
 });
 
 productDiscoveryGrid.addEventListener("click", (event) => {
+  const editButton = event.target.closest("[data-edit-discovery]");
+  if (editButton) {
+    event.stopPropagation();
+    openEditDiscoveryModal(editButton.dataset.editDiscovery);
+    return;
+  }
+
+  const deleteButton = event.target.closest("[data-delete-discovery]");
+  if (deleteButton) {
+    event.stopPropagation();
+    deleteCreatedDiscovery(deleteButton.dataset.deleteDiscovery);
+    return;
+  }
+
   const starButton = event.target.closest(".star-button");
   if (starButton) {
     event.stopPropagation();
@@ -14836,7 +15761,14 @@ teamButton?.addEventListener("click", () => {
 
 closeNewDiscoveryButton.addEventListener("click", closeNewDiscoveryModal);
 cancelNewDiscoveryButtons.forEach((button) => {
-  button.addEventListener("click", closeNewDiscoveryModal);
+  button.addEventListener("click", () => {
+    if (newDiscoveryCurrentStep === "setup") {
+      closeNewDiscoveryModal();
+      return;
+    }
+
+    navigateNewDiscoveryBack();
+  });
 });
 
 function createNewDiscoveryDraft({
@@ -14859,9 +15791,16 @@ function createNewDiscoveryDraft({
   const hasCsdInputs = csdInsights.length > 0;
 
   const draftTitle = getNewDiscoveryDraftTitle(title, objective);
-  const resolvedDraftId = draftId || createNewDiscoveryDraftId(draftTitle);
+  const resolvedDraftId = editingDiscoveryId || draftId || createNewDiscoveryDraftId(draftTitle);
+  const originalDiscovery = editingDiscoveryId ? findCreatedDiscovery(editingDiscoveryId) : null;
   const product = products.find((item) => item.id === selectedProductId) || products[0];
   const selectedMethodology = methodology || getSelectedMethodologyPackage();
+  const now = new Date().toISOString();
+  const methodologyRecommendation = normalizeMethodologyRecommendation(selectedMethodology, {
+    id: resolvedDraftId,
+    updatedAt: now,
+  });
+  const executionConstraints = getCurrentMethodologyExecutionConstraints(selectedMethodology);
   const csdMatrix = createCsdMatrixFromLegacyCsd(csd);
   const normalizedCrewResult = normalizeCrewAiDiscoveryResult(crewAi?.result || crewAi?.statusPayload || {});
   const localFiles = newDiscoverySupportFiles.map(normalizeFileInfo);
@@ -14900,14 +15839,15 @@ function createNewDiscoveryDraft({
     insights: normalizedCrewResult.insights,
     tags: ["rascunho", "novo-discovery", selectedMethodology.name],
     methodology: selectedMethodology,
+    recommendedMethodology: selectedMethodology,
     selectedMethodology,
-    methodologyRecommendation: normalizeMethodologyRecommendation(selectedMethodology, {
-      id: resolvedDraftId,
-      updatedAt: new Date().toISOString(),
-    }),
+    methodologyRecommendation,
+    methodologyConstraints: executionConstraints,
+    executionConstraints,
+    selectedMethodologyId: selectedMethodology.id || selectedMethodology.methodologyId,
     methodologyType: selectedMethodology.name,
-    methodologyId: selectedMethodology.id,
-    methods: methods || buildMethodsFromMethodology(selectedMethodology.id),
+    methodologyId: selectedMethodology.id || selectedMethodology.methodologyId,
+    methods: methods || buildMethodsFromMethodology(selectedMethodology),
     participants: newDiscoveryParticipantsDraft,
     productTeam: getProductTeam(product),
     personaIds: peopleSelection.personaIds,
@@ -14922,8 +15862,10 @@ function createNewDiscoveryDraft({
     csdMatrix,
     hasCsdInputs,
     artifacts: artifactItems,
+    ...(originalDiscovery ? { created_at: originalDiscovery.created_at || originalDiscovery.createdAt } : {}),
   };
 
+  editingDiscoveryId = "";
   upsertCreatedDiscovery(draftDiscovery);
   renderRecentDraftDiscoveryCard();
   renderProductDiscoveries(product);
@@ -14946,9 +15888,15 @@ function createMvpDiscoveryDraft({
   methodologyEvaluation = currentMethodologyEvaluation,
 }) {
   const draftTitle = getNewDiscoveryDraftTitle(title, objective);
-  const resolvedDraftId = draftId || createNewDiscoveryDraftId(draftTitle);
+  const resolvedDraftId = editingDiscoveryId || draftId || createNewDiscoveryDraftId(draftTitle);
+  const originalDiscovery = editingDiscoveryId ? findCreatedDiscovery(editingDiscoveryId) : null;
   const product = products.find((item) => item.id === selectedProductId) || products[0];
   const selectedMethodology = methodology || getSelectedMethodologyPackage();
+  const methodologyRecommendation = normalizeMethodologyRecommendation(selectedMethodology, {
+    id: resolvedDraftId,
+    updatedAt: new Date().toISOString(),
+  });
+  const executionConstraints = getCurrentMethodologyExecutionConstraints(selectedMethodology);
   const lifecycle = getDiscoveryRunLifecycle(kickoffPayload, {
     current_state: WORKFLOW_STATES.DISCOVERY_CREATED,
     status: RUN_STATUSES.RUNNING,
@@ -14985,14 +15933,15 @@ function createMvpDiscoveryDraft({
     objective: objective || "Objetivo ainda não informado.",
     tags: ["rascunho", "novo-discovery", selectedMethodology.name],
     methodology: selectedMethodology,
+    recommendedMethodology: selectedMethodology,
     selectedMethodology,
-    methodologyRecommendation: normalizeMethodologyRecommendation(selectedMethodology, {
-      id: resolvedDraftId,
-      updatedAt: now,
-    }),
+    methodologyRecommendation,
+    methodologyConstraints: executionConstraints,
+    executionConstraints,
+    selectedMethodologyId: selectedMethodology.id || selectedMethodology.methodologyId,
     methodologyType: selectedMethodology.name,
-    methodologyId: selectedMethodology.id,
-    methods: methods || buildMethodsFromMethodology(selectedMethodology.id),
+    methodologyId: selectedMethodology.id || selectedMethodology.methodologyId,
+    methods: methods || buildMethodsFromMethodology(selectedMethodology),
     participants: newDiscoveryParticipantsDraft,
     productTeam,
     team: productTeam,
@@ -15008,10 +15957,11 @@ function createMvpDiscoveryDraft({
     csdMatrix,
     hasCsdInputs: Boolean((csd.certezas || []).length || (csd.suposicoes || []).length || (csd.duvidas || []).length),
     artifacts: ["Briefing inicial", ...localFiles.map((file) => file.name), ...localLinks].filter(Boolean),
-    created_at: kickoffPayload.created_at || now,
+    created_at: originalDiscovery?.created_at || originalDiscovery?.createdAt || kickoffPayload.created_at || now,
     updated_at: kickoffPayload.updated_at || now,
   };
 
+  editingDiscoveryId = "";
   upsertCreatedDiscovery(draftDiscovery);
   renderRecentDraftDiscoveryCard();
   renderProductDiscoveries(product);
@@ -15030,10 +15980,49 @@ async function createDiscoveryWithMvpBackend({
   const safeProductTeam = getSafeDiscoveryProductTeam(product);
 
   setNewDiscoveryCreateState(true);
-  setNewDiscoveryStatus(DEMO_MODE_MESSAGE);
   resetCrewKickoffPanel();
   crewKickoffStartedAt = Date.now();
   startCrewKickoffElapsedTimer();
+
+  // In mvp_backend mode the kickoff already ran at the methodology evaluation step.
+  // Reuse that result instead of calling a mock kickoff again.
+  if (isMvpBackendMode() && currentKickoffPayload) {
+    const existingPayload = currentKickoffPayload;
+    currentKickoffPayload = null;
+    const responseIdentifiers = extractDiscoveryRunIdentifiers(existingPayload);
+    const resolvedDraftId = responseIdentifiers.discoveryId || draftId;
+
+    updateCrewKickoffPanel({
+      summary: "Discovery criado com dados reais da Crew. Estado: aguardando aprovação da metodologia.",
+      phase: "FASE 1 concluída — RESEARCH_APPROVAL_PENDING",
+      kickoffId: responseIdentifiers.runId || resolvedDraftId,
+      state: "success",
+    });
+    addCrewKickoffLog(`Run real: ${responseIdentifiers.runId || "sem run_id"}.`, "success");
+    addCrewKickoffLog(`Estado: ${existingPayload.current_state || "RESEARCH_APPROVAL_PENDING"}.`);
+    stopCrewKickoffElapsedTimer();
+
+    // Use methods from the real evaluation so mock local packages don't leak in
+    const evalMethods = currentMethodologyEvaluation?.recommendedMethodology?.methods;
+    const resolvedMethods = Array.isArray(evalMethods) && evalMethods.length
+      ? evalMethods
+      : buildMethodsFromMethodology(selectedMethodology);
+    createMvpDiscoveryDraft({
+      draftId: resolvedDraftId,
+      runId: responseIdentifiers.runId,
+      kickoffPayload: existingPayload,
+      title: newDiscoveryTitleDraft,
+      problem: newDiscoveryProblemDraft,
+      objective: newDiscoveryObjectiveDraft,
+      csd,
+      methodology: selectedMethodology,
+      methods: resolvedMethods,
+    });
+    return;
+  }
+
+  // Fallback: local mock kickoff (demo mode or if real kickoff wasn't stored)
+  setNewDiscoveryStatus(DEMO_MODE_MESSAGE);
   updateCrewKickoffPanel({
     summary: "Modo demo ativo. O discovery será criado com dados locais e estados simulados.",
     phase: "Simulação local",
@@ -15078,7 +16067,7 @@ async function createDiscoveryWithMvpBackend({
       objective: newDiscoveryObjectiveDraft,
       csd,
       methodology: selectedMethodology,
-      methods: buildMethodsFromMethodology(selectedMethodology.id),
+      methods: buildMethodsFromMethodology(selectedMethodology),
     });
   } catch (error) {
     console.warn("Kickoff local simulado falhou; criando discovery sem bloquear o fluxo.", error);
@@ -15107,16 +16096,14 @@ async function createDiscoveryWithMvpBackend({
       objective: newDiscoveryObjectiveDraft,
       csd,
       methodology: selectedMethodology,
-      methods: buildMethodsFromMethodology(selectedMethodology.id),
+      methods: buildMethodsFromMethodology(selectedMethodology),
     });
   }
 }
 
 newDiscoverySetupForm.addEventListener("submit", (event) => {
   event.preventDefault();
-  newDiscoveryTitleDraft = newDiscoverySetupTitle.value.trim();
-  newDiscoveryProblemDraft = newDiscoverySetupProblem.value.trim();
-  newDiscoveryObjectiveDraft = newDiscoverySetupObjective.value.trim();
+  collectSetupInfo();
 
   if (!newDiscoveryTitleDraft || !newDiscoveryProblemDraft || !newDiscoveryObjectiveDraft) {
     return;
@@ -15228,14 +16215,11 @@ newDiscoveryParticipantsForm.addEventListener("submit", (event) => {
 });
 
 newDiscoveryParticipantsBack.addEventListener("click", () => {
-  setNewDiscoveryStep("setup");
-  updateNewDiscoveryProgress(0);
-  window.setTimeout(() => newDiscoverySetupTitle.focus(), 0);
+  navigateNewDiscoveryBack();
 });
 
 newDiscoveryCsdBack.addEventListener("click", () => {
-  setNewDiscoveryStep("participants");
-  updateNewDiscoveryProgress(50);
+  navigateNewDiscoveryBack();
 });
 
 newDiscoveryCsdForm.addEventListener("submit", async (event) => {
@@ -15257,17 +16241,46 @@ newDiscoveryCsdForm.addEventListener("submit", async (event) => {
 });
 
 newDiscoveryMethodologyBack.addEventListener("click", () => {
-  setNewDiscoveryStep("csd");
-  updateNewDiscoveryProgress(75);
+  navigateNewDiscoveryBack();
 });
 
 newDiscoveryMethodologyForm.addEventListener("click", (event) => {
+  const constraintCheckbox = event.target.closest("[data-methodology-method-constraint]");
+  if (constraintCheckbox) {
+    updateRecommendedMethodologyConstraint(constraintCheckbox.dataset.methodologyMethodConstraint, {
+      cannotExecute: constraintCheckbox.checked,
+      limitationReason: constraintCheckbox.checked ? "" : "",
+    });
+    return;
+  }
+
   const optionButton = event.target.closest("[data-methodology-option]");
   if (!optionButton) {
     return;
   }
 
   setSelectedMethodology(optionButton.dataset.methodologyOption);
+});
+
+newDiscoveryMethodologyForm.addEventListener("input", (event) => {
+  const reasonInput = event.target.closest("[data-methodology-limitation-reason]");
+  if (!reasonInput) {
+    return;
+  }
+
+  const recommendedMethodology = getCurrentRecommendedMethodology();
+  if (!recommendedMethodology?.methods) {
+    return;
+  }
+
+  recommendedMethodology.methods = recommendedMethodology.methods.map((method, index) => {
+    const methodId = method.id || slugify(method.name || method.title) || `method-${index + 1}`;
+    return methodId === reasonInput.dataset.methodologyLimitationReason
+      ? { ...method, id: methodId, cannotExecute: true, limitationReason: reasonInput.value }
+      : method;
+  });
+  currentMethodologyEvaluation.recommendedMethodology = recommendedMethodology;
+  currentMethodologyEvaluation.frameworks = [recommendedMethodology];
 });
 
 newDiscoveryMethodologyForm.addEventListener("submit", async (event) => {
@@ -15293,7 +16306,7 @@ newDiscoveryMethodologyForm.addEventListener("submit", async (event) => {
     return;
   }
 
-  const selectedMethodology = getSelectedMethodologyPackage();
+  const selectedMethodology = getCurrentRecommendedMethodology();
   const draftTitle = getNewDiscoveryDraftTitle(newDiscoveryTitleDraft, newDiscoveryObjectiveDraft);
   const draftId = createNewDiscoveryDraftId(draftTitle);
 
@@ -15477,10 +16490,9 @@ refreshDiscoveryFavoriteControls();
 hydrateCreatedDiscoveriesFromLocalApi();
 hydrateFavoriteDiscoveryIdsFromLocalApi();
 hydrateFavoriteProductsTableFromLocalApi();
-hydrateProductAudienceByProductFromLocalApi();
+hydrateProductAudienceByProductFromLocalApi().then(() => hydrateProductsFromLocalApi());
 hydrateResearchActivityUsersFromLocalApi();
 hydrateLocalMockRunsFromLocalApi();
-hydrateProductsFromLocalApi();
 hydrateDiscoveriesFromLocalApi();
 if (!HAS_STATIC_DISCOVERY_FRONTEND_CONFIG && (!isLocalMockApiMode() || !getRequestedDiscoveryFrontendApiMode())) {
   loadFrontendApiModeFromConfig().then((modeChanged) => {
