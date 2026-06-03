@@ -14,6 +14,28 @@ from pydantic import BaseModel
 from jambo import SchemaConverter
 
 
+DEFAULT_TEXT_LLM_MODEL = "openai/gpt-4o"
+BLOCKED_TEXT_LLM_MODEL_TERMS = ("gpt-image", "dall-e", "image")
+
+
+def validate_text_llm_model(model: str | None) -> str:
+    candidate = (model or DEFAULT_TEXT_LLM_MODEL).strip() or DEFAULT_TEXT_LLM_MODEL
+    normalized = candidate.lower()
+
+    if any(term in normalized for term in BLOCKED_TEXT_LLM_MODEL_TERMS):
+        blocked_terms = ", ".join(BLOCKED_TEXT_LLM_MODEL_TERMS)
+        raise ValueError(
+            f"Invalid text LLM model '{candidate}'. Image models are not allowed "
+            f"for CrewAI text execution. Blocked terms: {blocked_terms}."
+        )
+
+    return candidate
+
+
+def get_text_llm_model() -> str:
+    return validate_text_llm_model(os.getenv("DISCOVERY_AI_LLM_MODEL"))
+
+
 @CrewBase
 class DiscoveryAiCrew:
     """DiscoveryAi crew"""
@@ -38,7 +60,7 @@ class DiscoveryAiCrew:
             
             max_execution_time=None,
             llm=LLM(
-                model="openai/gpt-5.5",
+                model=get_text_llm_model(),
                 
                 
             ),
@@ -65,7 +87,7 @@ class DiscoveryAiCrew:
             
             max_execution_time=None,
             llm=LLM(
-                model="openai/gpt-5.5",
+                model=get_text_llm_model(),
                 
                 
             ),
@@ -92,7 +114,7 @@ class DiscoveryAiCrew:
             
             max_execution_time=None,
             llm=LLM(
-                model="openai/gpt-5.5",
+                model=get_text_llm_model(),
                 
                 
             ),
@@ -119,7 +141,7 @@ class DiscoveryAiCrew:
             
             max_execution_time=None,
             llm=LLM(
-                model="openai/gpt-5.5",
+                model=get_text_llm_model(),
                 
                 
             ),
@@ -146,7 +168,7 @@ class DiscoveryAiCrew:
             
             max_execution_time=None,
             llm=LLM(
-                model="openai/gpt-5.5",
+                model=get_text_llm_model(),
                 
                 
             ),
@@ -173,7 +195,7 @@ class DiscoveryAiCrew:
             
             max_execution_time=None,
             llm=LLM(
-                model="openai/gpt-5.5",
+                model=get_text_llm_model(),
                 
                 
             ),
@@ -200,7 +222,7 @@ class DiscoveryAiCrew:
             
             max_execution_time=None,
             llm=LLM(
-                model="openai/gpt-5.5",
+                model=get_text_llm_model(),
                 
                 
             ),
@@ -227,7 +249,7 @@ class DiscoveryAiCrew:
             
             max_execution_time=None,
             llm=LLM(
-                model="openai/gpt-5.5",
+                model=get_text_llm_model(),
                 
                 
             ),
@@ -256,7 +278,7 @@ class DiscoveryAiCrew:
             
             max_execution_time=None,
             llm=LLM(
-                model="openai/gpt-5.5",
+                model=get_text_llm_model(),
                 
                 
             ),
@@ -283,7 +305,7 @@ class DiscoveryAiCrew:
             
             max_execution_time=None,
             llm=LLM(
-                model="openai/gpt-5.5",
+                model=get_text_llm_model(),
                 
                 
             ),
@@ -310,7 +332,7 @@ class DiscoveryAiCrew:
             
             max_execution_time=None,
             llm=LLM(
-                model="openai/gpt-5.5",
+                model=get_text_llm_model(),
                 
                 
             ),
@@ -337,7 +359,7 @@ class DiscoveryAiCrew:
             
             max_execution_time=None,
             llm=LLM(
-                model="openai/gpt-5.5",
+                model=get_text_llm_model(),
                 
                 
             ),
@@ -364,7 +386,7 @@ class DiscoveryAiCrew:
             
             max_execution_time=None,
             llm=LLM(
-                model="openai/gpt-5.5",
+                model=get_text_llm_model(),
                 
                 
             ),
@@ -391,7 +413,7 @@ class DiscoveryAiCrew:
             
             max_execution_time=None,
             llm=LLM(
-                model="openai/gpt-5.5",
+                model=get_text_llm_model(),
                 
                 
             ),
@@ -418,7 +440,7 @@ class DiscoveryAiCrew:
             
             max_execution_time=None,
             llm=LLM(
-                model="openai/gpt-5.5",
+                model=get_text_llm_model(),
                 
                 
             ),
@@ -445,7 +467,7 @@ class DiscoveryAiCrew:
             
             max_execution_time=None,
             llm=LLM(
-                model="openai/gpt-5.5",
+                model=get_text_llm_model(),
                 
                 
             ),
@@ -472,7 +494,7 @@ class DiscoveryAiCrew:
             
             max_execution_time=None,
             llm=LLM(
-                model="openai/gpt-5.5",
+                model=get_text_llm_model(),
                 
                 
             ),
@@ -499,7 +521,7 @@ class DiscoveryAiCrew:
             
             max_execution_time=None,
             llm=LLM(
-                model="openai/gpt-5.5",
+                model=get_text_llm_model(),
                 
                 
             ),
@@ -526,7 +548,7 @@ class DiscoveryAiCrew:
             
             max_execution_time=None,
             llm=LLM(
-                model="openai/gpt-5.5",
+                model=get_text_llm_model(),
                 
                 
             ),
@@ -553,7 +575,7 @@ class DiscoveryAiCrew:
             
             max_execution_time=None,
             llm=LLM(
-                model="openai/gpt-5.5",
+                model=get_text_llm_model(),
                 
                 
             ),
@@ -744,18 +766,86 @@ class DiscoveryAiCrew:
         )
     
 
-    @crew
-    def crew(self) -> Crew:
-        """Creates the DiscoveryAi crew"""
+    def _create_manager_agent(self) -> Agent:
+        """Creates the conceptual Discovery Lead orchestrator for governed workflows."""
 
-        # Custom manager agent for hierarchical process
-        manager_agent = Agent(
-            role="Orcherstrator",
-            goal="Coordinate the complete discovery-to-delivery workflow by routing\n    requests to specialist agents, enforcing governance,\n    maintaining workflow state, and managing human approval gates.\n",
-            backstory="\nYou are the orchestration brain of an AI-powered Product Discovery platform.\n\n    Your responsibility is workflow governance.\n\n    You do NOT perform specialist discovery work.\n\n    You coordinate the specialist ecosystem.\n\n    You decide:\n\n    - what happens next\n    - which specialist agent is activated\n    - whether clarification is required\n    - whether approval is required\n    - whether retries or fallback paths are needed\n    - when workflow terminates\n\n    Discovery lifecycle:\n\n    1. D.O.R. construction\n    2. Discovery readiness validation\n    3. Methodology definition\n    4. Scope prioritization\n    5. Research planning\n    6. Participant strategy\n    7. Research operations\n    8. Research script design\n    9. Discovery execution\n    10. Synthesis\n    11. Validation\n    12. Recommendation\n    13. Delivery handoff\n\n    Core principles:\n\n    - never execute specialist work\n    - never invent context\n    - require clarification when context is weak\n    - enforce governance checkpoints\n    - avoid dead loops\n    - respect specialist ownership\n    - maintain deterministic orchestration\n\n    Human approval is expected at strategic checkpoints.\n\n    You behave like an elite program manager.\n",
-            llm=LLM(model="openai/gpt-4o"),
+        return Agent(
+            role="Senior Discovery Lead & Design Thinking Orchestrator",
+            goal=(
+                "Govern the complete Product Discovery workflow for {discovery_id}. "
+                "Decide which specialist agents and methodological frameworks should run, "
+                "what inputs they need, what outputs they must deliver, and when the workflow "
+                "must stop for human approval or user-provided evidence. Always respect human "
+                "gates, avoid premature downstream execution, and return workflow_recommendation "
+                "with allowed_agents, blocked_agents, and required_user_action."
+            ),
+            backstory=(
+                "\nYou are a Senior Product Discovery Lead and Design Thinking practitioner.\n\n"
+                "You deeply understand discovery framing, D.O.R., CSD, research methodology, "
+                "qualitative and quantitative research, desk research, usability testing, "
+                "evidence analysis, synthesis, insight quality, opportunity mapping, ideation, "
+                "solution hypotheses, prototyping, validation strategy, experimentation, "
+                "recommendation, and handoff.\n\n"
+                "Your responsibility is workflow governance, not specialist execution. You "
+                "coordinate the specialist ecosystem and decide:\n\n"
+                "- which agent enters the workflow\n"
+                "- when that agent enters\n"
+                "- which input the agent must receive\n"
+                "- which output the agent must deliver\n"
+                "- which methods or frameworks are relevant to the approved methodology\n"
+                "- which agents must stay blocked because they do not fit the current discovery\n"
+                "- when the workflow must stop for human approval\n"
+                "- when the workflow must wait for uploaded evidence, links, notes, transcripts, "
+                "test results, or another user-provided input\n\n"
+                "Hard governance rules:\n\n"
+                "- never execute downstream agents before the correct human gate\n"
+                "- never process evidence before the user provides evidence\n"
+                "- never synthesize without sufficient structured evidence\n"
+                "- never generate opportunities before human approval of insights\n"
+                "- never generate solution hypotheses, prototypes, validation, recommendations, "
+                "or handoff before human approval of opportunities\n"
+                "- never activate a method-specific agent unless the approved methodology "
+                "recommends that method and required inputs are available\n"
+                "- always return workflow_recommendation, allowed_agents, blocked_agents, "
+                "required_user_action, current_state, next_allowed_state, and decision_rationale\n\n"
+                "You behave like an expert Discovery Lead: methodologically rigorous, practical, "
+                "evidence-aware, and strict about governance checkpoints.\n"
+            ),
+            llm=LLM(model=get_text_llm_model()),
             allow_delegation=True,
         )
+
+    def create_initial_planning_crew(self) -> Crew:
+        """FASE 1 — Discovery Framework.
+
+        Runs DOR + readiness + methodology + scope and stops at
+        RESEARCH_APPROVAL_PENDING. Planning, participants, ops, and
+        protocols belong to FASE 2 and must NOT be included here.
+        """
+
+        return Crew(
+            agents=[
+                self.d_o_r_builder(),
+                self.discovery_readiness_specialist(),
+                self.discovery_methodology_strategist(),
+                self.discovery_scope_prioritization_specialist(),
+            ],
+            tasks=[
+                self.build_d_o_r_framework(),
+                self.validate_discovery_readiness(),
+                self.define_discovery_methodology(),
+                self.prioritize_discovery_scope(),
+            ],
+            process=Process.sequential,
+            verbose=True,
+        )
+
+    @crew
+    def crew(self) -> Crew:
+        """Creates the complete DiscoveryAi crew"""
+
+        # Kept for the full conceptual workflow; MVP kickoff uses a sequential phase.
+        manager_agent = self._create_manager_agent()
 
         return Crew(
             agents=self.agents,  # Automatically created by the @agent decorator
@@ -776,4 +866,3 @@ class DiscoveryAiCrew:
             json_schema = json.loads(f.read())
 
         return SchemaConverter.build(json_schema)
-
