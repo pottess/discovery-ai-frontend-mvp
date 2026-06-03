@@ -248,6 +248,8 @@ let newDiscoverySelectedPersonaIdsDraft = [];
 let newDiscoverySelectedStakeholderIdsDraft = [];
 let newDiscoveryDeadlineDraft = "";
 let newDiscoverySupportFiles = [];
+let newDiscoveryExistingSupportFiles = [];
+let newDiscoveryUploadedSupportFiles = [];
 let newDiscoverySupportLinksDraft = [""];
 let newDiscoveryCsdDraft = {};
 let newDiscoveryCurrentStep = "setup";
@@ -1989,6 +1991,16 @@ function getDiscoveryProgressPercent(status = "") {
   return Math.round((completed / total) * 100);
 }
 
+function normalizeConfidencePercent(value, fallback = 0) {
+  const raw = Number(value);
+  if (!Number.isFinite(raw) || raw <= 0) {
+    return fallback;
+  }
+
+  const percent = raw <= 1 ? raw * 100 : raw;
+  return Math.max(0, Math.min(100, Math.round(percent)));
+}
+
 function normalizeMethodologyRecommendation(source = {}, discovery = {}) {
   const methodologySource = source.methodologyRecommendation
     || source.recommendation
@@ -1997,6 +2009,17 @@ function normalizeMethodologyRecommendation(source = {}, discovery = {}) {
   const packageReference = getMethodologyPackageByReference(methodologySource) || methodologyPackages.optimized;
   const generatedAt = source.generatedAt || source.generated_at || discovery.updatedAt || discovery.updated_at || "2026-05-20T12:00:00.000Z";
   const methodsSource = Array.isArray(methodologySource.methods) ? methodologySource.methods : packageReference.methods;
+  const methods = methodsSource.map((method, index) => ({
+    ...method,
+    id: method.id || method.method_id || slugify(method.name || method.title || method.method_name) || `method-${index + 1}`,
+    name: method.name || method.title || method.method_name || `Método ${index + 1}`,
+    title: method.title || method.name || method.method_name || `Método ${index + 1}`,
+    duration: method.duration || method.estimated_effort || method.estimatedEffort || "",
+    whyRecommended: method.whyRecommended || method.why_recommended || "",
+    required: method.required !== false,
+    cannotExecute: Boolean(method.cannotExecute),
+    limitationReason: method.limitationReason || "",
+  }));
 
   return {
     id: methodologySource.recommendationId
@@ -2005,21 +2028,15 @@ function normalizeMethodologyRecommendation(source = {}, discovery = {}) {
     methodologyId: methodologySource.methodologyId || methodologySource.methodology_id || packageReference.id,
     name: methodologySource.name || methodologySource.title || methodologySource.methodology_name || packageReference.name,
     title: methodologySource.title || methodologySource.name || methodologySource.methodology_name || packageReference.name,
-    duration: methodologySource.duration || packageReference.duration,
+    duration: methodologySource.duration
+      || methodologySource.estimated_duration
+      || (methods.length ? estimateRoadmapTotalDuration(methods) : "")
+      || packageReference.duration,
     description: methodologySource.description || packageReference.description,
     rationale: methodologySource.rationale || methodologySource.reasoning || "Recomendação mockada a partir do objetivo, CSD e restrições do discovery.",
     confidence: methodologySource.confidence || "medium",
-    confidenceScore: Number(methodologySource.confidenceScore ?? methodologySource.confidence_score ?? 0) || undefined,
-    methods: methodsSource.map((method, index) => ({
-      ...method,
-      id: method.id || slugify(method.name || method.title) || `method-${index + 1}`,
-      name: method.name || method.title || `Método ${index + 1}`,
-      title: method.title || method.name || `Método ${index + 1}`,
-      whyRecommended: method.whyRecommended || method.why_recommended || "",
-      required: method.required !== false,
-      cannotExecute: Boolean(method.cannotExecute),
-      limitationReason: method.limitationReason || "",
-    })),
+    confidenceScore: normalizeConfidencePercent(methodologySource.confidenceScore ?? methodologySource.confidence_score ?? 0) || undefined,
+    methods,
     constraints: Array.isArray(methodologySource.constraints) ? methodologySource.constraints : [],
     risks: Array.isArray(methodologySource.risks) ? methodologySource.risks : [],
     generatedBy: methodologySource.generatedBy || methodologySource.generated_by || ["mock_agent_adapter"],
@@ -2133,6 +2150,8 @@ function createEvidenceFromFile(file = {}, index = 0, discoveryId = "", extra = 
     title: getEvidenceTitleFromFileName(fileName),
     file: fileName,
     fileName,
+    path: file.path || file.fileRef || file.file_ref || "",
+    fileRef: file.path || file.fileRef || file.file_ref || "",
     fileSize: file.size || file.fileSize || 0,
     mimeType: file.type || file.mimeType || "",
     status: "uploaded",
@@ -3851,12 +3870,132 @@ function clearDiscoveryAttachments() {
   renderDiscoveryAttachments();
 }
 
-function normalizeFileInfo(file) {
+function getFileNameFromPath(pathValue = "") {
+  return String(pathValue || "").split(/[\\/]/).pop() || "";
+}
+
+function looksLikeFilePath(value = "") {
+  const text = String(value || "").trim();
+  return Boolean(text && (/[/\\]/.test(text) || text.startsWith(".")));
+}
+
+function isBrowserFile(file) {
+  return Boolean(file && typeof file === "object" && typeof file.arrayBuffer === "function" && typeof file.name === "string");
+}
+
+function normalizeSupportFileMetadata(file) {
+  if (typeof file === "string") {
+    const text = file.trim();
+    const hasPath = looksLikeFilePath(text);
+    return {
+      name: getFileNameFromPath(text) || text,
+      size: 0,
+      type: "arquivo",
+      ...(hasPath ? { path: text } : {}),
+    };
+  }
+
+  if (!file || typeof file !== "object") {
+    return { name: "", size: 0, type: "arquivo" };
+  }
+
+  const pathValue = file.path
+    || file.filePath
+    || file.file_path
+    || file.fileRef
+    || file.file_ref
+    || file.metadata?.path
+    || file.metadata?.fileRef
+    || file.metadata?.file_ref
+    || "";
+  const name = file.name
+    || file.fileName
+    || file.file_name
+    || file.file
+    || file.title
+    || getFileNameFromPath(pathValue)
+    || "";
+
   return {
-    name: file.name,
-    size: file.size,
-    type: file.type || "arquivo",
+    name,
+    size: Number(file.size ?? file.fileSize ?? file.file_size ?? file.metadata?.size ?? 0) || 0,
+    type: file.type || file.mimeType || file.mime_type || file.metadata?.type || "arquivo",
+    ...(pathValue ? { path: String(pathValue) } : {}),
+    ...(file.uploadedAt ? { uploadedAt: file.uploadedAt } : {}),
+    ...(file.uploaded_at ? { uploaded_at: file.uploaded_at } : {}),
   };
+}
+
+function normalizeFileInfo(file) {
+  return normalizeSupportFileMetadata(file);
+}
+
+function mergeSupportFileRefs(...groups) {
+  const merged = [];
+  const seen = new Set();
+  groups.flat().forEach((file) => {
+    const normalized = normalizeSupportFileMetadata(file);
+    if (!normalized.name && !normalized.path) {
+      return;
+    }
+    const key = normalized.path ? `path:${normalized.path}` : `name:${normalized.name}`;
+    if (seen.has(key)) {
+      return;
+    }
+    seen.add(key);
+    merged.push(normalized);
+  });
+  return merged;
+}
+
+function getDiscoveryExistingSupportFiles(discovery = {}) {
+  const kickoffPayload = discovery.runKickoffPayload || discovery.kickoffPayload || {};
+  const artifactFiles = kickoffPayload.artifacts?.discovery_charter?.files
+    || kickoffPayload.artifacts?.methodology?.files
+    || [];
+  const inputFiles = kickoffPayload.inputs?.files || kickoffPayload.inputs?.file || [];
+  const candidates = [
+    ...(Array.isArray(discovery.files) ? discovery.files : []),
+    ...(Array.isArray(discovery.intake_files) ? discovery.intake_files : []),
+    ...(Array.isArray(discovery.validated_file_paths) ? discovery.validated_file_paths : []),
+    ...(Array.isArray(kickoffPayload.intake_files) ? kickoffPayload.intake_files : []),
+    ...(Array.isArray(kickoffPayload.validated_file_paths) ? kickoffPayload.validated_file_paths : []),
+    ...(Array.isArray(inputFiles) ? inputFiles : [inputFiles].filter(Boolean)),
+    ...(Array.isArray(artifactFiles) ? artifactFiles : [artifactFiles].filter(Boolean)),
+  ];
+  return mergeSupportFileRefs(candidates);
+}
+
+function getReusableExistingSupportFiles() {
+  return newDiscoveryExistingSupportFiles
+    .map(normalizeSupportFileMetadata)
+    .filter((file) => file.path);
+}
+
+function getSupportFilesForPersistence() {
+  const newLocalFiles = newDiscoveryUploadedSupportFiles.length
+    ? newDiscoveryUploadedSupportFiles
+    : newDiscoverySupportFiles;
+  return mergeSupportFileRefs(newDiscoveryExistingSupportFiles, newLocalFiles);
+}
+
+function updateNewDiscoverySupportFileLabel() {
+  const existingCount = newDiscoveryExistingSupportFiles.length;
+  const existingWithoutPathCount = newDiscoveryExistingSupportFiles.filter((file) => !normalizeSupportFileMetadata(file).path).length;
+  const newCount = newDiscoverySupportFiles.length;
+  const parts = [];
+
+  if (existingCount) {
+    parts.push(`${existingCount} arquivo${existingCount === 1 ? "" : "s"} existente${existingCount === 1 ? "" : "s"}`);
+  }
+  if (newCount) {
+    parts.push(`${newCount} novo${newCount === 1 ? "" : "s"}`);
+  }
+  if (existingWithoutPathCount) {
+    parts.push(`${existingWithoutPathCount} sem path; reenvie se necessário`);
+  }
+
+  newDiscoverySupportFileLabel.textContent = parts.length ? parts.join(" · ") : "Selecione seu arquivo";
 }
 
 function getCurrentMethodEntryContext() {
@@ -4176,6 +4315,8 @@ function resetNewDiscoveryFlow() {
   newDiscoverySelectedStakeholderIdsDraft = [];
   newDiscoveryDeadlineDraft = "";
   newDiscoverySupportFiles = [];
+  newDiscoveryExistingSupportFiles = [];
+  newDiscoveryUploadedSupportFiles = [];
   newDiscoverySupportLinksDraft = [""];
   newDiscoveryCsdDraft = {};
   newDiscoveryCurrentStep = "setup";
@@ -4187,7 +4328,7 @@ function resetNewDiscoveryFlow() {
   methodologyEvaluationResult.hidden = true;
   selectedMethodologyId = "optimized";
   newDiscoverySupportFile.value = "";
-  newDiscoverySupportFileLabel.textContent = "Selecione seu arquivo";
+  updateNewDiscoverySupportFileLabel();
   renderSupportLinkRows();
   setSelectedMethodology("optimized");
   resetFlowSelects();
@@ -4347,7 +4488,7 @@ function buildDiscoveryDraftForMethodology(csd = collectCsdInfo()) {
   const draftTitle = getNewDiscoveryDraftTitle(newDiscoveryTitleDraft, newDiscoveryObjectiveDraft);
 
   return {
-    id: createNewDiscoveryDraftId(draftTitle),
+    id: editingDiscoveryId || createNewDiscoveryDraftId(draftTitle),
     title: draftTitle,
     product: {
       id: product.id,
@@ -4360,6 +4501,8 @@ function buildDiscoveryDraftForMethodology(csd = collectCsdInfo()) {
     objective: newDiscoveryObjectiveDraft,
     persona,
     stakeholders,
+    links: normalizeSupportLinkRows(newDiscoverySupportLinksDraft).filter(Boolean),
+    files: getSupportFilesForPersistence(),
     csd: {
       certezas: csd.certezas || [],
       suposicoes: csd.suposicoes || [],
@@ -4462,10 +4605,16 @@ function getRecommendedMethodologyMethods(methodologyId = "discovery-mista", sig
         whyRecommended: signals.isUrgent ? "Prazo curto favorece uma avaliação rápida antes de testes com usuários." : "Complementa testes com uma leitura estruturada de problemas de interface.",
       }),
       createRecommendedMethod({
-        id: "entrevista-pos-teste",
-        title: "Entrevista pós-teste",
-        description: "Perguntas de aprofundamento após a execução das tarefas para entender percepção, confiança e dúvidas.",
-        whyRecommended: "Ajuda a explicar o porquê dos comportamentos observados no teste.",
+        id: "prototipacao",
+        title: "Prototipação",
+        description: "Materialização da alteração de tela ou fluxo para validar compreensão, estados e interações antes de implementação.",
+        whyRecommended: "Alterações de interface com clareza razoável precisam de artefato testável, não de exploração generativa como método primário.",
+      }),
+      createRecommendedMethod({
+        id: "teste-de-conceito",
+        title: "Teste de conceito",
+        description: "Validação leve da proposta de alteração, clareza e valor percebido com público-alvo.",
+        whyRecommended: "Ajuda a confirmar se a direção proposta faz sentido antes de detalhar solução ou executar desenvolvimento.",
       }),
     ],
     "discovery-validativa": [
@@ -4589,6 +4738,7 @@ function buildRecommendedMethodologyRationale(methodologyId, signals = {}) {
 function buildRecommendedMethodologyFromDiscoveryInput(formState = {}) {
   const signals = getMethodologyDecisionSignals(formState);
   const methodologyId = chooseRecommendedMethodology(signals);
+  const recommendedMethods = getRecommendedMethodologyMethods(methodologyId, signals);
   const titleByMethodology = {
     "discovery-exploratoria": "Discovery Exploratória",
     "discovery-avaliativa": "Discovery Avaliativa",
@@ -4602,18 +4752,18 @@ function buildRecommendedMethodologyFromDiscoveryInput(formState = {}) {
     "discovery-mista": 0.69,
   }[methodologyId];
   const signalBoost = Math.min(0.17, (signals.evidenceCount * 0.03) + (signals.hasParticipants ? 0.04 : 0) + (signals.hasDeadline ? 0.02 : 0));
-  const confidenceScore = Math.min(0.92, Number((confidenceBase + signalBoost).toFixed(2)));
+  const confidenceScore = normalizeConfidencePercent(Math.min(0.92, Number((confidenceBase + signalBoost).toFixed(2))));
 
   return {
     id: methodologyId,
     methodologyId,
     title: titleByMethodology[methodologyId],
     name: titleByMethodology[methodologyId],
-    duration: signals.isUrgent ? "2-3 semanas" : "3-4 semanas",
+    duration: recommendedMethods.length ? estimateRoadmapTotalDuration(recommendedMethods) : "Duração ainda não estimada",
     description: "Abordagem recomendada pelos agentes a partir dos sinais preenchidos no cadastro da discovery.",
     rationale: buildRecommendedMethodologyRationale(methodologyId, signals),
     confidenceScore,
-    confidence: confidenceScore >= 0.84 ? "alta" : "média-alta",
+    confidence: confidenceScore >= 84 ? "alta" : "média-alta",
     generatedBy: [
       "discovery_readiness_specialist",
       "discovery_methodology_strategist",
@@ -4634,7 +4784,7 @@ function buildRecommendedMethodologyFromDiscoveryInput(formState = {}) {
       isUrgent: signals.isUrgent,
       previousMethodology: signals.previousMethodology || "",
     },
-    methods: getRecommendedMethodologyMethods(methodologyId, signals),
+    methods: recommendedMethods,
     constraints: [],
     risks: [
       "A recomendação é heurística e local; ainda não substitui análise real da CrewAI.",
@@ -4657,7 +4807,7 @@ function createDemoMethodologyEvaluationResponse(discoveryDraft = {}) {
   });
 
   return {
-    readinessScore: Math.round(recommendedMethodology.confidenceScore * 100),
+    readinessScore: normalizeConfidencePercent(recommendedMethodology.confidenceScore),
     recommendedMethodology,
     frameworks: [recommendedMethodology],
     missingInformation: [
@@ -4770,6 +4920,18 @@ function mapKickoffToMethodologyEvaluation(kickoffPayload = {}) {
   const researchPlan = artifacts.research_plan_package || {};
   const scope = artifacts.scope || {};
 
+  // [DEBUG] Log payload structure to diagnose method extraction failures
+  if (window.__discoveryDebug) {
+    console.group("[kickoff] mapKickoffToMethodologyEvaluation — payload debug");
+    console.log("recommended_methods (top-level):", kickoffPayload.recommended_methods);
+    console.log("artifacts keys:", Object.keys(artifacts));
+    console.log("research_plan_package keys:", Object.keys(researchPlan));
+    console.log("research_plan_package.recommended_methods:", researchPlan.recommended_methods);
+    console.log("artifacts.methodology:", artifacts.methodology);
+    console.log("artifacts.methodology_recommendation:", artifacts.methodology_recommendation);
+    console.groupEnd();
+  }
+
   const rawScore = readiness.readiness_score ?? readiness.readinessScore ?? 0;
   const readinessScore = Number(rawScore) > 1 ? Math.round(Number(rawScore)) : Math.round(Number(rawScore) * 100);
 
@@ -4785,14 +4947,21 @@ function mapKickoffToMethodologyEvaluation(kickoffPayload = {}) {
       ? kickoffPayload.recommended_methods : null)
     || (Array.isArray(researchPlan.recommended_methods) && researchPlan.recommended_methods.length
       ? researchPlan.recommended_methods : null)
+    || (Array.isArray(artifacts.methodology_recommendation?.recommended_methods) && artifacts.methodology_recommendation.recommended_methods.length
+      ? artifacts.methodology_recommendation.recommended_methods : null)
+    || (Array.isArray(artifacts.methodology?.recommended_methods) && artifacts.methodology.recommended_methods.length
+      ? artifacts.methodology.recommended_methods : null)
     || (Array.isArray(researchPlan.sequencing_recommendation) && researchPlan.sequencing_recommendation.length
       ? researchPlan.sequencing_recommendation : null)
     || (Array.isArray(researchPlan.strategic_focus_areas) && researchPlan.strategic_focus_areas.length
       ? researchPlan.strategic_focus_areas : null)
-    || (Array.isArray(artifacts.methodology?.recommended_methods) && artifacts.methodology.recommended_methods.length
-      ? artifacts.methodology.recommended_methods : null)
     || []
   );
+
+  if (window.__discoveryDebug) {
+    console.log("[kickoff] rawMethods source:", rawMethods.length ? `${rawMethods.length} methods found` : "EMPTY → fallback será usado");
+    console.log("[kickoff] isFallback:", rawMethods.length === 0);
+  }
 
   const isFallbackMethods = rawMethods.length === 0;
   const mappedMethods = rawMethods.map((method, index) => {
@@ -4805,9 +4974,10 @@ function mapKickoffToMethodologyEvaluation(kickoffPayload = {}) {
       name: methodName,
       description: typeof method === "object"
         ? (method.when_to_use || method.expected_evidence || method.rationale || method.description || method.reasoning || method.justification || "") : "",
-      duration: typeof method === "object" ? (method.estimated_effort || method.duration || "") : "",
+      duration: typeof method === "object" ? (method.estimated_effort || method.estimatedEffort || method.duration || "") : "",
       whyRecommended: typeof method === "object"
         ? (method.why_recommended || method.justification || method.why || "") : "",
+      sequenceOrder: typeof method === "object" && Number.isFinite(Number(method.sequence_order)) ? Number(method.sequence_order) : index + 1,
       cannotExecute: false,
     };
   });
@@ -4830,11 +5000,16 @@ function mapKickoffToMethodologyEvaluation(kickoffPayload = {}) {
     name: titleByMethodology[methodologyId] || researchPlan.methodology_label || rawMethodology || "Metodologia recomendada",
     rationale: methodRationale,
     description: researchPlan.methodology_rationale || researchPlan.methodology_summary || methodRationale,
-    confidenceScore: researchPlan.confidence_score > 0
-      ? researchPlan.confidence_score / 100
-      : readinessScore > 0 ? readinessScore / 100 : 0.7,
+    confidenceScore: normalizeConfidencePercent(researchPlan.confidence_score, readinessScore > 0 ? readinessScore : 70),
     confidence: readinessScore >= 80 ? "alta" : "média-alta",
-    duration: "3-4 semanas",
+    duration: (() => {
+      const crewDuration = researchPlan.duration
+        || researchPlan.estimated_weeks
+        || (typeof researchPlan.timeline === "string" ? researchPlan.timeline : null);
+      if (crewDuration) return String(crewDuration);
+      if (!isFallbackMethods && resolvedMethods.length) return estimateRoadmapTotalDuration(resolvedMethods);
+      return "Duração ainda não estimada";
+    })(),
     generatedBy: ["d_o_r_builder", "discovery_readiness_specialist", "discovery_methodology_strategist"],
     methods: resolvedMethods,
     _isFallbackMethods: isFallbackMethods,
@@ -4864,8 +5039,22 @@ async function evaluateDiscoveryMethodologyWithRealApi(discoveryDraft = {}) {
   renderMethodologyProcessingState("Processando D.O.R. e briefing inicial...", 1);
   currentKickoffPayload = null;
 
+  const resolvedDiscoveryId = discoveryDraft.id || createNewDiscoveryDraftId(discoveryDraft.title || "");
+  const existingReusableFiles = getReusableExistingSupportFiles();
+  const newLocalFiles = newDiscoverySupportFiles.filter(isBrowserFile);
+  const uploadedFiles = newLocalFiles.length
+    ? await uploadDiscoveryIntakeFiles(newLocalFiles, resolvedDiscoveryId)
+    : [];
+  newDiscoveryUploadedSupportFiles = uploadedFiles;
+  const unresolvedNewFiles = uploadedFiles.length < newLocalFiles.length ? newLocalFiles : [];
+  const kickoffFiles = mergeSupportFileRefs(
+    existingReusableFiles,
+    uploadedFiles,
+    unresolvedNewFiles
+  );
+
   const kickoffInput = buildDiscoveryRunInput({
-    discoveryId: discoveryDraft.id || createNewDiscoveryDraftId(discoveryDraft.title || ""),
+    discoveryId: resolvedDiscoveryId,
     productId: discoveryDraft.product?.id || selectedProductId || "",
     title: discoveryDraft.title || newDiscoveryTitleDraft,
     problem: discoveryDraft.problem || newDiscoveryProblemDraft,
@@ -4874,7 +5063,7 @@ async function evaluateDiscoveryMethodologyWithRealApi(discoveryDraft = {}) {
     csd: discoveryDraft.csd || {},
     links: newDiscoverySupportLinksDraft,
     deadline: newDiscoveryDeadlineDraft,
-    files: newDiscoverySupportFiles,
+    files: kickoffFiles,
   });
 
   // Advance the step indicator while the Crew runs (approximate agent durations)
@@ -4889,6 +5078,10 @@ async function evaluateDiscoveryMethodologyWithRealApi(discoveryDraft = {}) {
     const kickoffPayload = await kickoffDiscoveryRun(kickoffInput);
     clearProgressTimers();
     currentKickoffPayload = kickoffPayload;
+    // [DEBUG] Ativar com window.__discoveryDebug = true no console para ver o payload completo
+    if (window.__discoveryDebug) {
+      console.log("[kickoff] RAW kickoffPayload:", JSON.parse(JSON.stringify(kickoffPayload)));
+    }
     return mapKickoffToMethodologyEvaluation(kickoffPayload);
   } catch (error) {
     clearProgressTimers();
@@ -4928,9 +5121,9 @@ function getCurrentMethodologyExecutionConstraints(methodology = getCurrentRecom
 
 function renderRecommendedMethodologyCard(methodology = {}) {
   const methods = Array.isArray(methodology.methods) ? methodology.methods : [];
-  const confidenceScore = Number(methodology.confidenceScore ?? methodology.confidence_score ?? 0);
+  const confidenceScore = normalizeConfidencePercent(methodology.confidenceScore ?? methodology.confidence_score ?? 0);
   const confidenceLabel = confidenceScore
-    ? `${Math.round(confidenceScore * 100)}% de confiança`
+    ? `${confidenceScore}% de confiança`
     : methodology.confidence || "Confiança não informada";
 
   return `
@@ -4939,7 +5132,7 @@ function renderRecommendedMethodologyCard(methodology = {}) {
       <div class="methodology-card-content">
         <h3>${escapeHTML(methodology.title || methodology.name || "Metodologia recomendada")}</h3>
         <p>${escapeHTML(methodology.rationale || methodology.justification || methodology.description || "Metodologia recomendada pelos agentes de discovery.")}</p>
-        <span class="methodology-duration"><strong>Duração estimada:</strong> ${escapeHTML(methodology.duration || "3-4 semanas")}</span>
+        <span class="methodology-duration"><strong>Duração estimada:</strong> ${escapeHTML(methodology.duration || "Duração ainda não estimada")}</span>
         <span class="methodology-duration"><strong>Confiança:</strong> ${escapeHTML(confidenceLabel)}</span>
         ${Array.isArray(methodology.generatedBy) && methodology.generatedBy.length ? `
           <small><strong>Gerado por:</strong> ${escapeHTML(methodology.generatedBy.join(", "))}</small>
@@ -5142,7 +5335,7 @@ function normalizeDiscoveryMethod(method = {}, packageMethod = {}, index = 0) {
   return {
     id: method.id || method.key || packageMethod.id || slugify(name) || `method-${index + 1}`,
     name,
-    duration: method.duration || method.timeline || method.estimated_duration || packageMethod.duration || "",
+    duration: method.duration || method.estimated_effort || method.estimatedEffort || method.timeline || method.estimated_duration || packageMethod.duration || "",
     description: method.description || method.summary || method.rationale || packageMethod.description || "",
     sample: method.sample || method.sample_size || method.participant_sample || method.participants || packageMethod.sample || "",
     progress: normalizedProgress,
@@ -5151,6 +5344,7 @@ function normalizeDiscoveryMethod(method = {}, packageMethod = {}, index = 0) {
     cannotExecute: Boolean(method.cannotExecute),
     limitationReason: method.limitationReason || method.limitation_reason || "",
     whyRecommended: method.whyRecommended || method.why_recommended || "",
+    sequenceOrder: Number.isFinite(method.sequenceOrder) ? method.sequenceOrder : (Number.isFinite(method.sequence_order) ? method.sequence_order : index + 1),
     entry,
     notes: method.notes || "",
     evidence: Array.isArray(method.evidence) ? method.evidence : [],
@@ -5193,9 +5387,8 @@ function normalizeDiscoveryMethodology(activeDiscovery = {}) {
     name: sourcePackage.name
       || getArtifactValue(researchPlan, ["methodology_name", "recommended_methodology", "methodology"])
       || fallbackPackage.name,
-    duration: sourcePackage.duration
-      || getArtifactValue(researchPlan, ["duration", "timeline", "estimated_duration"])
-      || fallbackPackage.duration,
+    duration: getArtifactValue(researchPlan, ["duration", "timeline", "estimated_duration", "estimated_weeks"])
+      || (methods.length ? estimateRoadmapTotalDuration(methods) : "Duração ainda não estimada"),
     description: sourcePackage.description
       || getArtifactValue(researchPlan, ["description", "summary", "methodology_summary", "plan_summary"])
       || fallbackPackage.description,
@@ -6253,6 +6446,8 @@ function collectParticipantInfo() {
   }, {});
   newDiscoveryDeadlineDraft = newDiscoveryDeadline.value.trim();
   newDiscoverySupportFiles = [...newDiscoverySupportFile.files];
+  newDiscoveryUploadedSupportFiles = [];
+  updateNewDiscoverySupportFileLabel();
   syncSupportLinksFromInputs();
   newDiscoverySupportLinksDraft = newDiscoverySupportLinksDraft
     .map((link) => link.trim())
@@ -6976,12 +7171,59 @@ async function uploadLocalMockDiscoveryEvidence(runId, evidenceItems) {
 }
 
 // Discovery AI MVP API client. These methods target the new local proxy under /api/discovery/*.
+
+async function uploadDiscoveryIntakeFiles(files = [], discoveryId = "") {
+  if (!files.length) return [];
+  try {
+    const fileDataArray = await Promise.all(
+      [...files].map(
+        (file) =>
+          new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = (e) => {
+              const bytes = new Uint8Array(e.target.result);
+              let binary = "";
+              for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i]);
+              resolve({
+                name: file.name,
+                type: file.type || "",
+                size: file.size,
+                content_base64: btoa(binary),
+              });
+            };
+            reader.onerror = reject;
+            reader.readAsArrayBuffer(file);
+          })
+      )
+    );
+    const response = await requestDiscoveryApi(getApiPath("discovery/upload-files"), {
+      method: "POST",
+      body: { discovery_id: String(discoveryId || ""), files: fileDataArray },
+      action: "Falha ao fazer upload de arquivos para o backend",
+    });
+    return Array.isArray(response.files) ? response.files : [];
+  } catch (error) {
+    console.warn("[upload] Falha ao enviar arquivos; kickoff prosseguirá sem anexos.", error);
+    return [];
+  }
+}
+
 async function kickoffDiscoveryRun(input) {
   if (isLocalMockApiMode()) {
     return kickoffLocalMockDiscoveryRun(input);
   }
 
   const body = input && typeof input === "object" && "inputs" in input ? input : { inputs: input || {} };
+  const kickoffFiles = Array.isArray(body.files) && body.files.length
+    ? body.files
+    : Array.isArray(body.inputs?.files) ? body.inputs.files : [];
+  const readableFileRefs = kickoffFiles
+    .map(normalizeFileInfo)
+    .filter((file) => file.path);
+  if (readableFileRefs.length) {
+    body.files = readableFileRefs;
+  }
+
   return requestDiscoveryApi(getApiPath("discovery/kickoff"), {
     method: "POST",
     body,
@@ -8105,6 +8347,7 @@ function openEditDiscoveryModal(discoveryId = "") {
 
   // Ensure correct product context
   if (discovery.productId) selectedProductId = discovery.productId;
+  syncResponsibleOptionsFromProduct(getProductById(selectedProductId) || products[0]);
 
   // Pre-populate setup fields
   newDiscoverySetupTitle.value = discovery.title || discovery.name || "";
@@ -8136,13 +8379,54 @@ function openEditDiscoveryModal(discoveryId = "") {
   newDiscoveryCsdDraft = csd;
 
   // Pre-populate persona/stakeholder selections
-  newDiscoverySelectedPersonaIdsDraft = Array.isArray(discovery.personaIds) ? [...discovery.personaIds] : [];
-  newDiscoverySelectedStakeholderIdsDraft = Array.isArray(discovery.stakeholderIds) ? [...discovery.stakeholderIds] : [];
+  const participants = discovery.participants && typeof discovery.participants === "object" ? discovery.participants : {};
+  newDiscoveryParticipantsDraft = {
+    responsaveis: Array.isArray(participants.responsaveis) ? [...participants.responsaveis] : [...(flowSelectValues.responsaveis || [])],
+    personas: Array.isArray(participants.personas) ? [...participants.personas] : [...(flowSelectValues.personas || [])],
+    stakeholders: Array.isArray(participants.stakeholders) ? [...participants.stakeholders] : [...(flowSelectValues.stakeholders || [])],
+  };
+  flowSelectValues = {
+    responsaveis: [...newDiscoveryParticipantsDraft.responsaveis],
+    personas: [...newDiscoveryParticipantsDraft.personas],
+    stakeholders: [...newDiscoveryParticipantsDraft.stakeholders],
+  };
+  flowSelectButtons.forEach((button) => {
+    const key = button.dataset.flowSelect;
+    renderFlowSelectMenuOptions(key);
+    syncFlowSelectButton(button);
+    syncFlowSelectMenu(key);
+  });
+  const personaIdsSource = Array.isArray(discovery.personaIds)
+    ? discovery.personaIds
+    : Array.isArray(discovery.selectedPersonaIds) ? discovery.selectedPersonaIds : [];
+  const stakeholderIdsSource = Array.isArray(discovery.stakeholderIds)
+    ? discovery.stakeholderIds
+    : Array.isArray(discovery.selectedStakeholderIds) ? discovery.selectedStakeholderIds : [];
+  newDiscoverySelectedPersonaIdsDraft = [...personaIdsSource];
+  newDiscoverySelectedStakeholderIdsDraft = [...stakeholderIdsSource];
+  renderNewDiscoveryProductTeamPreview();
+  renderNewDiscoveryPeopleSelection();
+
+  const existingDeadline = discovery.deadline || discovery.deadlineDate || discovery.periodEnd || "";
+  newDiscoveryDeadlineDraft = String(existingDeadline || "");
+  newDiscoveryDeadline.value = newDiscoveryDeadlineDraft;
 
   // Pre-populate links
   const links = Array.isArray(discovery.links) ? discovery.links.filter(Boolean) : [];
   newDiscoverySupportLinksDraft = links.length ? [...links, ""] : [""];
   renderSupportLinkRows();
+
+  // Browser file inputs cannot be prefilled, so keep existing file metadata separately.
+  newDiscoveryExistingSupportFiles = getDiscoveryExistingSupportFiles(discovery);
+  newDiscoverySupportFiles = [];
+  newDiscoveryUploadedSupportFiles = [];
+  newDiscoverySupportFile.value = "";
+  updateNewDiscoverySupportFileLabel();
+
+  const existingFilesWithoutPath = newDiscoveryExistingSupportFiles.filter((file) => !normalizeSupportFileMetadata(file).path);
+  if (existingFilesWithoutPath.length) {
+    setNewDiscoveryStatus("Alguns arquivos antigos não têm path salvo. Eles serão listados, mas reenvie o arquivo se quiser que a Crew leia esse conteúdo.", "warning");
+  }
 
   document.body.classList.add("flow-open");
   newDiscoveryModal.hidden = false;
@@ -11744,6 +12028,123 @@ function shouldShowResearchApprovalPanel(activeDiscovery = {}) {
   return normalizeWorkflowValue(activeDiscovery.current_state || activeDiscovery.workflow_state || activeDiscovery.state) === WORKFLOW_STATES.RESEARCH_APPROVAL_PENDING;
 }
 
+function getMethodEffortLabel(raw = "") {
+  const n = String(raw || "").toLowerCase().trim();
+  if (n === "low") return "Baixo";
+  if (n === "medium") return "Médio";
+  if (n === "high") return "Alto";
+  return raw || "";
+}
+
+function getMethodEffortDuration(raw = "") {
+  const n = String(raw || "").toLowerCase().trim();
+  if (n === "low") return "1–3 dias";
+  if (n === "medium") return "3–7 dias";
+  if (n === "high") return "1–2 semanas";
+  return raw || "";
+}
+
+function estimateRoadmapTotalDuration(methods = []) {
+  const daysByEffort = { low: 2, medium: 5, high: 10 };
+  const total = methods.reduce((sum, m) => {
+    const effort = String(m.duration || m.estimated_effort || m.estimatedEffort || "").toLowerCase();
+    return sum + (daysByEffort[effort] ?? 5);
+  }, 0);
+  if (total <= 5) return `${total} dias`;
+  const weeks = Math.ceil(total / 5);
+  return weeks === 1 ? "1 semana" : `${weeks} semanas`;
+}
+
+function getOverallEffortLabel(methods = []) {
+  const counts = methods.reduce((acc, m) => {
+    const k = String(m.duration || m.estimated_effort || m.estimatedEffort || "").toLowerCase();
+    if (k === "high") acc.high += 1;
+    else if (k === "medium") acc.medium += 1;
+    else acc.low += 1;
+    return acc;
+  }, { low: 0, medium: 0, high: 0 });
+  if (counts.high >= 1) return "Alto";
+  if (counts.medium >= methods.length / 2) return "Médio";
+  return "Baixo";
+}
+
+function renderDiscoveryRoadmap(activeDiscovery = {}) {
+  const normalizedMethodology = normalizeDiscoveryMethodology(activeDiscovery);
+  const methodRec = activeDiscovery.methodologyRecommendation || {};
+  const confidencePercent = normalizeConfidencePercent(methodRec.confidenceScore ?? methodRec.confidence_score ?? 0);
+
+  const methodologyName = normalizedMethodology.name
+    || activeDiscovery.methodologyType
+    || "Metodologia recomendada";
+  const rationale = methodRec.rationale
+    || methodRec.description
+    || normalizedMethodology.description
+    || activeDiscovery.objective
+    || "";
+
+  const rawMethods = Array.isArray(normalizedMethodology.methods) && normalizedMethodology.methods.length
+    ? normalizedMethodology.methods
+    : Array.isArray(activeDiscovery.methods) ? activeDiscovery.methods : [];
+
+  const methods = [...rawMethods]
+    .sort((a, b) => (a.sequenceOrder ?? 99) - (b.sequenceOrder ?? 99));
+
+  const totalDuration = estimateRoadmapTotalDuration(methods);
+  const overallEffort = getOverallEffortLabel(methods);
+
+  const stepsHtml = methods.length
+    ? methods.map((method, index) => {
+        const effortLabel = getMethodEffortLabel(method.duration);
+        const effortDuration = getMethodEffortDuration(method.duration);
+        const effortBadge = [effortLabel, effortDuration].filter(Boolean).join(" · ");
+        const why = method.whyRecommended || "";
+        const desc = method.description || "";
+        return `
+          <li style="display:flex;gap:12px;padding:14px 0;border-bottom:1px solid var(--border-subtle,#e5e7eb);">
+            <div style="flex-shrink:0;width:28px;height:28px;border-radius:50%;background:var(--brand-primary,#6366f1);color:#fff;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;margin-top:2px;">${index + 1}</div>
+            <div style="flex:1;min-width:0;">
+              <div style="display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;margin-bottom:4px;">
+                <strong style="font-size:14px;">${escapeHTML(method.name || method.title || `Método ${index + 1}`)}</strong>
+                ${effortBadge ? `<span style="font-size:11px;padding:2px 8px;border-radius:12px;background:var(--surface-subtle,#f3f4f6);color:var(--text-secondary,#6b7280);">${escapeHTML(effortBadge)}</span>` : ""}
+              </div>
+              ${why ? `<p style="margin:0 0 4px;font-size:13px;color:var(--text-secondary,#6b7280);"><strong>Por que:</strong> ${escapeHTML(why)}</p>` : ""}
+              ${desc ? `<p style="margin:0;font-size:13px;color:var(--text-secondary,#6b7280);">${escapeHTML(desc)}</p>` : ""}
+            </div>
+          </li>
+        `;
+      }).join("")
+    : `<li style="padding:12px 0;color:var(--text-secondary,#6b7280);font-size:13px;">Nenhum método retornado pelos agentes.</li>`;
+
+  return `
+    <div data-discovery-roadmap style="margin-bottom:24px;">
+      <div style="margin-bottom:16px;">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px;">
+          <h3 style="margin:0;font-size:15px;">Metodologia</h3>
+          ${confidencePercent > 0 ? `<span style="font-size:11px;padding:2px 8px;border-radius:12px;background:var(--green-light,#dcfce7);color:var(--green-dark,#166534);">${confidencePercent}% confiança</span>` : ""}
+        </div>
+        <strong style="font-size:14px;display:block;margin-bottom:4px;">${escapeHTML(methodologyName)}</strong>
+        ${rationale ? `<p style="margin:0;font-size:13px;color:var(--text-secondary,#6b7280);">${escapeHTML(rationale)}</p>` : ""}
+      </div>
+
+      <div>
+        <div style="display:flex;align-items:baseline;gap:12px;flex-wrap:wrap;margin-bottom:12px;">
+          <h3 style="margin:0;font-size:15px;">Roadmap</h3>
+          <span style="font-size:12px;color:var(--text-secondary,#6b7280);">${methods.length} método${methods.length === 1 ? "" : "s"} · ${escapeHTML(totalDuration)} estimados · esforço ${escapeHTML(overallEffort)}</span>
+        </div>
+        <ol style="list-style:none;margin:0;padding:0;">
+          ${stepsHtml}
+        </ol>
+      </div>
+
+      <div style="margin-top:16px;padding:12px 14px;background:var(--brand-light,#eef2ff);border-radius:8px;border-left:3px solid var(--brand-primary,#6366f1);">
+        <p style="margin:0;font-size:13px;color:var(--text-primary,#111827);">
+          <strong>Próximo passo:</strong> após executar cada método, envie os resultados para análise dos agentes.
+        </p>
+      </div>
+    </div>
+  `;
+}
+
 function renderResearchApprovalPanel(activeDiscovery = {}) {
   const runId = getDiscoveryRunId(activeDiscovery);
   const panelData = getResearchApprovalPanelData(activeDiscovery);
@@ -11756,17 +12157,20 @@ function renderResearchApprovalPanel(activeDiscovery = {}) {
           <span>Gate humano</span>
           <h2 id="research-approval-title">Aprovação do plano de pesquisa</h2>
         </div>
-        <mark>${hasBackendPlan ? "Plano recebido" : "Aguardando artefato"}</mark>
+        <mark>${hasBackendPlan ? "Plano recebido" : "Metodologia definida"}</mark>
       </div>
 
-      <div class="research-approval-grid">
-        ${renderResearchApprovalBlock("Resumo do plano", panelData.summary, AGENT_OUTPUT_EMPTY_MESSAGE)}
-        ${renderResearchApprovalBlock("Metodologia", panelData.methodology, AGENT_OUTPUT_EMPTY_MESSAGE)}
-        ${renderResearchApprovalBlock("Objetivos de aprendizagem", panelData.learningGoals, AGENT_OUTPUT_EMPTY_MESSAGE)}
-        ${renderResearchApprovalBlock("Perguntas de pesquisa", panelData.researchQuestions, AGENT_OUTPUT_EMPTY_MESSAGE)}
-        ${renderResearchApprovalBlock("Estratégia de participantes", panelData.participantStrategy, AGENT_OUTPUT_EMPTY_MESSAGE)}
-        ${renderResearchApprovalBlock("Resumo do protocolo", panelData.protocolSummary, AGENT_OUTPUT_EMPTY_MESSAGE)}
-      </div>
+      ${renderDiscoveryRoadmap(activeDiscovery)}
+
+      ${hasBackendPlan ? `
+        <div class="research-approval-grid">
+          ${renderResearchApprovalBlock("Resumo do plano", panelData.summary, AGENT_OUTPUT_EMPTY_MESSAGE)}
+          ${renderResearchApprovalBlock("Objetivos de aprendizagem", panelData.learningGoals, AGENT_OUTPUT_EMPTY_MESSAGE)}
+          ${renderResearchApprovalBlock("Perguntas de pesquisa", panelData.researchQuestions, AGENT_OUTPUT_EMPTY_MESSAGE)}
+          ${renderResearchApprovalBlock("Estratégia de participantes", panelData.participantStrategy, AGENT_OUTPUT_EMPTY_MESSAGE)}
+          ${renderResearchApprovalBlock("Resumo do protocolo", panelData.protocolSummary, AGENT_OUTPUT_EMPTY_MESSAGE)}
+        </div>
+      ` : ""}
 
       <label class="research-approval-comment">
         <span>Comentário para ajustes</span>
@@ -15803,7 +16207,7 @@ function createNewDiscoveryDraft({
   const executionConstraints = getCurrentMethodologyExecutionConstraints(selectedMethodology);
   const csdMatrix = createCsdMatrixFromLegacyCsd(csd);
   const normalizedCrewResult = normalizeCrewAiDiscoveryResult(crewAi?.result || crewAi?.statusPayload || {});
-  const localFiles = newDiscoverySupportFiles.map(normalizeFileInfo);
+  const localFiles = getSupportFilesForPersistence();
   const localLinks = [...newDiscoverySupportLinksDraft];
   const evidenceItems = [
     ...localFiles.map((file, index) => createEvidenceFromFile(file, index, resolvedDraftId)),
@@ -15901,7 +16305,7 @@ function createMvpDiscoveryDraft({
     current_state: WORKFLOW_STATES.DISCOVERY_CREATED,
     status: RUN_STATUSES.RUNNING,
   });
-  const localFiles = newDiscoverySupportFiles.map(normalizeFileInfo);
+  const localFiles = getSupportFilesForPersistence();
   const localLinks = [...newDiscoverySupportLinksDraft];
   const evidenceItems = [
     ...localFiles.map((file, index) => createEvidenceFromFile(file, index, resolvedDraftId)),
@@ -16043,7 +16447,7 @@ async function createDiscoveryWithMvpBackend({
       links: newDiscoverySupportLinksDraft,
       deadline: newDiscoveryDeadlineDraft,
       methodology: selectedMethodology,
-      files: newDiscoverySupportFiles,
+      files: getSupportFilesForPersistence(),
     });
     addCrewKickoffLog("Registrando kickoff local simulado.");
     const kickoffPayload = await kickoffLocalMockDiscoveryRun(kickoffInput);
@@ -16162,10 +16566,9 @@ newDiscoverySupportFileButton.addEventListener("click", () => {
 });
 
 newDiscoverySupportFile.addEventListener("change", () => {
-  const files = [...newDiscoverySupportFile.files];
-  newDiscoverySupportFileLabel.textContent = files.length
-    ? files.map((file) => file.name).join(", ")
-    : "Selecione seu arquivo";
+  newDiscoverySupportFiles = [...newDiscoverySupportFile.files];
+  newDiscoveryUploadedSupportFiles = [];
+  updateNewDiscoverySupportFileLabel();
 });
 
 addSupportLinkButton.addEventListener("click", () => {
@@ -16308,7 +16711,7 @@ newDiscoveryMethodologyForm.addEventListener("submit", async (event) => {
 
   const selectedMethodology = getCurrentRecommendedMethodology();
   const draftTitle = getNewDiscoveryDraftTitle(newDiscoveryTitleDraft, newDiscoveryObjectiveDraft);
-  const draftId = createNewDiscoveryDraftId(draftTitle);
+  const draftId = editingDiscoveryId || createNewDiscoveryDraftId(draftTitle);
 
   await createDiscoveryWithMvpBackend({
     draftId,

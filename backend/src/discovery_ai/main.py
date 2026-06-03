@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 import sys
-from discovery_ai.crew import DiscoveryAiCrew
+from discovery_ai.crew import DiscoveryAiCrew, validate_text_llm_model
 
 # This main file is intended to be a way for your to run your
 # crew locally, so refrain from adding unnecessary logic into this file.
@@ -87,7 +87,8 @@ def test():
         'contradictions': 'sample_value'
     }
     try:
-        DiscoveryAiCrew().crew().test(n_iterations=int(sys.argv[1]), openai_model_name=sys.argv[2], inputs=inputs)
+        openai_model_name = validate_text_llm_model(sys.argv[2])
+        DiscoveryAiCrew().crew().test(n_iterations=int(sys.argv[1]), openai_model_name=openai_model_name, inputs=inputs)
 
     except Exception as e:
         raise Exception(f"An error occurred while testing the crew: {e}")

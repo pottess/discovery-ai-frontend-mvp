@@ -10,8 +10,44 @@ from crewai_tools import (
 )
 
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
+from typing import List
 from jambo import SchemaConverter
+
+
+class _MethodItem(BaseModel):
+    method_id: str = ""
+    method_name: str = ""
+    why_recommended: str = ""
+    when_to_use: str = ""
+    expected_evidence: str = ""
+    estimated_effort: str = "medium"
+    sequence_order: int = 1
+
+
+class _NotRecommendedMethod(BaseModel):
+    method_id: str = ""
+    reason: str = ""
+
+
+class MethodologyOutput(BaseModel):
+    """Structured output for define_discovery_methodology task.
+
+    Using output_pydantic forces CrewAI to validate and retry until
+    the LLM produces JSON that matches this schema — preventing the
+    agent from returning free-text narrative instead of structured data.
+    """
+    discovery_id: str = ""
+    recommended_methodology: str = ""
+    methodology_label: str = ""
+    methodology_rationale: str = ""
+    confidence_score: float = 0.0
+    recommended_methods: List[_MethodItem] = Field(default_factory=list)
+    not_recommended_methods: List[_NotRecommendedMethod] = Field(default_factory=list)
+    priority_questions: List[str] = Field(default_factory=list)
+    scope_statement: str = ""
+    out_of_scope: List[str] = Field(default_factory=list)
+    workflow_recommendation: str = "RESEARCH_APPROVAL_PENDING"
 
 
 DEFAULT_TEXT_LLM_MODEL = "openai/gpt-4o"
@@ -124,13 +160,13 @@ class DiscoveryAiCrew:
     
     @agent
     def discovery_methodology_strategist(self) -> Agent:
-        
-        
+
+
         return Agent(
             config=self.agents_config["discovery_methodology_strategist"],
-            
-            
-            tools=[],
+
+
+            tools=[FileReadTool()],
             reasoning=False,
             max_reasoning_attempts=None,
             inject_date=True,
@@ -608,8 +644,7 @@ class DiscoveryAiCrew:
         return Task(
             config=self.tasks_config["define_discovery_methodology"],
             markdown=False,
-            
-            
+            output_pydantic=MethodologyOutput,
         )
     
     @task

@@ -6,7 +6,9 @@ authors = [{ name = "Your Name", email = "you@example.com" }]
 requires-python = ">=3.10,<3.14"
 dependencies = [
     "crewai[file-processing,litellm,tools]==1.14.4",
+    "fastapi",
     "jambo",
+    "uvicorn",
 ]
 
 [project.scripts]
@@ -14,6 +16,7 @@ discovery_ai = "discovery_ai.main:run"
 run_crew = "discovery_ai.main:run"
 train = "discovery_ai.main:train"
 replay = "discovery_ai.main:replay"
+serve_api = "discovery_ai.api:serve_api"
 test = "discovery_ai.main:test"
 run_with_trigger = "discovery_ai.main:run_with_trigger"
 

@@ -2,9 +2,14 @@
 build_d_o_r_framework:
   description: 'Create comprehensive Definition of Ready (D.O.R.) framework for {discovery_id}.
     Process discovery intake inputs: {title}, {objective}, {problem}, {owners}, {users},
-    {stakeholders}, {certainties}, {assumptions}, {open_questions}, {file}, {link}.
-    Establish clear criteria, success metrics, and governance checkpoints to ensure
-    discovery readiness before proceeding with research execution.'
+    {stakeholders}, {certainties}, {assumptions}, {open_questions}, {file}, {link},
+    {file_read_warnings}. Establish clear criteria, success metrics, and governance
+    checkpoints to ensure discovery readiness before proceeding with research execution.
+    Problem, objective, and CSD are valid briefing inputs. Attached files are optional
+    and complementary. If {file} is empty, never ask for a discovery brief path and
+    never say "file not found". If {file_read_warnings} is not empty, state that the
+    arquivo não pôde ser lido, but continue evaluating the text briefing instead
+    of invalidating the whole discovery.'
   expected_output: 'JSON object: {"discovery_id": "string", "dor_status": "COMPLETED
     | PARTIALLY_COMPLETED | INSUFFICIENT_INFORMATION", "title": "string", "objective":
     "string", "problem": "string", "owners": [], "users": [], "stakeholders": [],
@@ -18,10 +23,14 @@ validate_discovery_readiness:
     avançar para a definição da metodologia. Analisar os resultados da DOR. Avaliar:
     clareza do problema, clareza do objetivo, definição do usuário, abrangência das
     partes interessadas, maturidade das evidências, enquadramento das incertezas,
-    qualidade das premissas, ausência de contexto crítico. Responsabilidades: avaliar
-    a prontidão, classificar o nível de prontidão, identificar obstáculos, gerar requisitos
-    de esclarecimento, encaminhar o fluxo de trabalho. NÃO: definir a metodologia,
-    elaborar o plano de pesquisa, gerar oportunidades.'
+    qualidade das premissas, ausência de contexto crítico. Problema, objetivo e CSD
+    preenchidos são briefing válido mesmo sem arquivo. Arquivos complementam o contexto,
+    mas não são obrigatórios. Nunca classifique como falta de contexto apenas por
+    ausência de arquivo. Se um arquivo falhar, trate como aviso de leitura, não como
+    blocker da discovery. Responsabilidades: avaliar a prontidão, classificar o nível
+    de prontidão, identificar obstáculos reais, gerar requisitos de esclarecimento,
+    encaminhar o fluxo de trabalho. NÃO: definir a metodologia, elaborar o plano de
+    pesquisa, gerar oportunidades.'
   expected_output: 'JSON object: {"discovery_id": "string", "readiness_status": "READY
     | PARTIALLY_READY | NOT_READY", "readiness_score": 0, "strengths": [], "critical_gaps":
     [], "blockers": [], "clarification_required": true, "clarification_questions":
@@ -32,19 +41,58 @@ validate_discovery_readiness:
   context:
   - build_d_o_r_framework
 define_discovery_methodology:
-  description: 'Defina a metodologia de descoberta mais adequada para a investigação
-    atual. Considere os resultados da análise de prontidão e o contexto do DOR. Avalie:
-    tipo de incerteza, urgência comercial, evidências disponíveis, objetivo da investigação,
-    tipo de decisão, nível de risco. Responsabilidades: recomendar a abordagem de
-    investigação, definir a fundamentação da metodologia, propor a sequência de etapas,
-    definir os limites metodológicos. Tipos de método: GENERATIVO, AVALIATIVO, VALIDATIVO,
-    MISTO. NÃO: elabore um plano operacional de investigação, defina os participantes,
-    execute a investigação.'
-  expected_output: 'JSON object: {"discovery_id": "string", "methodology_status":
-    "DEFINED", "recommended_methodology": "GENERATIVE | EVALUATIVE | VALIDATIVE |
-    MIXED", "methodology_summary": "string", "method_rationale": [], "recommended_methods":
-    [], "sequencing_recommendation": [], "constraints": [], "risks": [], "workflow_recommendation":
-    "PROCEED_TO_SCOPE"}'
+  description: |-
+    Defina a metodologia de descoberta mais adequada para {discovery_id}. Consuma os resultados de validate_discovery_readiness e build_d_o_r_framework.
+
+    PASSO 1 — Classifique o tipo de problema com base no contexto da discovery:
+    - Se há alteração de tela, fluxo, interface ou feature específica com problema razoavelmente claro: classifique como MELHORIA INCREMENTAL ou AVALIAÇÃO. Priorize análise heurística, prototipação, teste de usabilidade e teste de conceito. NÃO recomendar entrevista em profundidade como método primário.
+    - Se o problema é ambíguo, o público ainda é pouco conhecido, ou há muitas dúvidas abertas sobre comportamento/motivação: classifique como EXPLORAÇÃO. Priorize entrevistas em profundidade, pesquisa contextual.
+    - Se existe hipótese, conceito ou solução proposta a validar: classifique como VALIDAÇÃO. Priorize teste de conceito, survey, experimento.
+    - Se há múltiplos tipos de incerteza sobrepostos: classifique como MISTO. Combine métodos de categorias diferentes com sequência explícita.
+
+    PASSO 2 — Selecione métodos aplicando as regras:
+    - Entrevista em profundidade: SOMENTE quando problema ambíguo, necessidade desconhecida, ou muitas dúvidas abertas sobre motivação/comportamento.
+    - Desk research: SOMENTE quando há benchmark relevante, contexto externo/regulatório, arquivos enviados ou material prévio. NÃO usar como fallback.
+    - Análise heurística: quando há interface ou fluxo existente a avaliar sem recrutar participantes.
+    - Teste de usabilidade: quando há protótipo ou produto para observação de interação.
+    - Teste de conceito: quando há proposta ou conceito a validar com público-alvo.
+    - Survey: quando precisa validar escala ou distribuição de percepções.
+    - Arquivos são complementares: use arquivos enviados quando existirem e puderem ser lidos; se não houver arquivo, não use isso para rebaixar a qualidade do briefing nem para escolher exploração por padrão.
+
+    PASSO 3 — Estruture cada método selecionado com schema completo: method_id, method_name, why_recommended, when_to_use, expected_evidence, estimated_effort, sequence_order.
+
+    PASSO 4 — Inclua not_recommended_methods com justificativa para os principais métodos descartados.
+
+    PASSO 5 — Retorne o JSON completo conforme contrato. OBRIGATÓRIO: recommended_methods com ao menos 2 métodos estruturados. NÃO retornar recommended_methods como array vazio.
+  expected_output: |-
+    JSON object: {
+      "discovery_id": "string",
+      "recommended_methodology": "exploratory | evaluative | validation | mixed",
+      "methodology_label": "string",
+      "methodology_rationale": "string",
+      "confidence_score": 0,
+      "recommended_methods": [
+        {
+          "method_id": "heuristic_analysis | prototype | usability_test | concept_test | interview | survey | desk_research | workshop",
+          "method_name": "string",
+          "why_recommended": "string",
+          "when_to_use": "string",
+          "expected_evidence": "string",
+          "estimated_effort": "low | medium | high",
+          "sequence_order": 1
+        }
+      ],
+      "not_recommended_methods": [
+        {
+          "method_id": "string",
+          "reason": "string"
+        }
+      ],
+      "priority_questions": [],
+      "scope_statement": "string",
+      "out_of_scope": [],
+      "workflow_recommendation": "RESEARCH_APPROVAL_PENDING"
+    }
   agent: discovery_methodology_strategist
   context:
   - validate_discovery_readiness

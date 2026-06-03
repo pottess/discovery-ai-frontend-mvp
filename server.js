@@ -22,17 +22,23 @@ const FUTURE_INTEGRATIONS = [
   "document_storage",
 ];
 const MOCK_AGENT_STATES = {
+  DISCOVERY_CREATED: "DISCOVERY_CREATED",
   DOR_ANALYZING: "DOR_ANALYZING",
   RESEARCH_APPROVAL_PENDING: "RESEARCH_APPROVAL_PENDING",
   EVIDENCE_UPLOAD_PENDING: "EVIDENCE_UPLOAD_PENDING",
+  PRIMARY_RESEARCH_PROCESSING: "PRIMARY_RESEARCH_PROCESSING",
   INSIGHT_REVIEW_PENDING: "INSIGHT_REVIEW_PENDING",
   OPPORTUNITY_REVIEW_PENDING: "OPPORTUNITY_REVIEW_PENDING",
+  RECOMMENDATION_RUNNING: "RECOMMENDATION_RUNNING",
+  HANDOFF_RUNNING: "HANDOFF_RUNNING",
   COMPLETED: "COMPLETED",
+  FAILED: "FAILED",
 };
 const MOCK_AGENT_STATUSES = {
   RUNNING: "running",
   WAITING_FOR_HUMAN: "waiting_for_human",
   COMPLETED: "completed",
+  FAILED: "failed",
 };
 const PUBLIC_FILE_PATHS = new Set(["/index.html", "/styles.css", "/app.js", "/config.vercel.js", "/demo-config.js"]);
 const PUBLIC_ASSET_DIRS = ["/assets/"];
@@ -487,7 +493,7 @@ function createMockAgentRun(body = {}) {
   const run = {
     run_id: runId,
     discovery_id: discoveryId,
-    current_state: MOCK_AGENT_STATES.DOR_ANALYZING,
+    current_state: MOCK_AGENT_STATES.DISCOVERY_CREATED,
     status: MOCK_AGENT_STATUSES.RUNNING,
     adapter: "mock_agent",
     mock_agent_outputs: true,
@@ -926,69 +932,264 @@ function sendMockRunNotFound(response, runId = "") {
 function createMockAgentOutputs(run = {}) {
   const inputs = run.inputs || {};
   const evidence = Array.isArray(run.evidence) ? run.evidence : [];
+  const title = inputs.title || "Discovery MVP";
+  const objective = inputs.objective || "Validar o workflow de discovery dirigido por agentes.";
+  const problem = inputs.problem || "Problema informado manualmente ou por fixture mock.";
+  const methodology = inputs.methodology || "optimized";
+
   return {
     discovery_charter: {
-      title: inputs.title || "Discovery MVP",
-      problem: inputs.problem || "Problema informado manualmente ou por fixture mock.",
-      objective: inputs.objective || "Validar o workflow de discovery dirigido por agentes.",
-      readiness_score: 82,
+      dor_status: "approved",
+      completeness_score: 87,
+      problem_statement: problem,
+      objective,
+      certainties: [
+        "O time de produto precisa de um workflow estruturado para conduzir discoveries.",
+        "Aprovações humanas são necessárias em etapas críticas do fluxo.",
+      ],
+      assumptions: [
+        "O processo atual de discovery é manual e dependente de planilhas.",
+        "O tempo médio de um discovery sem apoio de agentes é superior a 4 semanas.",
+      ],
+      doubts: [
+        "Qual nível de automação os usuários aceitam sem perder controle?",
+        "Como integrar evidências externas de forma confiável?",
+      ],
+      recommendation: "Prosseguir com planejamento de pesquisa. DOR aprovado com score 87/100.",
       output_source: "mock_agent",
     },
-    research_plan: {
-      summary: "Plano gerado por mock agent adapter para simular planejamento de pesquisa no MVP.",
-      methods: ["Entrevistas", "CSD", "Síntese de evidências"],
-      approval_gate: "research_plan_review",
+    readiness: {
+      readiness_status: "ready",
+      readiness_score: 87,
+      uncertainty_profile: {
+        high: ["Critérios de sucesso ainda em alinhamento", "Stakeholders secundários não confirmados"],
+        medium: ["Metodologia selecionada pendente de validação com o time"],
+        low: [],
+      },
+      blockers: [],
+      next_actions: ["Iniciar planejamento de pesquisa", "Confirmar disponibilidade de participantes"],
+      output_source: "mock_agent",
+    },
+    research_plan_package: {
+      summary: `Plano de pesquisa para "${title}" com foco em validar hipóteses sobre o problema declarado.`,
+      recommended_methodology: methodology === "optimized" ? "Pesquisa Otimizada" : "Exploratória",
+      method_rationale: "Combinação de entrevistas semi-estruturadas e análise de dados para triangulação.",
+      recommended_methods: ["Entrevistas em profundidade", "CSD Matrix", "Síntese de evidências", "Teste de usabilidade moderado"],
+      learning_goals: [
+        "Compreender o fluxo atual do usuário e os principais pontos de dor.",
+        "Identificar oportunidades de melhoria com maior impacto percebido.",
+        "Validar hipóteses sobre causas-raiz do problema.",
+      ],
+      research_questions: [
+        "Como o usuário realiza essa tarefa hoje?",
+        "Quais são as maiores frustrações no processo atual?",
+        "O que o usuário tentou fazer para resolver o problema?",
+      ],
+      participant_strategy: "5–8 participantes, selecionados entre usuários ativos com pelo menos 3 meses de uso.",
+      protocol_summary: "Roteiro semi-estruturado com 45–60 min por entrevista, seguido de síntese colaborativa.",
+      execution_plan: {
+        weeks: [
+          { week: 1, activities: ["Recrutar participantes", "Preparar roteiro", "Revisar protocolo"] },
+          { week: 2, activities: ["Realizar entrevistas (sessões 1–4)", "Transcrição e anotações"] },
+          { week: 3, activities: ["Realizar entrevistas (sessões 5–8)", "Síntese e clustering"] },
+          { week: 4, activities: ["Priorização de oportunidades", "Revisão com time", "Entrega"] },
+        ],
+      },
+      timeline: "4 semanas",
+      participant_profiles: [
+        { type: "Usuário ativo", criteria: ["Usa o produto há > 3 meses", "Realiza a tarefa alvo ao menos semanalmente"], count: 5 },
+        { type: "Usuário novo", criteria: ["Primeiros 30 dias de uso", "Onboarding completo"], count: 2 },
+        { type: "Usuário churned", criteria: ["Cancelamento nos últimos 90 dias", "Motivo: fricção no fluxo"], count: 1 },
+      ],
+      recruitment_criteria: "Recrutamento via CRM: filtro por engajamento + seleção por perfil de uso.",
+      operational_requirements: ["Ferramenta de videochamada com gravação", "Repositório de notas de pesquisa", "Template de síntese"],
+      output_source: "mock_agent",
+    },
+    research_protocols: {
+      discussion_guides: [
+        {
+          title: "Roteiro de entrevista — Exploratório",
+          sections: [
+            { section: "Contexto e rotina", questions: ["Me conte como é o seu dia a dia com essa tarefa.", "Com que frequência você precisa fazer isso?"] },
+            { section: "Processo atual", questions: ["Como você faz isso hoje, passo a passo?", "Quais ferramentas você usa?"] },
+            { section: "Dores e fricções", questions: ["Qual parte desse processo é mais frustrante?", "O que você gostaria que fosse diferente?"] },
+            { section: "Soluções tentadas", questions: ["O que você já tentou para resolver esse problema?", "O que funcionou?"] },
+          ],
+        },
+      ],
+      usability_script: {
+        title: "Roteiro de teste de usabilidade",
+        tasks: [
+          { id: 1, title: "Tarefa de fluxo principal", instruction: "Imagine que você precisa realizar a tarefa alvo. Mostre como você faria isso.", success_criteria: "Completa sem ajuda em menos de 3 minutos" },
+          { id: 2, title: "Tarefa secundária", instruction: "Tente realizar a tarefa de apoio. Verbalize o que está pensando.", success_criteria: "Identifica o caminho correto sem erros críticos" },
+        ],
+      },
+      interview_script: "Roteiro gerado por agente mock para simular protocolo estruturado de entrevista.",
+      execution_instructions: ["Gravar sessão com consentimento do participante", "Anotar citações diretas no template", "Não sugerir respostas durante a sessão"],
       output_source: "mock_agent",
     },
     evidence_inventory: {
-      total: evidence.length,
+      uploaded_evidence: evidence.map((item, index) => ({
+        id: `evidence-${index + 1}`,
+        source: (item && item.source) || "manual",
+        title: (item && (item.title || item.name)) || `Evidência ${index + 1}`,
+        type: (item && item.type) || "document",
+        status: "processed",
+        uploaded_at: (item && item.uploaded_at) || new Date().toISOString(),
+      })),
+      desk_research_evidence: [
+        { id: "desk-1", source: "desk_research", title: "Benchmarking de mercado — soluções similares", type: "analysis", status: "processed" },
+        { id: "desk-2", source: "desk_research", title: "Dados de suporte e tickets relacionados ao problema", type: "data", status: "processed" },
+      ],
+      evidence_count: evidence.length + 2,
       input_modes: SUPPORTED_INPUT_MODES,
-      items: evidence,
       output_source: "mock_agent",
     },
-    synthesis: {
-      summary: "Síntese mockada de padrões, riscos e aprendizados para validar renderização frontend.",
-      insights: [
-        "Usuários precisam de clareza sobre problema, objetivo e evidências antes de avançar.",
-        "Aprovações humanas continuam necessárias entre etapas críticas do workflow.",
+    insights_package: {
+      summary: `Síntese de ${evidence.length + 2} evidências analisadas para o discovery "${title}".`,
+      patterns: [
+        { id: "pattern-1", title: "Fricção no passo inicial", description: "Usuários perdem tempo no início do fluxo por falta de contexto suficiente.", frequency: "alta", confidence: "high" },
+        { id: "pattern-2", title: "Dependência de processos manuais", description: "Etapas críticas dependem de planilhas externas sem integração.", frequency: "alta", confidence: "high" },
+        { id: "pattern-3", title: "Falta de visibilidade do progresso", description: "Usuários não sabem em que ponto do fluxo estão.", frequency: "média", confidence: "medium" },
       ],
+      tensions_and_contradictions: [
+        "Usuários querem mais automação, mas temem perder controle sobre decisões importantes.",
+        "Time quer menos reuniões, mas precisa de mais pontos de aprovação.",
+      ],
+      generated_insights: [
+        { id: "insight-1", title: "Contexto é pré-condição para ação", description: "O usuário não age sem entender o porquê. Fornecer contexto antes da tarefa reduz abandono.", evidence_refs: ["evidence-1", "desk-1"], confidence: "high", status: "approved" },
+        { id: "insight-2", title: "Automação reduz fricção, não elimina decisão humana", description: "Usuários aceitam automação em etapas operacionais, mas exigem controle em decisões estratégicas.", evidence_refs: ["evidence-1", "desk-2"], confidence: "high", status: "approved" },
+        { id: "insight-3", title: "Visibilidade aumenta confiança no fluxo", description: "Usuários que veem o progresso do processo tendem a completar com mais frequência.", evidence_refs: ["desk-1"], confidence: "medium", status: "approved" },
+      ],
+      traceability_map: {
+        "insight-1": ["evidence-1", "desk-1"],
+        "insight-2": ["evidence-1", "desk-2"],
+        "insight-3": ["desk-1"],
+      },
       output_source: "mock_agent",
     },
-    opportunities: {
-      prioritized: [
-        "Melhorar rastreabilidade entre CSD, evidências e recomendação.",
-        "Expor critérios de aprovação por etapa do discovery.",
+    insight_quality: {
+      review_status: "approved",
+      approved_insights: ["insight-1", "insight-2", "insight-3"],
+      rejected_insights: [],
+      quality_findings: ["Todos os insights têm evidência de suporte", "Nível de confiança médio-alto para todos os aprovados"],
+      output_source: "mock_agent",
+    },
+    opportunity_package: {
+      opportunity_areas: [
+        { id: "opp-1", title: "Contextualização proativa", description: "Fornecer contexto automático antes de cada etapa do fluxo para reduzir abandono.", impact: "alto", effort: "médio", priority: 1, linked_insights: ["insight-1"] },
+        { id: "opp-2", title: "Automação com checkpoints humanos", description: "Automatizar etapas operacionais mantendo gates de aprovação em decisões estratégicas.", impact: "alto", effort: "alto", priority: 2, linked_insights: ["insight-2"] },
+        { id: "opp-3", title: "Painel de progresso em tempo real", description: "Exibir progresso do fluxo para o usuário em cada etapa.", impact: "médio", effort: "baixo", priority: 3, linked_insights: ["insight-3"] },
       ],
+      opportunity_tree: {
+        root: `Melhorar a experiência de ${title} para o usuário`,
+        branches: [
+          { id: "opp-1", children: ["Contextualização no início da tarefa", "Resumo automático de contexto"] },
+          { id: "opp-2", children: ["Gates configuráveis por etapa"] },
+          { id: "opp-3", children: [] },
+        ],
+      },
+      output_source: "mock_agent",
+    },
+    solution_hypotheses: {
+      hypotheses: [
+        { id: "hyp-1", title: "Resumo automático de contexto antes da tarefa", opportunity_id: "opp-1", type: "feature", confidence_score: 78, assumptions_to_validate: ["Usuário lê o resumo antes de agir", "Resumo reduz dúvidas iniciais em 30%+"] },
+        { id: "hyp-2", title: "Workflow com etapas automatizadas e gates configuráveis", opportunity_id: "opp-2", type: "process", confidence_score: 72, assumptions_to_validate: ["Time aceita delegar etapas operacionais ao sistema", "Gates configuráveis reduzem tempo de aprovação"] },
+        { id: "hyp-3", title: "Barra de progresso persistente no fluxo", opportunity_id: "opp-3", type: "ui", confidence_score: 85, assumptions_to_validate: ["Visibilidade do progresso aumenta taxa de conclusão"] },
+      ],
+      assumptions_to_validate: [
+        "Usuário lê o resumo antes de agir",
+        "Gates configuráveis reduzem tempo de aprovação",
+        "Visibilidade do progresso aumenta taxa de conclusão",
+      ],
+      confidence_score: 78,
+      output_source: "mock_agent",
+    },
+    prototype: {
+      prototype_scope: "MVP funcional cobrindo fluxo principal com 3 telas-chave",
+      user_journeys: [
+        { id: "journey-1", title: "Fluxo completo de discovery", steps: ["Criar discovery", "Aguardar análise", "Aprovar plano", "Enviar evidências", "Revisar insights", "Aprovar oportunidades", "Ver recomendação"] },
+      ],
+      scenarios: [
+        { id: "scenario-1", title: "Usuário aprova fluxo completo sem desvios", type: "happy_path" },
+        { id: "scenario-2", title: "Usuário solicita ajuste no plano de pesquisa", type: "alternative" },
+      ],
+      final_figma_make_prompt: `Create a modern product discovery workflow UI for "${title}". Show a multi-step workflow with states: DOR analysis, research plan approval, evidence upload, insights review, opportunities review, and recommendation. Use a progress stepper at the top, a content card area in the center showing the current state content (research plan, insights, opportunities as structured lists), and action buttons at the bottom for human gates (Approve / Request Changes). The design should be clean and professional, using a sidebar for navigation between discoveries and a main content area. Color scheme: neutral whites and grays with a blue accent for active states and CTAs.`,
+      ds_component_checklist: ["Stepper", "Card", "Button (primary/secondary)", "Badge", "List", "Modal (confirmation)"],
+      prototype_acceptance_criteria: ["Fluxo principal navegável sem erros", "Gates de aprovação funcionais", "Estados do workflow visíveis em cada etapa"],
+      output_source: "mock_agent",
+    },
+    validation: {
+      recommended_validation_strategy: "Teste de usabilidade moderado com 5 participantes do perfil primário",
+      experiment_required: true,
+      experiment_structure: {
+        type: "A/B",
+        hypothesis: "A contextualização proativa antes da tarefa reduz o tempo de conclusão em 20%+",
+        control: "Fluxo atual sem contexto automático",
+        variant: "Novo fluxo com resumo automático de contexto",
+        success_metrics: ["Tempo de conclusão", "Taxa de abandono", "Satisfação (CSAT)"],
+        sample_size: "n=200 por grupo, 2 semanas de exposição",
+      },
+      success_metrics: ["Redução de 20% no tempo de conclusão", "Aumento de 15% na taxa de conclusão", "CSAT > 4/5"],
       output_source: "mock_agent",
     },
     recommendation: {
-      summary: "Prosseguir com o workflow agent-driven usando entradas manuais até integrações externas serem adicionadas.",
-      next_steps: ["Revisar outputs estruturados", "Aprovar gate humano", "Adicionar evidências manuais se necessário"],
+      recommendation_type: "proceed_with_validation",
+      executive_summary: `O discovery "${title}" completou todas as etapas de análise e revisão. Os insights gerados apontam para 3 oportunidades prioritárias com alta coerência e rastreabilidade de evidências. Recomenda-se prosseguir com prototipagem e validação.`,
+      confidence_level: "high",
+      next_steps: [
+        "Priorizar oportunidade 'Contextualização proativa' para primeira sprint de prototipagem",
+        "Configurar experimento A/B para validar hipótese principal",
+        "Agendar revisão do protótipo com stakeholders",
+        "Preparar handoff para o time de design",
+      ],
       output_source: "mock_agent",
     },
     handoff: {
+      delivery_package: title,
+      included_artifacts: [
+        "Discovery Charter (aprovado)",
+        "Plano de Pesquisa",
+        "Inventário de Evidências",
+        "Insights Aprovados (3)",
+        "Árvore de Oportunidades",
+        "Hipóteses de Solução",
+        "Prompt Figma Make",
+        "Plano de Validação",
+        "Recomendação Final",
+      ],
+      owner_notes: `Discovery conduzido via MockAgentAdapter para validar fluxo E2E. ${evidence.length} evidência(s) manual(is) incluída(s). Pronto para prototipagem.`,
+      final_summary: `Discovery "${title}" concluído com sucesso. 3 oportunidades identificadas, 1 experimento recomendado, prompt Figma Make gerado.`,
       status: "ready_for_review",
       output_source: "mock_agent",
     },
   };
 }
 
-function getNextMockStateForResume(run = {}, eventType = "") {
-  const normalizedEventType = String(eventType || "").trim();
-  if (normalizedEventType.includes("evidence") || run.current_state === MOCK_AGENT_STATES.EVIDENCE_UPLOAD_PENDING) {
-    return MOCK_AGENT_STATES.INSIGHT_REVIEW_PENDING;
-  }
-  if (normalizedEventType.includes("insight") || run.current_state === MOCK_AGENT_STATES.INSIGHT_REVIEW_PENDING) {
-    return MOCK_AGENT_STATES.OPPORTUNITY_REVIEW_PENDING;
-  }
-  if (normalizedEventType.includes("opportunit") || run.current_state === MOCK_AGENT_STATES.OPPORTUNITY_REVIEW_PENDING) {
-    return MOCK_AGENT_STATES.COMPLETED;
-  }
-  if (run.current_state === MOCK_AGENT_STATES.RESEARCH_APPROVAL_PENDING) {
-    return MOCK_AGENT_STATES.EVIDENCE_UPLOAD_PENDING;
+function getMockStateForResumeEvent(run = {}, eventType = "") {
+  const state = run.current_state;
+  const event = String(eventType || "").trim().toUpperCase();
+
+  // Explicit event + from-state → to-state transitions
+  const transitions = [
+    { event: "APPROVE_RESEARCH",           from: MOCK_AGENT_STATES.RESEARCH_APPROVAL_PENDING,  to: MOCK_AGENT_STATES.EVIDENCE_UPLOAD_PENDING,     status: MOCK_AGENT_STATUSES.WAITING_FOR_HUMAN },
+    { event: "REQUEST_RESEARCH_CHANGES",   from: MOCK_AGENT_STATES.RESEARCH_APPROVAL_PENDING,  to: MOCK_AGENT_STATES.DOR_ANALYZING,                status: MOCK_AGENT_STATUSES.RUNNING },
+    { event: "APPROVE_INSIGHTS",           from: MOCK_AGENT_STATES.INSIGHT_REVIEW_PENDING,      to: MOCK_AGENT_STATES.OPPORTUNITY_REVIEW_PENDING,   status: MOCK_AGENT_STATUSES.WAITING_FOR_HUMAN },
+    { event: "REQUEST_INSIGHT_CHANGES",    from: MOCK_AGENT_STATES.INSIGHT_REVIEW_PENDING,      to: MOCK_AGENT_STATES.PRIMARY_RESEARCH_PROCESSING,  status: MOCK_AGENT_STATUSES.RUNNING },
+    { event: "REQUEST_SYNTHESIS_REVIEW",   from: MOCK_AGENT_STATES.INSIGHT_REVIEW_PENDING,      to: MOCK_AGENT_STATES.PRIMARY_RESEARCH_PROCESSING,  status: MOCK_AGENT_STATUSES.RUNNING },
+    { event: "APPROVE_OPPORTUNITIES",      from: MOCK_AGENT_STATES.OPPORTUNITY_REVIEW_PENDING,  to: MOCK_AGENT_STATES.RECOMMENDATION_RUNNING,       status: MOCK_AGENT_STATUSES.RUNNING },
+    { event: "REQUEST_OPPORTUNITY_CHANGES",from: MOCK_AGENT_STATES.OPPORTUNITY_REVIEW_PENDING,  to: MOCK_AGENT_STATES.INSIGHT_REVIEW_PENDING,       status: MOCK_AGENT_STATUSES.WAITING_FOR_HUMAN },
+    { event: "REQUEST_OPPORTUNITY_REVIEW", from: MOCK_AGENT_STATES.OPPORTUNITY_REVIEW_PENDING,  to: MOCK_AGENT_STATES.INSIGHT_REVIEW_PENDING,       status: MOCK_AGENT_STATUSES.WAITING_FOR_HUMAN },
+    { event: "RETRY_RUN",                  from: MOCK_AGENT_STATES.FAILED,                      to: MOCK_AGENT_STATES.DOR_ANALYZING,                status: MOCK_AGENT_STATUSES.RUNNING },
+  ];
+
+  const match = transitions.find((t) => t.event === event && t.from === state);
+  if (match) {
+    return { state: match.to, status: match.status };
   }
 
-  return MOCK_AGENT_STATES.RESEARCH_APPROVAL_PENDING;
+  // No valid transition — return current state unchanged
+  return { state, status: run.status };
 }
 
 async function handleApiRequest(request, response, url) {
@@ -998,6 +1199,28 @@ async function handleApiRequest(request, response, url) {
       mode: getFrontendApiMode(),
       timestamp: new Date().toISOString(),
     });
+    return true;
+  }
+
+  // Serve config.vercel.js dynamically so the frontend receives the correct API mode
+  // from .env instead of the hardcoded "mock" in the static file.
+  if (request.method === "GET" && url.pathname === "/config.vercel.js") {
+    const mode = getFrontendApiMode();
+    const config = {
+      apiMode: mode,
+      agentMode: getAgentMode(),
+      mvpMode: true,
+      agentWorkflowEnabled: true,
+      conversationalAssistantEnabled: false,
+      externalIntegrationsEnabled: false,
+      deploymentTarget: "local-node",
+    };
+    response.writeHead(200, {
+      "Content-Type": "text/javascript; charset=utf-8",
+      "Cache-Control": "no-store",
+      "X-Content-Type-Options": "nosniff",
+    });
+    response.end(`window.DISCOVERY_FRONTEND_CONFIG = ${JSON.stringify(config, null, 2)};\n`);
     return true;
   }
 
@@ -1029,6 +1252,51 @@ async function handleApiRequest(request, response, url) {
     await forwardCrewAiRequest(response, `/status/${encodeURIComponent(kickoffId)}`, {
       method: "GET",
     });
+    return true;
+  }
+
+  if (request.method === "POST" && url.pathname === "/api/discovery/upload-files") {
+    try {
+      const body = await readJsonBody(request);
+      const rawDiscoveryId = String(body.discovery_id || "").trim();
+      const discoveryId = rawDiscoveryId.replace(/[^a-zA-Z0-9_-]/g, "_").slice(0, 64) || "unknown";
+      const incomingFiles = Array.isArray(body.files) ? body.files.slice(0, 10) : [];
+
+      const ALLOWED_EXTS = new Set([".txt", ".csv", ".json", ".md", ".xlsx", ".xls", ".pdf", ".docx"]);
+      const MAX_FILE_BYTES = 512 * 1024;
+      const uploadDir = path.join(LOCAL_DATA_DIR, "uploads", discoveryId);
+      fs.mkdirSync(uploadDir, { recursive: true });
+
+      const savedFiles = [];
+      for (const file of incomingFiles) {
+        const rawName = String(file.name || "arquivo").trim();
+        const safeName = path.basename(rawName).replace(/[^a-zA-Z0-9._-]/g, "_") || "arquivo.txt";
+        const ext = path.extname(safeName).toLowerCase();
+        if (!ALLOWED_EXTS.has(ext)) continue;
+
+        const content = Buffer.from(String(file.content_base64 || ""), "base64");
+        if (!content.length || content.length > MAX_FILE_BYTES) continue;
+
+        const destPath = path.join(uploadDir, safeName);
+        // Ensure resolved path stays inside uploadDir (prevent traversal)
+        if (!path.resolve(destPath).startsWith(path.resolve(uploadDir))) continue;
+
+        fs.writeFileSync(destPath, content);
+        const uploadedAt = new Date().toISOString();
+        savedFiles.push({
+          name: safeName,
+          path: destPath,
+          type: String(file.type || ""),
+          size: content.length,
+          uploadedAt,
+          uploaded_at: uploadedAt,
+        });
+      }
+
+      sendJson(response, 200, { files: savedFiles, discovery_id: discoveryId });
+    } catch (error) {
+      sendJson(response, 400, { error: error.message });
+    }
     return true;
   }
 
@@ -1076,12 +1344,17 @@ async function handleApiRequest(request, response, url) {
         return true;
       }
 
-      const updatedRun = run.current_state === MOCK_AGENT_STATES.DOR_ANALYZING
-        ? setMockAgentRun({
-            ...run,
-            current_state: MOCK_AGENT_STATES.RESEARCH_APPROVAL_PENDING,
-            status: MOCK_AGENT_STATUSES.WAITING_FOR_HUMAN,
-          })
+      // Auto-advance processing states on each poll; human gates stop here until /resume
+      const MOCK_POLL_ADVANCES = {
+        [MOCK_AGENT_STATES.DISCOVERY_CREATED]:          { next: MOCK_AGENT_STATES.DOR_ANALYZING,               status: MOCK_AGENT_STATUSES.RUNNING },
+        [MOCK_AGENT_STATES.DOR_ANALYZING]:              { next: MOCK_AGENT_STATES.RESEARCH_APPROVAL_PENDING,   status: MOCK_AGENT_STATUSES.WAITING_FOR_HUMAN },
+        [MOCK_AGENT_STATES.PRIMARY_RESEARCH_PROCESSING]:{ next: MOCK_AGENT_STATES.INSIGHT_REVIEW_PENDING,      status: MOCK_AGENT_STATUSES.WAITING_FOR_HUMAN },
+        [MOCK_AGENT_STATES.RECOMMENDATION_RUNNING]:     { next: MOCK_AGENT_STATES.HANDOFF_RUNNING,             status: MOCK_AGENT_STATUSES.RUNNING },
+        [MOCK_AGENT_STATES.HANDOFF_RUNNING]:            { next: MOCK_AGENT_STATES.COMPLETED,                   status: MOCK_AGENT_STATUSES.COMPLETED },
+      };
+      const advance = MOCK_POLL_ADVANCES[run.current_state];
+      const updatedRun = advance
+        ? setMockAgentRun({ ...run, current_state: advance.next, status: advance.status })
         : run;
       sendJson(response, 200, {
         run_id: updatedRun.run_id,
@@ -1115,11 +1388,11 @@ async function handleApiRequest(request, response, url) {
           return true;
         }
 
-        const nextState = getNextMockStateForResume(run, body.event_type || body.eventType || body.decision);
+        const { state: nextState, status: nextStatus } = getMockStateForResumeEvent(run, body.event_type || body.eventType || body.decision);
         const updatedRun = setMockAgentRun({
           ...run,
           current_state: nextState,
-          status: nextState === MOCK_AGENT_STATES.COMPLETED ? MOCK_AGENT_STATUSES.COMPLETED : MOCK_AGENT_STATUSES.WAITING_FOR_HUMAN,
+          status: nextStatus,
           events: [
             ...(Array.isArray(run.events) ? run.events : []),
             {
@@ -1241,8 +1514,8 @@ async function handleApiRequest(request, response, url) {
             ...(Array.isArray(run.evidence) ? run.evidence : []),
             ...evidence,
           ],
-          current_state: MOCK_AGENT_STATES.INSIGHT_REVIEW_PENDING,
-          status: MOCK_AGENT_STATUSES.WAITING_FOR_HUMAN,
+          current_state: MOCK_AGENT_STATES.PRIMARY_RESEARCH_PROCESSING,
+          status: MOCK_AGENT_STATUSES.RUNNING,
         });
 
         sendJson(response, 200, {
