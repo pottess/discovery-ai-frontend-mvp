@@ -17,7 +17,7 @@ build_d_o_r_framework:
     "attached_files": [], "reference_links": [], "completeness_score": 0, "missing_required_fields":
     [], "clarification_required": true, "clarification_questions": [], "workflow_recommendation":
     "PROCEED_TO_DISCOVERY_READINESS | REQUEST_MORE_INFORMATION"}'
-  agent: d_o_r_builder
+  agent: discovery_framework_agent
 validate_discovery_readiness:
   description: 'Avaliar se uma solicitação de descoberta estruturada está pronta para
     avançar para a definição da metodologia. Analisar os resultados da DOR. Avaliar:
@@ -37,7 +37,7 @@ validate_discovery_readiness:
     [], "uncertainty_profile": {"problem_uncertainty": "LOW | MEDIUM | HIGH", "user_uncertainty":
     "LOW | MEDIUM | HIGH", "validation_uncertainty": "LOW | MEDIUM | HIGH"}, "workflow_recommendation":
     "PROCEED_TO_METHODOLOGY | REQUEST_MORE_INFORMATION"}'
-  agent: discovery_readiness_specialist
+  agent: discovery_framework_agent
   context:
   - build_d_o_r_framework
 define_discovery_methodology:
@@ -93,7 +93,7 @@ define_discovery_methodology:
       "out_of_scope": [],
       "workflow_recommendation": "RESEARCH_APPROVAL_PENDING"
     }
-  agent: discovery_methodology_strategist
+  agent: discovery_framework_agent
   context:
   - validate_discovery_readiness
 prioritize_discovery_scope:
@@ -105,7 +105,7 @@ prioritize_discovery_scope:
   expected_output: 'JSON object: {"discovery_id": "string", "scope_status": "DEFINED",
     "scope_statement": "string", "priority_questions": [], "out_of_scope": [], "must_answer_questions":
     [], "strategic_focus_areas": [], "workflow_recommendation": "PROCEED_TO_RESEARCH_PLANNING"}'
-  agent: discovery_scope_prioritization_specialist
+  agent: discovery_framework_agent
   context:
   - define_discovery_methodology
 create_research_execution_plan:

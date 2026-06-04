@@ -78,6 +78,33 @@ class DiscoveryAiCrew:
 
     
     @agent
+    def discovery_framework_agent(self) -> Agent:
+
+
+        return Agent(
+            config=self.agents_config["discovery_framework_agent"],
+
+
+            tools=[FileReadTool()],
+            reasoning=False,
+            max_reasoning_attempts=None,
+            inject_date=True,
+            allow_delegation=False,
+            max_iter=25,
+            max_rpm=None,
+
+
+            max_execution_time=None,
+            llm=LLM(
+                model=get_text_llm_model(),
+
+
+            ),
+
+        )
+
+
+    @agent
     def d_o_r_builder(self) -> Agent:
         
         
@@ -860,10 +887,7 @@ class DiscoveryAiCrew:
 
         return Crew(
             agents=[
-                self.d_o_r_builder(),
-                self.discovery_readiness_specialist(),
-                self.discovery_methodology_strategist(),
-                self.discovery_scope_prioritization_specialist(),
+                self.discovery_framework_agent(),
             ],
             tasks=[
                 self.build_d_o_r_framework(),
@@ -879,20 +903,11 @@ class DiscoveryAiCrew:
     def crew(self) -> Crew:
         """Creates the complete DiscoveryAi crew"""
 
-        # Kept for the full conceptual workflow; MVP kickoff uses a sequential phase.
-        manager_agent = self._create_manager_agent()
-
         return Crew(
             agents=self.agents,  # Automatically created by the @agent decorator
             tasks=self.tasks,  # Automatically created by the @task decorator
-            process=Process.hierarchical,
+            process=Process.sequential,
             verbose=True,
-
-
-            manager_agent=manager_agent,
-
-
-            
         )
 
 
