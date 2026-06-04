@@ -42,44 +42,107 @@ validate_discovery_readiness:
   - build_d_o_r_framework
 define_discovery_methodology:
   description: |-
-    Defina a metodologia de descoberta mais adequada para {discovery_id}. Consuma os resultados de validate_discovery_readiness e build_d_o_r_framework.
+    Defina a metodologia de descoberta mais adequada para {discovery_id}. Consuma os resultados de validate_discovery_readiness, build_d_o_r_framework e a matriz determinística recebida em {decision_matrix}.
 
-    PASSO 1 — Classifique o tipo de problema com base no contexto da discovery:
-    - Se há alteração de tela, fluxo, interface ou feature específica com problema razoavelmente claro: classifique como MELHORIA INCREMENTAL ou AVALIAÇÃO. Priorize análise heurística, prototipação, teste de usabilidade e teste de conceito. NÃO recomendar entrevista em profundidade como método primário.
-    - Se o problema é ambíguo, o público ainda é pouco conhecido, ou há muitas dúvidas abertas sobre comportamento/motivação: classifique como EXPLORAÇÃO. Priorize entrevistas em profundidade, pesquisa contextual.
-    - Se existe hipótese, conceito ou solução proposta a validar: classifique como VALIDAÇÃO. Priorize teste de conceito, survey, experimento.
-    - Se há múltiplos tipos de incerteza sobrepostos: classifique como MISTO. Combine métodos de categorias diferentes com sequência explícita.
+    PRINCÍPIO OBRIGATÓRIO:
+    Metodologia = risco crítico × prazo × acesso × maturidade.
+    A escolha começa pelo envelope possível do discovery, não pelo método ideal abstrato.
 
-    PASSO 2 — Selecione métodos aplicando as regras:
-    - Entrevista em profundidade: SOMENTE quando problema ambíguo, necessidade desconhecida, ou muitas dúvidas abertas sobre motivação/comportamento.
-    - Desk research: SOMENTE quando há benchmark relevante, contexto externo/regulatório, arquivos enviados ou material prévio. NÃO usar como fallback.
-    - Análise heurística: quando há interface ou fluxo existente a avaliar sem recrutar participantes.
-    - Teste de usabilidade: quando há protótipo ou produto para observação de interação.
-    - Teste de conceito: quando há proposta ou conceito a validar com público-alvo.
-    - Survey: quando precisa validar escala ou distribuição de percepções.
-    - Arquivos são complementares: use arquivos enviados quando existirem e puderem ser lidos; se não houver arquivo, não use isso para rebaixar a qualidade do briefing nem para escolher exploração por padrão.
+    ENVELOPE DO DISCOVERY:
+    Antes de escolher métodos, avalie objetivo, problema, prazo/deadline, stakeholders, usuários disponíveis, dependências, escopo esperado, riscos conhecidos, arquivos, links e evidência existente.
+    Pergunta central: qual discovery é possível fazer dentro deste envelope?
+    Parâmetro dominante: prazo/timebox.
 
-    PASSO 3 — Estruture cada método selecionado com schema completo: method_id, method_name, why_recommended, when_to_use, expected_evidence, estimated_effort, sequence_order.
+    CLASSIFICAÇÃO DE TIMEBOX:
+    - sprint_discovery: 1 a 5 dias. Permite desk research, benchmark, stakeholder interviews, entrevistas rápidas, heuristic review, analytics review, prototype smoke test. Não comporta diary study, pesquisa longitudinal, recrutamento complexo, jornadas profundas ou service blueprint robusto.
+    - short_discovery: 1 a 2 semanas. Recomende até 2 ou 3 métodos combinando exploração leve e validação rápida.
+    - medium_discovery: 2 a 6 semanas. Permite pesquisa generativa estruturada, contextual inquiry, jornadas completas, service blueprint, card sorting, concept validation e prototipação iterativa.
+    - expanded_discovery: mais de 6 semanas. Permite estudos longitudinais, etnografia leve, experimentos longitudinais, pesquisa multi-stakeholder e validações múltiplas somente se o problema justificar.
 
-    PASSO 4 — Inclua not_recommended_methods com justificativa para os principais métodos descartados.
+    ORDEM CORRETA DA DECISÃO:
+    1. Prazo/timebox: quanto tempo existe?
+    2. Tipo de problema: estamos descobrindo problema ou validando solução?
+    3. Incerteza dominante: desejabilidade, usabilidade, viabilidade técnica, viabilidade de negócio, viabilidade operacional ou valor?
+    4. Maturidade do conhecimento: quanto já sabemos a partir de certezas, suposições, dúvidas, arquivos, pesquisas anteriores, analytics, feedbacks e decisões já tomadas?
+    5. Tipo de dúvida: comportamento, atitude, uso, arquitetura, valor, usabilidade, entendimento, operacional ou negócio?
+    6. Acesso a usuários: none, low, medium ou high?
+    7. Natureza do ecossistema: produto, serviço, processo, operação, interface ou jornada?
+    8. Restrições organizacionais: compliance, jurídico, engenharia, dependências, dados, usuários indisponíveis, prazo rígido, falta de protótipo ou falta de analytics.
 
-    PASSO 5 — Retorne o JSON completo conforme contrato. OBRIGATÓRIO: recommended_methods com ao menos 2 métodos estruturados. NÃO retornar recommended_methods como array vazio.
+    DESIGN THINKING FRAME:
+    Indique sempre dominant_design_thinking_frame como empathize, define, ideate, prototype ou test.
+    - Discovery curtíssimo: empathize leve, define forte, ideate moderado, prototype leve, test forte.
+    - Discovery exploratório longo: empathize muito forte, define forte, ideate moderado, prototype iterativo, test iterativo.
+    - Discovery de validação: empathize leve, define leve, ideate mínimo, prototype forte, test muito forte.
+
+    REGRAS DE DECISÃO METODOLÓGICA:
+    - Se problema claro + tela/fluxo/interface existente: metodologia evaluative; priorize análise heurística, teste de usabilidade, prototipação se ainda não houver artefato testável, e teste de conceito se a solução ainda for conceitual.
+    - Se problema claro + solução/protótipo proposto: metodologia validation; priorize teste de conceito, teste de usabilidade, prototype smoke test e survey rápido se precisar validar escala.
+    - Se problema ambíguo + público desconhecido: metodologia exploratory; priorize entrevistas em profundidade e pesquisa contextual. Desk research somente se houver material, benchmark, documentação, mercado, regulação, arquivos ou links relevantes.
+    - Se muita evidência já existe: reduza pesquisa generativa, priorize validação rápida, consolide conhecimento por análise documental e recomende teste leve para reduzir risco residual.
+    - Se prazo é 1–5 dias: não recomende métodos longos; recomende métodos leves e focados; priorize risco crítico e limite a quantidade de métodos.
+    - Se prazo é 1–2 semanas: recomende até 2 ou 3 métodos.
+    - Se prazo é 2–6 semanas: permita metodologia mais robusta e ciclos iterativos quando fizer sentido.
+    - Se prazo é maior que 6 semanas: permita estudos longitudinais, multi-stakeholder ou jornadas completas somente se o problema justificar.
+
+    ANTI-PATTERN OBRIGATÓRIO:
+    Nunca recomendar "discovery completo". Não existe discovery completo. Existe discovery proporcional ao risco, ao tempo e ao conhecimento disponível.
+
+    ESTABILIDADE:
+    - Aplique a matriz antes da justificativa textual.
+    - Use {methodology_decision} como recomendação-semente estável.
+    - Não troque método sem apontar qual critério mudou.
+    - O LLM pode explicar e adaptar texto, mas não pode ignorar a matriz.
+    - Para o mesmo input, o output deve permanecer estável.
+
+    IDIOMA:
+    Todos os campos textuais devem ser gerados em português brasileiro.
   expected_output: |-
     JSON object: {
       "discovery_id": "string",
+      "decision_matrix": {
+        "timebox": {
+          "classification": "sprint_discovery | short_discovery | medium_discovery | expanded_discovery",
+          "available_time": "string",
+          "implications": []
+        },
+        "problem_type": "problem_discovery | solution_validation | interface_evaluation | process_discovery | operational_flow | product_strategy",
+        "dominant_uncertainty": [
+          "desirability",
+          "usability",
+          "feasibility",
+          "business_viability",
+          "operational_viability",
+          "value"
+        ],
+        "knowledge_maturity": "low | medium | high",
+        "user_access": "none | low | medium | high",
+        "ecosystem_nature": "product | service | process | operation | interface | journey",
+        "constraints": [],
+        "dominant_design_thinking_frame": "empathize | define | ideate | prototype | test",
+        "decision_rationale": []
+      },
       "recommended_methodology": "exploratory | evaluative | validation | mixed",
       "methodology_label": "string",
       "methodology_rationale": "string",
       "confidence_score": 0,
       "recommended_methods": [
         {
-          "method_id": "heuristic_analysis | prototype | usability_test | concept_test | interview | survey | desk_research | workshop",
+          "method_id": "heuristic_analysis | prototype | usability_test | concept_test | interview | survey | desk_research | workshop | analytics_review | stakeholder_interview",
           "method_name": "string",
           "why_recommended": "string",
           "when_to_use": "string",
           "expected_evidence": "string",
           "estimated_effort": "low | medium | high",
-          "sequence_order": 1
+          "sequence_order": 1,
+          "fits_timebox": true,
+          "risk_addressed": [
+            "desirability",
+            "usability",
+            "feasibility",
+            "business_viability",
+            "value"
+          ]
         }
       ],
       "not_recommended_methods": [

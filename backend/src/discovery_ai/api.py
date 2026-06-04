@@ -4,6 +4,7 @@ import json
 import os
 import pathlib
 import re
+import unicodedata
 import uuid
 from datetime import datetime, timezone
 from typing import Any
@@ -222,6 +223,518 @@ def validate_kickoff_file_refs(file_refs: list[dict[str, Any]]) -> tuple[list[di
     return valid_refs, valid_paths, warnings
 
 
+def as_list(value: Any) -> list[Any]:
+    if value is None:
+        return []
+    if isinstance(value, list):
+        return value
+    if isinstance(value, (tuple, set)):
+        return list(value)
+    if isinstance(value, str):
+        return [value] if value.strip() else []
+    return [value]
+
+
+def normalize_search_text(value: Any) -> str:
+    text = str(value or "").lower()
+    normalized = unicodedata.normalize("NFKD", text)
+    return "".join(char for char in normalized if not unicodedata.combining(char))
+
+
+def contains_any(text: str, keywords: list[str]) -> bool:
+    return any(normalize_search_text(keyword) in text for keyword in keywords)
+
+
+def collect_intake_text(inputs: dict[str, Any]) -> str:
+    chunks = [
+        inputs.get("title"),
+        inputs.get("objective"),
+        inputs.get("problem"),
+        inputs.get("description"),
+        inputs.get("deadline"),
+        " ".join(str(item) for item in as_list(inputs.get("certainties"))),
+        " ".join(str(item) for item in as_list(inputs.get("assumptions"))),
+        " ".join(str(item) for item in as_list(inputs.get("open_questions"))),
+    ]
+    return normalize_search_text(" ".join(str(chunk) for chunk in chunks if chunk))
+
+
+def parse_timebox_days(deadline: Any) -> tuple[int | None, str]:
+    text = str(deadline or "").strip()
+    normalized = normalize_search_text(text)
+    if not normalized:
+        return None, "Prazo não informado"
+
+    relative_patterns = [
+        (r"(\d+)\s*(dia|dias|day|days)", 1),
+        (r"(\d+)\s*(semana|semanas|week|weeks)", 7),
+        (r"(\d+)\s*(mes|meses|month|months)", 30),
+    ]
+    for pattern, multiplier in relative_patterns:
+        match = re.search(pattern, normalized)
+        if match:
+            days = max(1, int(match.group(1)) * multiplier)
+            if contains_any(normalized, ["mais de", "acima de", "maior que"]):
+                days += 1
+            return days, text
+
+    for date_format in ("%d/%m/%Y", "%d-%m-%Y", "%Y-%m-%d", "%d/%m/%y"):
+        try:
+            deadline_date = datetime.strptime(text[:10], date_format)
+            today = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
+            days = max(1, (deadline_date - today).days)
+            return days, text
+        except ValueError:
+            continue
+
+    return None, text
+
+
+def classify_timebox(deadline: Any) -> dict[str, Any]:
+    days, available_time = parse_timebox_days(deadline)
+    if days is None:
+        return {
+            "classification": "short_discovery",
+            "available_time": available_time,
+            "implications": [
+                "Sem prazo estruturado, assumir discovery curto como envelope conservador para MVP.",
+                "Limitar quantidade de métodos e evitar estudos longos até o usuário informar uma janela real.",
+            ],
+        }
+
+    if days <= 5:
+        return {
+            "classification": "sprint_discovery",
+            "available_time": available_time,
+            "implications": [
+                "Priorizar métodos leves, rápidos e focados no risco crítico.",
+                "Não recomendar estudos longitudinais, recrutamento complexo ou jornadas profundas.",
+            ],
+        }
+
+    if days <= 14:
+        return {
+            "classification": "short_discovery",
+            "available_time": available_time,
+            "implications": [
+                "Recomendar no máximo dois ou três métodos.",
+                "Combinar exploração leve com validação rápida quando houver incertezas sobrepostas.",
+            ],
+        }
+
+    if days <= 42:
+        return {
+            "classification": "medium_discovery",
+            "available_time": available_time,
+            "implications": [
+                "Permite pesquisa mais estruturada e ciclos iterativos quando fizer sentido.",
+                "Ainda exige foco por risco dominante para evitar escopo amplo demais.",
+            ],
+        }
+
+    return {
+        "classification": "expanded_discovery",
+        "available_time": available_time,
+        "implications": [
+            "Permite estudos longitudinais, multi-stakeholder ou jornadas completas se o problema justificar.",
+            "Manter proporcionalidade entre profundidade, risco e conhecimento disponível.",
+        ],
+    }
+
+
+def count_people(inputs: dict[str, Any], keys: list[str]) -> int:
+    count = 0
+    for key in keys:
+        value = inputs.get(key)
+        if isinstance(value, dict):
+            count += sum(len(as_list(item)) for item in value.values())
+        else:
+            count += len(as_list(value))
+    return count
+
+
+def build_methodology_decision_matrix(inputs: dict[str, Any]) -> dict[str, Any]:
+    text = collect_intake_text(inputs)
+    certainty_count = len(as_list(inputs.get("certainties")))
+    assumption_count = len(as_list(inputs.get("assumptions")))
+    doubt_count = len(as_list(inputs.get("open_questions")))
+    file_count = len(as_list(inputs.get("files") or inputs.get("file")))
+    link_count = len(as_list(inputs.get("links") or inputs.get("link")))
+    evidence_count = file_count + link_count
+    user_count = count_people(inputs, ["users", "personas"])
+    stakeholder_count = count_people(inputs, ["stakeholders", "owners", "participants"])
+
+    timebox = classify_timebox(inputs.get("deadline"))
+    has_interface_signal = contains_any(text, ["tela", "fluxo", "interface", "usabilidade", "ux", "jornada de uso", "feature", "prototipo", "protótipo"])
+    has_validation_intent = contains_any(text, ["validar", "confirmar", "hipotese", "hipótese", "conceito", "proposta", "teste de conceito"])
+    has_solution_signal = contains_any(text, ["solucao", "solução", "mvp", "prototipo", "protótipo"]) or has_validation_intent
+    has_exploratory_signal = contains_any(text, ["descobrir", "entender", "explorar", "mapear", "diagnosticar", "necessidade", "motivacao", "motivação"])
+    has_process_signal = contains_any(text, ["processo", "operacao", "operação", "backoffice", "rotina", "procedimento"])
+    has_service_signal = contains_any(text, ["servico", "serviço", "cross-channel", "omnichannel", "atendimento"])
+    has_business_signal = contains_any(text, ["roi", "receita", "margem", "orcamento", "orçamento", "budget", "negocio", "negócio", "adesao", "adesão"])
+    has_feasibility_signal = contains_any(text, ["engenharia", "tecnico", "técnico", "integracao", "integração", "dados", "api", "dependencia", "dependência"])
+    has_compliance_signal = contains_any(text, ["compliance", "juridico", "jurídico", "regulatorio", "regulatório", "lgpd"])
+    has_benchmark_signal = contains_any(text, ["benchmark", "mercado", "concorrente", "documentacao", "documentação", "regulacao", "regulação"])
+
+    if has_interface_signal and not has_validation_intent:
+        problem_type = "interface_evaluation"
+    elif has_solution_signal:
+        problem_type = "solution_validation"
+    elif has_process_signal:
+        problem_type = "operational_flow"
+    elif has_business_signal:
+        problem_type = "product_strategy"
+    else:
+        problem_type = "problem_discovery" if has_exploratory_signal or doubt_count > certainty_count + 1 else "product_strategy"
+
+    dominant_uncertainty: list[str] = []
+    if has_interface_signal:
+        dominant_uncertainty.append("usability")
+    if has_solution_signal or contains_any(text, ["valor", "aderencia", "aderência", "demanda"]):
+        dominant_uncertainty.extend(["value", "desirability"])
+    if has_feasibility_signal:
+        dominant_uncertainty.append("feasibility")
+    if has_business_signal:
+        dominant_uncertainty.append("business_viability")
+    if has_process_signal:
+        dominant_uncertainty.append("operational_viability")
+    if not dominant_uncertainty:
+        dominant_uncertainty = ["desirability", "value"]
+    dominant_uncertainty = list(dict.fromkeys(dominant_uncertainty))
+
+    if evidence_count >= 2 or (certainty_count >= 3 and doubt_count <= max(1, assumption_count)):
+        knowledge_maturity = "high"
+    elif evidence_count >= 1 or certainty_count + assumption_count + doubt_count >= 3:
+        knowledge_maturity = "medium"
+    else:
+        knowledge_maturity = "low"
+
+    if user_count >= 2:
+        user_access = "high"
+    elif user_count == 1:
+        user_access = "medium"
+    elif stakeholder_count:
+        user_access = "low"
+    else:
+        user_access = "none"
+
+    if has_interface_signal:
+        ecosystem_nature = "interface"
+    elif has_service_signal:
+        ecosystem_nature = "service"
+    elif has_process_signal:
+        ecosystem_nature = "operation"
+    else:
+        ecosystem_nature = "product"
+
+    constraints = []
+    if timebox["classification"] == "sprint_discovery":
+        constraints.append("Prazo de 1 a 5 dias limita profundidade e quantidade de métodos.")
+    if user_access in {"none", "low"}:
+        constraints.append("Acesso baixo ou inexistente a usuários exige métodos leves, proxies ou validação assíncrona.")
+    if has_compliance_signal:
+        constraints.append("Há possível restrição de compliance/jurídico/regulação.")
+    if has_feasibility_signal:
+        constraints.append("Há possível dependência técnica, de dados ou engenharia.")
+    if inputs.get("file_read_warnings"):
+        constraints.append("Alguns arquivos anexados não puderam ser lidos e não devem bloquear o briefing.")
+
+    if problem_type in {"interface_evaluation", "solution_validation"}:
+        dominant_frame = "test"
+    elif problem_type == "problem_discovery":
+        dominant_frame = "empathize"
+    elif problem_type == "operational_flow":
+        dominant_frame = "define"
+    else:
+        dominant_frame = "define"
+
+    return {
+        "timebox": timebox,
+        "problem_type": problem_type,
+        "dominant_uncertainty": dominant_uncertainty,
+        "knowledge_maturity": knowledge_maturity,
+        "user_access": user_access,
+        "ecosystem_nature": ecosystem_nature,
+        "constraints": constraints,
+        "dominant_design_thinking_frame": dominant_frame,
+        "decision_rationale": [
+            "A decisão começou pelo envelope possível de prazo, acesso e evidência disponível.",
+            f"Tipo de problema classificado como {problem_type} a partir dos sinais do briefing.",
+            f"Maturidade do conhecimento classificada como {knowledge_maturity} com base em CSD, arquivos e links.",
+            f"Acesso a usuários classificado como {user_access}.",
+            "Métodos longos ou sem aderência ao risco dominante foram descartados.",
+        ],
+        "_signals": {
+            "certainty_count": certainty_count,
+            "assumption_count": assumption_count,
+            "doubt_count": doubt_count,
+            "evidence_count": evidence_count,
+            "has_benchmark_signal": has_benchmark_signal,
+            "has_interface_signal": has_interface_signal,
+            "has_validation_intent": has_validation_intent,
+            "has_solution_signal": has_solution_signal,
+            "has_exploratory_signal": has_exploratory_signal,
+        },
+    }
+
+
+METHOD_CATALOG: dict[str, dict[str, Any]] = {
+    "heuristic_analysis": {
+        "method_name": "Análise heurística",
+        "expected_evidence": "Relatório de avaliação especialista com problemas, severidade e recomendações.",
+        "estimated_effort": "low",
+    },
+    "prototype": {
+        "method_name": "Prototipação",
+        "expected_evidence": "Protótipo navegável, fluxo ou artefato testável da proposta.",
+        "estimated_effort": "medium",
+    },
+    "usability_test": {
+        "method_name": "Teste de usabilidade",
+        "expected_evidence": "Notas, gravações ou transcrições de sessões com tarefas, fricções e taxa de sucesso.",
+        "estimated_effort": "medium",
+    },
+    "concept_test": {
+        "method_name": "Teste de conceito",
+        "expected_evidence": "Feedback estruturado sobre clareza, valor percebido, aderência e dúvidas do conceito.",
+        "estimated_effort": "low",
+    },
+    "interview": {
+        "method_name": "Entrevista em profundidade",
+        "expected_evidence": "Transcrições ou notas de entrevistas sobre contexto, comportamento, motivação e necessidades.",
+        "estimated_effort": "high",
+    },
+    "survey": {
+        "method_name": "Survey rápido",
+        "expected_evidence": "Planilha CSV/XLSX com respostas, distribuição de percepções e segmentos.",
+        "estimated_effort": "medium",
+    },
+    "desk_research": {
+        "method_name": "Pesquisa documental",
+        "expected_evidence": "Notas, links, benchmarks, documentação, materiais prévios ou análise regulatória.",
+        "estimated_effort": "low",
+    },
+    "workshop": {
+        "method_name": "Workshop de definição",
+        "expected_evidence": "Notas de alinhamento, mapa de decisões, riscos, hipóteses e prioridades.",
+        "estimated_effort": "medium",
+    },
+    "analytics_review": {
+        "method_name": "Análise de analytics",
+        "expected_evidence": "Métricas de funil, uso, conversão, erro, abandono ou comportamento agregado.",
+        "estimated_effort": "low",
+    },
+    "stakeholder_interview": {
+        "method_name": "Entrevista com stakeholders",
+        "expected_evidence": "Notas sobre objetivos, restrições, critérios de sucesso e riscos organizacionais.",
+        "estimated_effort": "low",
+    },
+}
+
+
+def build_method(method_id: str, why: str, when: str, risks: list[str], sequence_order: int) -> dict[str, Any]:
+    method = METHOD_CATALOG[method_id]
+    return {
+        "method_id": method_id,
+        "method_name": method["method_name"],
+        "why_recommended": why,
+        "when_to_use": when,
+        "expected_evidence": method["expected_evidence"],
+        "estimated_effort": method["estimated_effort"],
+        "sequence_order": sequence_order,
+        "fits_timebox": True,
+        "risk_addressed": risks,
+    }
+
+
+def cap_methods_for_timebox(method_ids: list[str], timebox_classification: str) -> list[str]:
+    if timebox_classification == "sprint_discovery":
+        return method_ids[:2]
+    if timebox_classification == "short_discovery":
+        return method_ids[:3]
+    return method_ids[:5]
+
+
+def build_methodology_decision(inputs: dict[str, Any], decision_matrix: dict[str, Any]) -> dict[str, Any]:
+    problem_type = decision_matrix["problem_type"]
+    timebox_classification = decision_matrix["timebox"]["classification"]
+    maturity = decision_matrix["knowledge_maturity"]
+    user_access = decision_matrix["user_access"]
+    signals = decision_matrix.get("_signals", {})
+    uncertainties = decision_matrix["dominant_uncertainty"]
+
+    if problem_type == "interface_evaluation":
+        methodology = "evaluative"
+        label = "Discovery Avaliativa"
+        method_ids = ["heuristic_analysis", "prototype", "usability_test", "concept_test"]
+    elif problem_type == "solution_validation":
+        methodology = "validation"
+        label = "Discovery de Validação"
+        method_ids = ["concept_test", "prototype", "usability_test", "survey"]
+    elif problem_type == "problem_discovery" and maturity == "low":
+        methodology = "exploratory"
+        label = "Discovery Exploratória"
+        method_ids = ["interview", "stakeholder_interview", "desk_research"]
+    elif problem_type == "operational_flow":
+        methodology = "mixed"
+        label = "Discovery Mista de Processo"
+        method_ids = ["stakeholder_interview", "workshop", "heuristic_analysis"]
+    else:
+        methodology = "mixed"
+        label = "Discovery Mista"
+        method_ids = ["desk_research", "concept_test", "usability_test"]
+
+    if maturity == "high" and methodology == "exploratory":
+        methodology = "mixed"
+        label = "Discovery Mista com Validação Rápida"
+        method_ids = ["desk_research", "concept_test", "usability_test"]
+
+    if not signals.get("has_benchmark_signal") and not signals.get("evidence_count") and "desk_research" in method_ids:
+        method_ids = [method_id for method_id in method_ids if method_id != "desk_research"]
+
+    if user_access == "none":
+        method_ids = [method_id for method_id in method_ids if method_id not in {"interview", "usability_test", "survey"}]
+        method_ids.extend(["stakeholder_interview", "heuristic_analysis"])
+
+    method_ids = list(dict.fromkeys(cap_methods_for_timebox(method_ids, timebox_classification)))
+    if len(method_ids) < 2:
+        for fallback_id in ("heuristic_analysis", "concept_test", "stakeholder_interview"):
+            if fallback_id not in method_ids:
+                method_ids.append(fallback_id)
+            if len(method_ids) >= 2:
+                break
+
+    why_by_method = {
+        "heuristic_analysis": "Há sinais de tela, fluxo, interface ou melhoria incremental; a avaliação especialista reduz risco de usabilidade com baixo esforço.",
+        "prototype": "A discovery precisa materializar a proposta ou alteração antes de validar entendimento e interação.",
+        "usability_test": "O risco dominante inclui usabilidade e exige observar interação real com fluxo, tela ou protótipo.",
+        "concept_test": "Existe hipótese, conceito ou direção de solução que precisa ser validada antes de avançar.",
+        "interview": "O problema ou público ainda é ambíguo e requer contexto qualitativo sobre comportamento, motivação e necessidade.",
+        "survey": "Há necessidade de medir escala, distribuição de percepções ou priorização com mais respondentes.",
+        "desk_research": "Há material, link, benchmark, documentação ou contexto externo útil para consolidar conhecimento existente.",
+        "workshop": "Há necessidade de alinhar stakeholders e transformar conhecimento disperso em decisões priorizadas.",
+        "analytics_review": "Há sinal de métricas ou comportamento agregado que pode reduzir risco rapidamente.",
+        "stakeholder_interview": "Acesso a usuários é limitado ou há dependências organizacionais que precisam ser explicitadas.",
+    }
+    when_by_method = {
+        "heuristic_analysis": "Use no início para levantar fricções e hipóteses de melhoria antes de envolver usuários.",
+        "prototype": "Use antes de testes quando ainda não houver artefato testável.",
+        "usability_test": "Use quando houver produto, fluxo ou protótipo navegável para observar tarefas reais.",
+        "concept_test": "Use quando a solução ainda for conceitual e precisar validar clareza e valor percebido.",
+        "interview": "Use quando a pergunta principal ainda for sobre comportamento, motivação, necessidade ou contexto.",
+        "survey": "Use depois de hipóteses claras para validar escala, preferência ou segmentação.",
+        "desk_research": "Use quando existirem materiais, dados, benchmarks, links ou regulação relevantes.",
+        "workshop": "Use quando decisões e restrições internas precisarem ser alinhadas com rapidez.",
+        "analytics_review": "Use quando dados de uso, funil, abandono ou erro estiverem disponíveis.",
+        "stakeholder_interview": "Use quando for necessário entender restrições, metas, dependências e critérios de sucesso.",
+    }
+
+    recommended_methods = [
+        build_method(method_id, why_by_method[method_id], when_by_method[method_id], uncertainties, index + 1)
+        for index, method_id in enumerate(method_ids)
+    ]
+
+    not_recommended_methods = []
+    for method_id, method in METHOD_CATALOG.items():
+        if method_id in method_ids:
+            continue
+        if method_id == "interview" and problem_type in {"interface_evaluation", "solution_validation"}:
+            reason = "Não é método primário quando o problema é claro e o risco dominante está em usabilidade, conceito ou solução."
+        elif method_id == "desk_research" and not signals.get("has_benchmark_signal") and not signals.get("evidence_count"):
+            reason = "Não há sinal de benchmark, documentação, regulação, arquivo ou link relevante para justificar pesquisa documental agora."
+        elif timebox_classification == "sprint_discovery" and method["estimated_effort"] == "high":
+            reason = "O prazo de sprint discovery não comporta método de alto esforço."
+        else:
+            reason = "Menor aderência ao risco dominante e ao envelope atual de prazo, acesso e maturidade."
+        not_recommended_methods.append({"method_id": method_id, "reason": reason})
+
+    confidence_base = {"low": 62, "medium": 74, "high": 84}[maturity]
+    confidence_delta = 0
+    if user_access in {"medium", "high"}:
+        confidence_delta += 4
+    if signals.get("evidence_count"):
+        confidence_delta += min(6, int(signals["evidence_count"]) * 2)
+    if timebox_classification == "sprint_discovery":
+        confidence_delta -= 5
+    confidence_score = max(45, min(92, confidence_base + confidence_delta))
+
+    priority_questions = {
+        "interface_evaluation": [
+            "Quais fricções impedem compreensão, conclusão ou confiança no fluxo atual?",
+            "Qual solução ou protótipo reduz melhor o risco de usabilidade?",
+            "Quais evidências mínimas são necessárias antes de avançar para implementação?",
+        ],
+        "solution_validation": [
+            "O conceito resolve uma dor real e percebida pelo público-alvo?",
+            "A proposta é clara, desejável e suficientemente confiável para avançar?",
+            "Quais hipóteses precisam ser rejeitadas antes do investimento em entrega?",
+        ],
+        "problem_discovery": [
+            "Qual comportamento, motivação ou necessidade ainda não está compreendido?",
+            "Quais suposições são mais arriscadas para a decisão de produto?",
+            "Que evidência mínima tornaria o problema suficientemente definido?",
+        ],
+        "operational_flow": [
+            "Quais etapas, dependências e decisões geram maior fricção operacional?",
+            "Quais stakeholders controlam ou sofrem o impacto do processo?",
+            "Qual mudança reduziria risco operacional com menor esforço?",
+        ],
+    }.get(problem_type, [
+        "Qual risco crítico precisa ser reduzido primeiro?",
+        "Que evidência mínima sustenta a próxima decisão?",
+        "O que deve ficar fora do escopo para manter foco?",
+    ])
+
+    scope_statement = (
+        "Discovery proporcional ao envelope atual: focar no risco dominante, executar apenas métodos compatíveis "
+        "com prazo, acesso e maturidade do conhecimento, e parar em RESEARCH_APPROVAL_PENDING para aprovação humana."
+    )
+
+    return {
+        "decision_matrix": {key: value for key, value in decision_matrix.items() if key != "_signals"},
+        "recommended_methodology": methodology,
+        "methodology_label": label,
+        "methodology_rationale": (
+            "A metodologia foi definida por matriz determinística: risco crítico x prazo x acesso x maturidade. "
+            f"O envelope é {timebox_classification}, o problema é {problem_type}, a maturidade é {maturity} "
+            f"e o acesso a usuários é {user_access}."
+        ),
+        "confidence_score": confidence_score,
+        "recommended_methods": recommended_methods,
+        "not_recommended_methods": not_recommended_methods[:6],
+        "priority_questions": priority_questions,
+        "scope_statement": scope_statement,
+        "out_of_scope": [
+            "Discovery completo e genérico.",
+            "Métodos longos incompatíveis com o prazo informado.",
+            "Processamento de evidências antes de upload ou input do usuário.",
+        ],
+        "workflow_recommendation": "RESEARCH_APPROVAL_PENDING",
+    }
+
+
+def lock_methodology_decision(seed: dict[str, Any], generated: dict[str, Any]) -> dict[str, Any]:
+    if not seed:
+        return generated
+    if not generated:
+        return seed
+
+    locked_keys = {
+        "decision_matrix",
+        "recommended_methodology",
+        "methodology_label",
+        "confidence_score",
+        "recommended_methods",
+        "not_recommended_methods",
+        "workflow_recommendation",
+    }
+    merged = {**seed, **generated}
+    for key in locked_keys:
+        if key in seed:
+            merged[key] = seed[key]
+    return merged
+
+
 class KickoffRequest(BaseModel):
     inputs: dict[str, Any] = Field(default_factory=dict)
     files: list[UploadedFileRef] = Field(default_factory=list)
@@ -237,6 +750,7 @@ def normalize_inputs(inputs: dict[str, Any]) -> dict[str, Any]:
     normalized.setdefault("title", "")
     normalized.setdefault("objective", "")
     normalized.setdefault("problem", "")
+    normalized.setdefault("deadline", "")
     normalized.setdefault("owners", "")
     normalized.setdefault("users", normalized.get("participants", []))
     normalized.setdefault("stakeholders", normalized.get("participants", []))
@@ -389,6 +903,7 @@ def build_artifacts(inputs: dict[str, Any], serialized_result: Any) -> dict[str,
             "links": inputs.get("links") or inputs.get("link") or [],
             "files": inputs.get("files") or inputs.get("file") or [],
             "file_read_warnings": inputs.get("file_read_warnings", []),
+            "decision_matrix": inputs.get("decision_matrix", {}),
         }
     }
 
@@ -408,15 +923,19 @@ def build_artifacts(inputs: dict[str, Any], serialized_result: Any) -> dict[str,
     # This is a belt-and-suspenders guard: if the task's raw output was a markdown-fenced
     # JSON string, try_parse_json already handled it above. If research_plan_package ended
     # up as a string (parse totally failed) or lacks recommended_methodology, repair it here.
-    methodology = build_methodology_output(serialized_result)
+    methodology_seed = inputs.get("methodology_decision", {})
+    methodology = lock_methodology_decision(methodology_seed, build_methodology_output(serialized_result))
     if methodology:
         artifacts.setdefault("methodology_recommendation", methodology)
         # Also expose at artifacts.methodology for frontend lookups
         artifacts.setdefault("methodology", methodology)
         rpp = artifacts.get("research_plan_package")
-        if not isinstance(rpp, dict) or not rpp.get("recommended_methodology"):
-            # Merge: methodology fields at top level, scope fields nested if already present
-            artifacts["research_plan_package"] = {**methodology, **(rpp if isinstance(rpp, dict) else {})}
+        # Merge: methodology fields stay locked by the deterministic matrix, while
+        # scope fields or nested task outputs from the Crew remain available.
+        artifacts["research_plan_package"] = lock_methodology_decision(
+            methodology,
+            rpp if isinstance(rpp, dict) else {},
+        )
 
     return artifacts
 
@@ -503,6 +1022,10 @@ def kickoff(request: KickoffRequest) -> dict[str, Any]:
     inputs["file"] = validated_file_paths
     inputs["files"] = validated_file_refs
     inputs["file_read_warnings"] = file_read_warnings
+    decision_matrix = build_methodology_decision_matrix(inputs)
+    methodology_decision = build_methodology_decision(inputs, decision_matrix)
+    inputs["decision_matrix"] = methodology_decision["decision_matrix"]
+    inputs["methodology_decision"] = methodology_decision
 
     RUNS[run_id] = {
         "run_id": run_id,
@@ -513,9 +1036,11 @@ def kickoff(request: KickoffRequest) -> dict[str, Any]:
         "intake_files": raw_files,
         "validated_file_paths": validated_file_paths,
         "file_read_warnings": file_read_warnings,
+        "decision_matrix": methodology_decision["decision_matrix"],
+        "methodology_decision": methodology_decision,
         "outputs": {},
         "artifacts": {},
-        "recommended_methods": [],
+        "recommended_methods": methodology_decision["recommended_methods"],
         "required_user_inputs": {},
         "created_at": created_at,
         "updated_at": created_at,
@@ -526,13 +1051,10 @@ def kickoff(request: KickoffRequest) -> dict[str, Any]:
         crew_result = run_initial_planning_crew(inputs)
         outputs = serialize_for_json(crew_result)
         artifacts = build_artifacts(inputs, outputs)
-        recommended_methods = first_collected_value(outputs, "recommended_methods")
-        # Fallback: build_artifacts already extracted methodology; reuse it so we never
-        # return an empty list when the Crew produced valid method recommendations.
+        m = artifacts.get("methodology_recommendation") or artifacts.get("methodology") or {}
+        recommended_methods = m.get("recommended_methods") if isinstance(m, dict) else []
         if not recommended_methods:
-            m = artifacts.get("methodology_recommendation") or artifacts.get("methodology") or {}
-            if isinstance(m, dict):
-                recommended_methods = m.get("recommended_methods") or []
+            recommended_methods = first_collected_value(outputs, "recommended_methods")
         required_user_inputs = build_required_user_inputs(outputs)
         updated_at = now_iso()
 
@@ -543,6 +1065,8 @@ def kickoff(request: KickoffRequest) -> dict[str, Any]:
                 "outputs": outputs,
                 "artifacts": artifacts,
                 "recommended_methods": recommended_methods,
+                "decision_matrix": methodology_decision["decision_matrix"],
+                "methodology_decision": methodology_decision,
                 "required_user_inputs": required_user_inputs,
                 "updated_at": updated_at,
             }
@@ -570,6 +1094,8 @@ def kickoff(request: KickoffRequest) -> dict[str, Any]:
         "outputs": RUNS[run_id]["outputs"],
         "artifacts": RUNS[run_id]["artifacts"],
         "recommended_methods": RUNS[run_id]["recommended_methods"],
+        "decision_matrix": RUNS[run_id].get("decision_matrix", {}),
+        "methodology_decision": RUNS[run_id].get("methodology_decision", {}),
         "required_user_inputs": RUNS[run_id]["required_user_inputs"],
         "intake_files": RUNS[run_id].get("intake_files", []),
         "validated_file_paths": RUNS[run_id].get("validated_file_paths", []),
