@@ -1,0 +1,27 @@
+{
+  "repository_type": "multi-part",
+  "parts": [
+    {
+      "part_id": "frontend",
+      "display_name": "Frontend + Node proxy",
+      "project_type_id": "web",
+      "root_path": "/",
+      "tech_stack": "vanilla HTML/CSS/JS + Node 20 native http",
+      "entry_points": ["server.js", "index.html"],
+      "docs": ["architecture-frontend.md", "api-contracts-frontend.md", "data-models-frontend.md", "component-inventory-frontend.md"]
+    },
+    {
+      "part_id": "backend",
+      "display_name": "CrewAI Discovery Crew",
+      "project_type_id": "backend",
+      "root_path": "/backend",
+      "tech_stack": "Python CrewAI 1.14.4, OpenAI via LiteLLM, jambo",
+      "entry_points": ["src/discovery_ai/crew.py", "src/discovery_ai/main.py"],
+      "docs": ["architecture-backend.md"]
+    }
+  ],
+  "integration_points": [
+    { "from": "frontend", "to": "backend", "type": "HTTP/JSON proxy", "details": "server.js forwards /api/crewai/* and /api/discovery/* to CrewAI/AMP or MVP backend with Bearer token (CrewAI only)" },
+    { "from": "frontend", "to": "filesystem", "type": "JSON files", "details": "backend/data/*.json, 8 collections" }
+  ]
+}

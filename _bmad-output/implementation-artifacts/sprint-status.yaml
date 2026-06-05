@@ -1,0 +1,96 @@
+# generated: 2026-06-05
+# last_updated: 2026-06-05
+# project: discovery-ai-frontend
+# project_key: NOKEY
+# tracking_system: file-system
+# story_location: _bmad-output/implementation-artifacts
+
+# STATUS DEFINITIONS:
+# ==================
+# Epic Status:
+#   - backlog: Epic not yet started
+#   - in-progress: Epic actively being worked on
+#   - done: All stories in epic completed
+#
+# Epic Status Transitions:
+#   - backlog → in-progress: Automatically when first story is created (via create-story)
+#   - in-progress → done: Manually when all stories reach 'done' status
+#
+# Story Status:
+#   - backlog: Story only exists in epic file
+#   - ready-for-dev: Story file created in stories folder
+#   - in-progress: Developer actively working on implementation
+#   - review: Ready for code review (via Dev's code-review workflow)
+#   - done: Story completed
+#
+# Retrospective Status:
+#   - optional: Can be completed but not required
+#   - done: Retrospective has been completed
+#
+# WORKFLOW NOTES:
+# ===============
+# - Epic transitions to 'in-progress' automatically when first story is created
+# - Stories can be worked in parallel if team capacity allows
+# - Developer typically creates next story after previous one is 'done' to incorporate learnings
+# - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
+
+generated: 2026-06-05
+last_updated: 2026-06-05
+project: discovery-ai-frontend
+project_key: NOKEY
+tracking_system: file-system
+story_location: _bmad-output/implementation-artifacts
+
+development_status:
+  # Epic 1: Fundação & App Shell Navegável
+  epic-1: in-progress
+  1-0-setup-registry-auth: ready-for-dev
+  1-1-spike-celebration-react-19: ready-for-dev
+  1-2-scaffold-vite-react-ts: ready-for-dev
+  1-3-barrel-componentes: ready-for-dev
+  1-4-roteamento-spa: ready-for-dev
+  1-5-i18n: ready-for-dev
+  1-6-mock-mirage-base: ready-for-dev
+  1-7-home-read-only: ready-for-dev
+  1-8-infra-testes: ready-for-dev
+  1-9-tipos-contrato: ready-for-dev
+  epic-1-retrospective: optional
+
+  # Epic 2: Repositório, Produtos & Público
+  epic-2: in-progress
+  2-1-rotas-mock-repositorio: ready-for-dev
+  2-2-home-completa-favoritos: ready-for-dev
+  2-3-catalogo-produtos: ready-for-dev
+  2-4-detalhe-produto: ready-for-dev
+  2-5-visualizacao-publico: ready-for-dev
+  2-6-criar-editar-persona-stakeholder: ready-for-dev
+  epic-2-retrospective: optional
+
+  # Epic 3: Criação de Discovery
+  epic-3: in-progress
+  3-1-rotas-mock-kickoff: ready-for-dev
+  3-2-shell-full-page: ready-for-dev
+  3-3-etapas-validacao: ready-for-dev
+  3-4-submeter-polling-cockpit: ready-for-dev
+  3-5-erro-retry: ready-for-dev
+  epic-3-retrospective: optional
+
+  # Epic 4: Cockpit, Workflow de Agentes & Entrevistas
+  epic-4: in-progress
+  4-1-rotas-mock-workflow: ready-for-dev
+  4-2-cockpit-visao-geral: ready-for-dev
+  4-3-estado-gates-humanos: ready-for-dev
+  4-4-upload-evidencia: ready-for-dev
+  4-5-chat-modal-metodo: ready-for-dev
+  4-6-sintese: ready-for-dev
+  4-7-entrevistas: ready-for-dev
+  epic-4-retrospective: optional
+
+  # Epic 5: Fechamento de Qualidade & Paridade
+  epic-5: in-progress
+  5-1-gate-cobertura: ready-for-dev
+  5-2-auditoria-i18n: ready-for-dev
+  5-3-acessibilidade: ready-for-dev
+  5-4-checklist-paridade: ready-for-dev
+  5-5-performance: ready-for-dev
+  epic-5-retrospective: optional
