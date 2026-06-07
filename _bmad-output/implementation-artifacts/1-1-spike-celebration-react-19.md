@@ -31,7 +31,7 @@ so that confirmamos a stack-alvo (go) ou acionamos o fallback React 18 (no-go) *
   - [ ] Validar `npm view @celebration/react@2.8.1 version` resolve via feed privado.
 - [ ] **Task 2 — App mínimo Vite + React 19 + TS (AC: 1, 2)**
   - [ ] Criar app spike isolado (ex.: pasta temporária `spike/` ou branch descartável) com Vite (última versão) + template `react-ts`.
-  - [ ] Fixar versões exatas: `react@19.2.3`, `react-dom@19.2.3`, `@celebration/react@2.8.1` (NÃO `latest` — a tag latest aponta para alpha), `react-router@^6` (ou `react-router-dom@^6`).
+  - [ ] Fixar versões exatas: `react@19.2.3`, `react-dom@19.2.3`, `@celebration/react@2.8.1` (NÃO `latest` — a tag latest aponta para alpha), `react-router-dom@^7`.
   - [ ] Importar `@celebration/assets/src/main.css` uma vez no entrypoint.
   - [ ] Envolver a árvore com `<ThemeProvider theme="bees"><ToastProvider>…</ToastProvider></ThemeProvider>`.
 - [ ] **Task 3 — Renderizar e exercitar componentes `Clb*` (AC: 1, 3)**
@@ -47,7 +47,7 @@ so that confirmamos a stack-alvo (go) ou acionamos o fallback React 18 (no-go) *
 
 ### Fatos verificados (2026-06-05, feed privado Azure Artifacts)
 - `@celebration/react` stable mais novo = **2.8.1**. A tag `latest` do feed aponta para uma **alpha** (`2.8.0-alpha.*`) — **fixar 2.8.1 exato**, nunca `latest`/`^`.
-- Peer deps de 2.8.1: `react: ^19.2.3`, `react-dom: ^19.2.3`, `react-router: >=6.0.0`. [Source: verificação `npm view @celebration/react@2.8.1 peerDependencies`]
+- Peer deps de 2.8.1: `react: ^19.2.3`, `react-dom: ^19.2.3`, `react-router: >=6.0.0` (peer aceita v6+; usar `react-router-dom@^7` no projeto). [Source: verificação `npm view @celebration/react@2.8.1 peerDependencies`]
 - Providers obrigatórios: `ThemeProvider` (tema `bees`) + `ToastProvider`. CSS: `@celebration/assets/src/main.css` (uma vez). [Source: .claude/skills/celebration-design-system/references/installation.md]
 - Componentes importados de `@celebration/react`. **No spike** pode importar direto; em código de feature (Story 1.3+) será via barrel `~/components/external`. [Source: .claude/skills/celebration-design-system/SKILL.md]
 - Dúvida/erro de componente → Storybook oficial: https://celebration.ambevdevs.com.br/storybook-react

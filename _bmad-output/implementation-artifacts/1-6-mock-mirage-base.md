@@ -44,25 +44,50 @@ Para que a app rode sem backend real e sem vazar mock em produção.
   - [ ] Opcional: `@faker-js/faker` para geração de dados (dev-only).
   - [ ] Confirmar que ambos ficam em `devDependencies`.
 
-- [ ] **Task 2 — Criar `src/mocks/server.ts` (AC: 1, 4)**
-  - [ ] Criar `makeServer({ environment })`:
+- [ ] **Task 2 — Criar estrutura `src/mocks/` e `server.ts` (AC: 1, 4)**
+  - [ ] Criar pastas: `src/mocks/models/`, `src/mocks/factories/`, `src/mocks/routes/`, `src/mocks/serializers/`.
+  - [ ] Criar `src/mocks/serializers/application.ts` com `RestSerializer` (root: false, embed: true).
+  - [ ] Criar `src/mocks/routes/config.ts` com handler `GET /api/config`:
     ```ts
-    import { createServer, Model } from 'miragejs'
+    import type { Server } from 'miragejs'
+
+    export function registerConfigRoutes(server: Server) {
+      server.get('/api/config', () => ({
+        polling_interval: 3000,
+        polling_timeout: 120000,
+        upload_max_size_mb: 10,
+        supported_file_types: ['pdf', 'docx', 'xlsx', 'png', 'jpg'],
+      }))
+    }
+    ```
+  - [ ] Criar `src/mocks/routes/index.ts` re-exportando `registerRoutes(server)` que chama todos os handlers.
+  - [ ] Criar `server.ts` com `makeServer({ environment })`:
+    ```ts
+    import { createServer } from 'miragejs'
+    import { models } from './models'
+    import { serializers } from './serializers'
+    import { registerRoutes } from './routes'
+    import { seedDatabase } from './seeds'
 
     export function makeServer({ environment = 'development' } = {}) {
       return createServer({
         environment,
-        models: { /* a popular nas stories seguintes */ },
+        models,
+        serializers,
+        seeds(server) { seedDatabase(server) },
         routes() {
-          this.urlPrefix = import.meta.env.VITE_API_URL
-          this.namespace = '/api'
-          this.get('/config', () => ({ polling_interval: 3000, ... }))
-          // demais rotas nas stories de domínio
-        }
+          this.urlPrefix = import.meta.env.VITE_API_URL ?? ''
+          this.namespace = ''
+          this.timing = 400
+          registerRoutes(this)
+          this.passthrough((req) =>
+            req.url.includes('/@vite') || req.url.includes('/node_modules')
+          )
+        },
       })
     }
     ```
-  - [ ] Seguir regras de `.claude/rules/mirage-rule.md` (estrutura flat, sem subpastas extras).
+  - [ ] Seguir `.claude/rules/mirage-rule.md`: handlers em `routes/` por recurso, kebab-case nos arquivos.
 
 - [ ] **Task 3 — Init condicional em `main.tsx` (AC: 2, 5)**
   - [ ] Substituir import estático por import dinâmico:
@@ -75,32 +100,95 @@ Para que a app rode sem backend real e sem vazar mock em produção.
   - [ ] Confirmar com `npm run build` + `grep -r 'miragejs' dist/` → nenhum hit.
 
 - [ ] **Task 4 — Camada `services/http` (AC: 3)**
-  - [ ] Criar `src/services/http/index.ts`:
-    - Configurar axios (ou fetch nativo) com `baseURL: import.meta.env.VITE_API_URL`.
-    - Exportar helpers: `get<T>`, `post<T>`, `put<T>`, `delete`.
-    - **Zero import de miragejs aqui.**
+  - [ ] Instalar: `npm install ky`.
+  - [ ] Implementar `src/services/http/` seguindo **`.claude/rules/http-client.md`** exatamente:
+    - `http.ts` — `baseHttp` (ky.create com timeout, retry, beforeError hook) + `createHttpClient(baseUrl)` via `ky.extend`.
+    - `interceptors.ts` — `setErrorInterceptor` / `getErrorInterceptor`.
+    - `index.ts` — barrel exportando `createHttpClient` e `setErrorInterceptor`.
+  - [ ] O `beforeError` hook usa `getHttpErrorToast` de `~/utils/http` para mensagem de erro.
+  - [ ] **Zero import de miragejs aqui.** Mirage intercepta no nível do fetch — transparente para o cliente ky.
   - [ ] Tipos de retorno de `services/http` virão dos tipos de contrato (Story 1.9).
 
+  ```ts
+  // src/services/http/http.ts (referência — seguir http-client.md para o código completo)
+  import ky, { isHTTPError } from 'ky'
+  import { getHttpErrorToast } from '~/utils/http'
+  import { getErrorInterceptor } from './interceptors'
+
+  export const baseHttp = ky.create({
+    timeout: 20_000,
+    retry: 0,
+    hooks: {
+      beforeError: [
+        ({ error, options }) => {
+          if (isHTTPError(error)) {
+            const data = error.data as { message?: string } | undefined
+            error.message =
+              data?.message ??
+              (options.context.errorMessage as string | undefined) ??
+              getHttpErrorToast(error.response.status).description
+            if (!options.context.suppressGlobalError) {
+              getErrorInterceptor()?.(error)
+            }
+          }
+          return error
+        },
+      ],
+    },
+  })
+
+  export function createHttpClient(baseUrl: string) {
+    const url = baseUrl.endsWith('/') ? baseUrl : `${baseUrl}/`
+    return baseHttp.extend({ prefixUrl: url })
+  }
+  ```
+
 - [ ] **Task 5 — Seeds básicas (AC: 4)**
-  - [ ] Criar `src/mocks/seeds.ts` com dados mínimos de config (os seeds de domínio vêm por epic).
-  - [ ] Chamar seeds em `makeServer({ environment })`.
+  - [ ] Criar `src/mocks/seeds.ts` com função `seedDatabase(server)` — dados mínimos de config.
+  - [ ] Nota: este projeto usa `seeds.ts` em vez de `scenarios/` (ver `.claude/rules/mirage-rule.md#exceção`).
+  - [ ] Seeds de domínio (produtos, discoveries) são adicionados nas stories 2.1+.
 
 ## Dev Notes
 
 ### Regras do Mirage (`.claude/rules/mirage-rule.md`)
 
-- Estrutura flat: `src/mocks/server.ts`, `src/mocks/seeds.ts`, sem subpastas complexas.
-- `urlPrefix = VITE_API_URL` — a camada HTTP não sabe que existe mock.
+Estrutura obrigatória:
+```
+src/mocks/
+├── server.ts              ← makeServer() — entry point
+├── seeds.ts               ← seedDatabase(server) — convenção do projeto (não scenarios/)
+├── models/                ← definições de entidade Mirage
+│   └── index.ts
+├── factories/             ← geradores com faker — kebab-case (product.ts, agent-run.ts)
+│   └── index.ts
+├── serializers/           ← ApplicationSerializer (root: false, embed: true)
+│   └── application.ts
+└── routes/                ← handlers por recurso — um arquivo por domínio
+    ├── config.ts          ← GET /api/config
+    ├── index.ts           ← registerRoutes() agrega todos
+    └── (domínio.ts adicionados pelas stories seguintes)
+```
+
+- `urlPrefix = VITE_API_URL` — camada HTTP não sabe que existe mock.
 - Import dinâmico em `main.tsx` = tree-shaking garantido.
-- Rotas Mirage espelham o contrato de `server.js` (14 endpoints, ver `docs/api-contracts-frontend.md`).
+- Rotas espelham contrato de `server.js` (ver `docs/api-contracts-frontend.md`).
+
+### Cliente HTTP — ky (não axios, não fetch nativo)
+
+`ky` é fetch-based → Mirage intercepta automaticamente no nível do fetch, sem config extra.
+Não usar axios (XHR-based, comportamento divergente com Mirage) nem fetch nativo (sem interceptors, 4xx não lançam erro).
+
+Regra completa de implementação: `.claude/rules/http-client.md`.
 
 ### Separação de responsabilidades
 
 ```
-main.tsx          → inicializa Mirage (dev-only, dinâmico)
-src/mocks/        → server.ts, seeds.ts, factories/ (dev-only)
-src/services/http → cliente HTTP puro (sem conhecer mock)
-features/         → chamam services/http (sem conhecer mock)
+main.tsx              → inicializa Mirage (dev-only, dinâmico)
+src/mocks/server.ts   → makeServer() + wire de models/routes/serializers/seeds
+src/mocks/routes/     → handlers HTTP por recurso (config, products, discovery…)
+src/mocks/seeds.ts    → seedDatabase(server) — dados iniciais
+src/services/http/    → ky configurado (baseHttp + createHttpClient) — sem conhecer mock
+features/             → chamam createHttpClient de ~/services/http — sem conhecer mock
 ```
 
 ### Contrato `/api/config` (de `server.js`)
@@ -142,6 +230,14 @@ Esta story só adiciona `/api/config`.
 
 - `src/mocks/server.ts`
 - `src/mocks/seeds.ts`
+- `src/mocks/models/index.ts`
+- `src/mocks/serializers/application.ts`
+- `src/mocks/routes/config.ts`
+- `src/mocks/routes/index.ts`
+- `src/services/http/http.ts`
+- `src/services/http/interceptors.ts`
 - `src/services/http/index.ts`
+- `src/utils/http/get-http-error-toast.ts`
+- `src/utils/http/index.ts`
 - `src/main.tsx` (update — import dinâmico Mirage)
 - `package.json` (devDependencies: miragejs, @faker-js/faker)

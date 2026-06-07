@@ -10,7 +10,7 @@ Para que eu acesse cada área do app.
 
 ## Acceptance Criteria
 
-1. **Dado** `react-router-dom` (>=6) configurado no `App.tsx`,
+1. **Dado** `react-router-dom` (v7) configurado no `App.tsx`,
    **Quando** acesso cada rota listada abaixo,
    **Então** a rota resolve para a tela correspondente (placeholder `<PageName />` onde a feature ainda não existe):
    - `/` → Home
@@ -44,9 +44,34 @@ Para que eu acesse cada área do app.
 
 ## Tasks / Subtasks
 
-- [ ] **Task 1 — Configurar react-router no `App.tsx` (AC: 1, 2)**
-  - [ ] Instalar `react-router-dom@^6` (se não instalado na Story 1.2).
-  - [ ] Criar `src/App.tsx` com `<BrowserRouter>` + `<Routes>`.
+- [ ] **Task 1 — Configurar react-router-dom@^7 no `App.tsx` (AC: 1, 2)**
+  - [ ] Confirmar `react-router-dom@^7` instalado (Story 1.2).
+  - [ ] Criar `src/router.tsx` com `createBrowserRouter` + layout aninhado:
+    ```tsx
+    import { createBrowserRouter } from 'react-router-dom'
+    import { AppLayout } from './layouts/AppLayout'
+
+    export const router = createBrowserRouter([
+      {
+        path: '/',
+        element: <AppLayout />,
+        children: [
+          { index: true, element: <HomePage /> },
+          { path: 'products', element: <ProductsPage /> },
+          { path: 'products/:id', element: <ProductDetailPage /> },
+          // ... demais rotas
+          { path: '*', element: <NotFoundPage /> },
+        ],
+      },
+      {
+        // full-page sem sidebar (Epic 3)
+        path: '/discovery',
+        element: <DiscoveryLayout />,
+        children: [/* rotas do fluxo */],
+      },
+    ])
+    ```
+  - [ ] Em `src/main.tsx`: `<RouterProvider router={router} />` (sem `<BrowserRouter>` wrapper).
   - [ ] Criar layout `src/layouts/AppLayout.tsx` com `ClbHeader` + sidebar + `<Outlet />`.
   - [ ] Mapear todas as rotas acima para pages placeholder em `src/pages/`.
 
@@ -55,11 +80,10 @@ Para que eu acesse cada área do app.
         que aceita o nome da rota e exibe-a (para desenvolvimento rápido).
   - [ ] Ou criar um arquivo por page — decidir e manter consistente.
 
-- [ ] **Task 3 — Decisão e implementação das URLs hash legadas (AC: 3)**
-  - [ ] Analisar as rotas hash do protótipo (`app.js`, `routes/`).
-  - [ ] Decidir: redirect para `/` ou renderizar 404.
-  - [ ] Implementar (ex.: `useEffect` no root lendo `window.location.hash` e redirecionando via `navigate()`).
-  - [ ] Registrar a decisão no `.decision-log.md` do PRD (referenciando Open Q4).
+- [ ] **Task 3 — URLs hash legadas: 404 via catch-all (AC: 3)**
+  - [ ] Confirmar que rota `path="*"` no router renderiza `NotFoundPage` (já cobre URLs com `#`).
+  - [ ] Criar `_bmad-output/planning-artifacts/.decision-log.md` (se não existir) e registrar:
+        `Q4 — hash redirect: 404 via catch-all. Usuários internos, sem bookmarks públicos a preservar.`
 
 - [ ] **Task 4 — Rota 404 (AC: 4)**
   - [ ] Criar `src/pages/NotFoundPage.tsx`.
@@ -71,6 +95,13 @@ Para que eu acesse cada área do app.
   - [ ] Labels do shell via i18n key (ex.: `t('nav.home')`) com fallback PT-BR.
 
 ## Dev Notes
+
+### Decisão: URLs hash legadas (Q4 — fechada)
+
+Decisão: **404 via catch-all** (`path="*"` já existente no router).  
+Motivo: usuários do protótipo são internos (designers/PMs), sem bookmarks públicos a preservar.  
+Implementação: nenhum código adicional. `path="*"` cobre qualquer URL não mapeada, incluindo `/#home`.  
+Documentar em `_bmad-output/planning-artifacts/.decision-log.md`.
 
 ### Rotas do protótipo (hash) vs. novas rotas (history API)
 
@@ -96,11 +127,14 @@ AppLayout
 Full-page flow (Story 3.2 — `ClbFullPageFlow`) usa layout diferente (sem sidebar). Preparar lazy
 layout switch no router para `path="/discovery"` sem sidebar.
 
-### react-router v6 vs v7
+### react-router-dom v7
 
-Verificar versão instalada. API de v7 é similar a v6 mas com algumas mudanças em loaders. Usar a API
-compatível com a versão instalada. Preferir `createBrowserRouter` + `RouterProvider` (v6.4+) que permite
-data loaders futuros.
+Projeto fixado em `react-router-dom@^7`. API obrigatória: `createBrowserRouter` + `RouterProvider`.
+
+- ❌ Não usar `<BrowserRouter>` + `<Routes>` — API de componentes legada, deprecated em v7.
+- ✅ `createBrowserRouter([...])` em `src/router.tsx` + `<RouterProvider router={router} />` em `main.tsx`.
+- ✅ Full-page layout (sem sidebar) via rota raiz separada no array do router.
+- ✅ `useNavigate`, `useParams`, `Link` permanecem iguais — sem mudanças de uso nas features.
 
 ### References
 
@@ -123,7 +157,8 @@ data loaders futuros.
 
 ### File List
 
-- `src/App.tsx`
+- `src/router.tsx`
+- `src/main.tsx` (update — `<RouterProvider router={router} />`)
 - `src/layouts/AppLayout.tsx`
 - `src/pages/*.tsx` (placeholders)
 - `src/pages/NotFoundPage.tsx`

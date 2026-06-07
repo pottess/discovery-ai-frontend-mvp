@@ -20,7 +20,7 @@ Para que toda feature parta de uma fundação consistente.
 
 2. **Dado** o projeto scaffoldado,
    **Quando** `main.tsx` monta a árvore,
-   **Então** `<ThemeProvider theme="bees">` e `<ToastProvider>` envolvem toda a aplicação.
+   **Então** `<ThemeProvider theme="bees">`, `<ToastProvider>` e `<QueryClientProvider>` envolvem toda a aplicação na ordem: `ThemeProvider > ToastProvider > QueryClientProvider > RouterProvider`.
 
 3. **Dado** o projeto scaffoldado,
    **Quando** rodo `npm run build`,
@@ -45,13 +45,30 @@ Para que toda feature parta de uma fundação consistente.
   - [ ] Fixar versões no `package.json`:
     - `react@19.2.3`, `react-dom@19.2.3` (exatos)
     - `@celebration/react@2.8.1` (exato, NÃO `^` nem `latest`)
-    - `react-router-dom@^6` ou `^7`
+    - `react-router-dom@^7`
+    - `@tanstack/react-query@^5` — server state (obrigatório, usado em todas as features)
+    - `ky@^1` — cliente HTTP (obrigatório, ver `.claude/rules/http-client.md`)
+    - `styled-components@^6` — estilização (obrigatório, ver `.claude/rules/styling-rule.md`)
+    - `react-error-boundary@^5` — Error Boundaries (obrigatório, ver `.claude/rules/react-feature-architecture.md`)
+    - `react-hook-form@^7` — formulários (obrigatório, usado em Stories 2.6, 3.3, 3.5)
+    - `zod@^3` — validação de schema (par obrigatório do react-hook-form)
+    - `@hookform/resolvers@^3` — ponte react-hook-form ↔ zod
     - `vite` (latest stable)
   - [ ] Rodar `npm install` (com `.npmrc` autenticado).
 
 - [ ] **Task 2 — Providers e CSS do DS no entrypoint (AC: 1, 2)**
   - [ ] `src/main.tsx`: importar `@celebration/assets/src/main.css` (uma vez, antes de qualquer outro CSS).
-  - [ ] Envolver `<App />` com `<ThemeProvider theme="bees"><ToastProvider>...</ToastProvider></ThemeProvider>`.
+  - [ ] Montar árvore de providers na ordem:
+    ```tsx
+    <ThemeProvider theme="bees">
+      <ToastProvider>
+        <QueryClientProvider client={queryClient}>
+          <RouterProvider router={router} />
+        </QueryClientProvider>
+      </ToastProvider>
+    </ThemeProvider>
+    ```
+  - [ ] Criar `queryClient` com `new QueryClient()` fora do componente (singleton).
   - [ ] Confirmar no browser que nenhum warning de provider aparece no console.
 
 - [ ] **Task 3 — TypeScript strict + path alias (AC: 3, 5)**
@@ -89,14 +106,19 @@ src/
 
 ### Versões a fixar (verificadas 2026-06-05)
 
-| Pacote | Versão |
-|--------|--------|
-| react | 19.2.3 |
-| react-dom | 19.2.3 |
-| @celebration/react | 2.8.1 (exato) |
-| react-router-dom | ^6 ou ^7 |
-| vite | latest stable |
-| typescript | ^5 |
+| Pacote | Versão | Nota |
+|--------|--------|------|
+| react | 19.2.3 | exato |
+| react-dom | 19.2.3 | exato |
+| @celebration/react | 2.8.1 | exato, NÃO `^` nem `latest` |
+| react-router-dom | ^7 | |
+| @tanstack/react-query | ^5 | server state — obrigatório |
+| ky | ^1 | cliente HTTP — obrigatório (ver `http-client.md`) |
+| styled-components | ^6 | estilização — obrigatório (ver `styling-rule.md`) |
+| vite | latest stable | |
+| typescript | ^5 | |
+
+> **Nota:** `QueryClientProvider` deve envolver toda a árvore em `main.tsx`, dentro de `ThemeProvider` e `ToastProvider` mas fora do `RouterProvider`. Ordem: `ThemeProvider > ToastProvider > QueryClientProvider > RouterProvider`.
 
 ### CSS do Celebration
 
@@ -140,7 +162,7 @@ features usarão placeholders até o Mirage estar ativo.
 
 ### Completion Notes List
 
-- Versões efetivas instaladas: react@?, vite@?, @celebration/react@?
+- Versões efetivas instaladas: react@?, vite@?, @celebration/react@?, ky@?, styled-components@?, @tanstack/react-query@?
 - `npx tsc --noEmit` saída: (zero erros / erros encontrados)
 - Build de produção: (sucesso / falha)
 

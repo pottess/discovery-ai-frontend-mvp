@@ -51,6 +51,10 @@ Para que confirmemos 100% das telas reconstruídas (SM-1).
   aquela tela estão no DOM e visíveis.
 - Interações funcionam: ações principais (clicar, filtrar, submeter) funcionam contra o mock.
 
+Para paridade **comportamental** (além de visual), consultar `docs/architecture-frontend.md` —
+documenta os fluxos completos do `app.js` (handlers, estado global, transições de rota). Gaps
+entre inventário visual e comportamento real do protótipo são identificados aqui.
+
 ### Inventário de telas (10 views + 3 modals)
 
 Consultar `docs/component-inventory-frontend.md` para lista completa.
@@ -76,7 +80,8 @@ Esperados:
 
 - [Source: epics.md Epic 5 — Story 5.4]
 - [Source: prd.md SM-1]
-- [Source: docs/component-inventory-frontend.md]
+- [Source: docs/component-inventory-frontend.md — inventário visual (elementos, modals)]
+- [Source: docs/architecture-frontend.md — fluxos comportamentais do app.js para paridade além do visual]
 
 ## Dev Agent Record
 

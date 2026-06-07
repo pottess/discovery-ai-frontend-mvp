@@ -34,6 +34,10 @@ Para que eu conduza a pesquisa (simulada).
   - [ ] `src/features/interviews/InterviewsPage.tsx`.
   - [ ] Listagem de participantes do mock + planejamento.
   - [ ] Consultar `docs/component-inventory-frontend.md` — Interview view.
+  - [ ] Consultar `docs/RESEARCH_ACTIVITY_UI_AUDIT.md` — elementos específicos da tabela e ações.
+  - [ ] Seed `research-activity-users` no Mirage:
+        `GET /api/local/research-activity-users` → `{ "perfil-ambev-demo": [...] }`
+        Ver schema em `docs/data-models-frontend.md`.
 
 - [ ] **Task 2 — Sessão de Entrevista (AC: 2, 3)**
   - [ ] `src/features/interviews/InterviewSessionPage.tsx`.
@@ -52,15 +56,23 @@ Esta story é a última do Epic 4 e de menor prioridade. Implementar em paridade
 protótipo, mas sem funcionalidade real (entrevistas são simulação). Se o prazo apertar, escopo
 pode ser reduzido a placeholders com navegação funcional.
 
-### Consultar inventário
+### Consultar inventário e audit
 
 `docs/component-inventory-frontend.md` — Interview view e Interview Session view para campos exatos.
+
+`docs/RESEARCH_ACTIVITY_UI_AUDIT.md` — audit específico da research activity UI. Elementos obrigatórios:
+- **Tabela de participantes:** colunas nome, tipo, status de recrutamento
+- **Botões de ação:** recrutar, remover participante
+- **Script/roteiro:** exibição da metodologia/roteiro de pesquisa
+- **Área de síntese/transcrição:** simulada, sem backend real
+- **Video preview:** modal simulado, sem áudio
 
 ### References
 
 - [Source: epics.md Epic 4 — Story 4.7]
 - [Source: prd.md §4.1 FR-15]
 - [Source: docs/component-inventory-frontend.md — Interview, Interview Session views]
+- [Source: docs/RESEARCH_ACTIVITY_UI_AUDIT.md — tabela de participantes, roteiro, síntese, video preview]
 
 ## Dev Agent Record
 

@@ -32,20 +32,21 @@ Para que o fluxo de criação funcione sem backend.
 
 ## Tasks / Subtasks
 
-- [ ] **Task 1 — Rota kickoff (AC: 1)**
-  - [ ] `POST /api/discovery/kickoff` → cria `MockAgentRun` com `run_id` (uuid), estado `DOR_ANALYZING`,
-        adiciona ao model `mockAgentRun` do Mirage.
+- [ ] **Task 1 — Model e factory para MockAgentRun (AC: 1)**
+  - [ ] Adicionar model `mock-agent-run` em `src/mocks/models/index.ts`.
+  - [ ] Criar `src/mocks/factories/agent-run.ts` com `agentRunFactory` (faker para run_id/product_id/timestamps).
+  - [ ] Atualizar `src/mocks/factories/index.ts`.
 
-- [ ] **Task 2 — Rota status com máquina de estados (AC: 2, 3, 4)**
-  - [ ] `GET /api/discovery/status/:runId` → lookup por `run_id`, retorna estado atual.
-  - [ ] 404 se não encontrado.
-  - [ ] Simulação: a cada chamada ao status, avançar estado automaticamente com delay simulado.
-        Sequência: `DOR_ANALYZING → RESEARCH_APPROVAL_PENDING`.
-
-- [ ] **Task 3 — Rota resume (AC: 5)**
-  - [ ] `POST /api/discovery/resume` com `{ run_id, action }` → avança estado.
-  - [ ] Tabela de transições: `RESEARCH_APPROVAL_PENDING → EVIDENCE_UPLOAD_PENDING → INSIGHT_REVIEW_PENDING
-        → OPPORTUNITY_REVIEW_PENDING → COMPLETED`.
+- [ ] **Task 2 — Criar `src/mocks/routes/discovery.ts` com rotas kickoff/status/resume (AC: 1, 2, 3, 4, 5)**
+  - [ ] Exportar `registerDiscoveryRoutes(server)` contendo:
+    - `POST /api/discovery/kickoff` → cria `MockAgentRun` com `run_id` (uuid), estado `DOR_ANALYZING`.
+    - `GET /api/discovery/status/:runId` → lookup por `run_id`, retorna estado atual; 404 se não encontrado.
+    - Simulação: a cada chamada ao status, avançar estado automaticamente.
+      Sequência: `DOR_ANALYZING → RESEARCH_APPROVAL_PENDING`.
+    - `POST /api/discovery/resume` com `{ run_id, action }` → avança estado.
+      Transições: `RESEARCH_APPROVAL_PENDING → EVIDENCE_UPLOAD_PENDING → INSIGHT_REVIEW_PENDING
+      → OPPORTUNITY_REVIEW_PENDING → COMPLETED`.
+  - [ ] Registrar `registerDiscoveryRoutes` em `src/mocks/routes/index.ts`.
 
 - [ ] **Task 4 — Testes das rotas (DoD infra)**
   - [ ] Testes com Mirage `environment: 'test'`: kickoff, status, resume, 404.
@@ -89,8 +90,11 @@ após N polling calls (simular processamento assíncrono de agentes).
 
 ### File List
 
-- `src/mocks/server.ts` (update — rotas kickoff/status/resume)
-- `src/mocks/factories/agentRunFactory.ts`
+- `src/mocks/models/index.ts` (update — mock-agent-run)
+- `src/mocks/factories/agent-run.ts`
+- `src/mocks/factories/index.ts` (update)
+- `src/mocks/routes/discovery.ts` (novo — kickoff/status/resume)
+- `src/mocks/routes/index.ts` (update)
 - `src/services/http/discovery.ts` (update)
 - `src/types/contract/run.ts` (update — AgentState enum)
 - `src/mocks/routes.test.ts` (update)

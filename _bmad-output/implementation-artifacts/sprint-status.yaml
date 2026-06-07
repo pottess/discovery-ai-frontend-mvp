@@ -83,7 +83,7 @@ development_status:
   4-4-upload-evidencia: ready-for-dev
   4-5-chat-modal-metodo: ready-for-dev
   4-6-sintese: ready-for-dev
-  4-7-entrevistas: ready-for-dev
+  4-7-entrevistas: ready-for-dev  # DECISION_PENDING: PM confirmar go/no-go antes de iniciar (candidata a corte)
   epic-4-retrospective: optional
 
   # Epic 5: Fechamento de Qualidade & Paridade

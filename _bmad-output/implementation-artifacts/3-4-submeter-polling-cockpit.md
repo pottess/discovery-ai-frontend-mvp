@@ -40,11 +40,11 @@ Para que eu chegue ao Cockpit ao concluir.
   - [ ] Criar o Discovery no mock de `created-discoveries` após kickoff.
 
 - [ ] **Task 2 — Polling com timeout (AC: 2, 4, 5)**
-  - [ ] Hook `usePolling(runId, config)`:
-    - Interval: `config.polling_interval` ms.
-    - Timeout: `config.polling_timeout` ms → erro.
-    - Para quando estado atingir gate humano ou `COMPLETED`.
-    - Cleanup: cancelar polling ao desmontar.
+  - [ ] Hook `usePollRunStatus(runId, config)` usando **`useQuery` + `refetchInterval` como função** (nunca `setInterval`):
+    - Interval: `config.polling_interval` ms enquanto processando.
+    - Timeout: `config.polling_timeout` ms → erro de timeout via `meta` da query.
+    - Para em estado terminal ou gate humano (retorna `false` no `refetchInterval`).
+    - Cleanup: React Query gerencia — não usar `clearInterval` manual.
 
 - [ ] **Task 3 — Navegação para o Cockpit (AC: 2)**
   - [ ] Quando estado é gate humano ou avançado: `navigate('/discovery/' + runId)`.
@@ -59,40 +59,49 @@ Para que eu chegue ao Cockpit ao concluir.
 
 ### Polling pattern
 
+Usar `refetchInterval` como **função** — nunca `setInterval` manual. Ver `.claude/rules/features-rule.md` seção "Polling com React Query".
+
 ```ts
-const usePolling = (runId: string, config: ConfigResponse) => {
-  const [state, setState] = useState<AgentState | null>(null)
-  const [error, setError] = useState<string | null>(null)
+// src/features/discovery-workflow/hooks/use-poll-run-status.ts
+import { useQuery } from "@tanstack/react-query";
+import { discoveryApi } from "../api";
+import { discoveryKeys } from "../keys";
+import type { AgentState, ConfigResponse } from "../types";
 
-  useEffect(() => {
-    const startTime = Date.now()
-    const timer = setInterval(async () => {
-      if (Date.now() - startTime > config.polling_timeout) {
-        clearInterval(timer)
-        setError('timeout')
-        return
+const TERMINAL_STATES: AgentState[] = ["COMPLETED", "FAILED", "CANCELLED"];
+const GATE_STATES: AgentState[] = [
+  "RESEARCH_APPROVAL_PENDING",
+  "EVIDENCE_UPLOAD_PENDING",
+  "INSIGHT_REVIEW_PENDING",
+  "OPPORTUNITY_REVIEW_PENDING",
+];
+
+export function usePollRunStatus(runId: string | null, config: ConfigResponse) {
+  return useQuery({
+    queryKey: discoveryKeys.status(runId!),
+    queryFn: () => discoveryApi.getStatus(runId!),
+    enabled: !!runId,
+    refetchOnWindowFocus: false,
+    refetchInterval: (query) => {
+      const state = query.state.data?.state;
+      if (!state || TERMINAL_STATES.includes(state) || GATE_STATES.includes(state)) {
+        return false; // para o polling
       }
-      try {
-        const res = await getDiscoveryStatus(runId)
-        setState(res.state)
-        if (isTerminalOrGateState(res.state)) clearInterval(timer)
-      } catch {
-        clearInterval(timer)
-        setError('network')
-      }
-    }, config.polling_interval)
-
-    return () => clearInterval(timer)
-  }, [runId, config])
-
-  return { state, error }
+      return config.polling_interval;
+    },
+    // Timeout: se a query levar mais que polling_timeout, rejeitar
+    staleTime: 0,
+    gcTime: 0,
+  });
 }
 ```
 
+Timeout por `polling_timeout`: usar `retry: false` + `retryDelay` ou controlar via `meta` + `onError` no `QueryClient`. Alternativa simples: comparar `Date.now() - query.state.dataUpdatedAt` no `refetchInterval` e retornar `false` se excedido.
+
 ### Estados que param o polling
 
-Gate humanos: `RESEARCH_APPROVAL_PENDING`, `EVIDENCE_UPLOAD_PENDING`, etc.
-Terminal: `COMPLETED`.
+Gate humanos: `RESEARCH_APPROVAL_PENDING`, `EVIDENCE_UPLOAD_PENDING`, `INSIGHT_REVIEW_PENDING`, `OPPORTUNITY_REVIEW_PENDING`.
+Terminal: `COMPLETED`, `FAILED`, `CANCELLED`.
 
 ### References
 

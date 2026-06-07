@@ -66,6 +66,9 @@ Para que eu avance o Discovery.
 3. `INSIGHT_REVIEW_PENDING` — revisar insights
 4. `OPPORTUNITY_REVIEW_PENDING` — validar oportunidades
 
+Ver `docs/frontend-mvp-contract.md` para labels exatos, descrições de cada gate e campos esperados
+no payload de `resume`. Os valores em `GATE_CONFIG` devem refletir esse contrato.
+
 ### Update otimístico de estado
 
 Após `resume` bem-sucedido, atualizar o estado local antes do próximo polling para UX responsiva.
@@ -75,6 +78,7 @@ Após `resume` bem-sucedido, atualizar o estado local antes do próximo polling 
 - [Source: epics.md Epic 4 — Story 4.3]
 - [Source: prd.md §4.1 FR-14]
 - [Source: docs/api-contracts-frontend.md — resume endpoint]
+- [Source: docs/frontend-mvp-contract.md — state machine, payloads de gate, labels e descrições]
 
 ## Dev Agent Record
 

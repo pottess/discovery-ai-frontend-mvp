@@ -105,29 +105,53 @@ Para que regressões sejam bloqueadas desde o início.
 
 ### Wrapper de providers para testes
 
-Criar um helper reutilizável para não repetir providers em cada teste:
+Criar um helper reutilizável para não repetir providers em cada teste.
+Usa `createMemoryRouter` + `RouterProvider` (API v7 — não `MemoryRouter` legado).
 
 ```tsx
 // src/test/render.tsx
 import { render, RenderOptions } from '@testing-library/react'
-import { MemoryRouter } from 'react-router-dom'
+import { createMemoryRouter, RouterProvider } from 'react-router-dom'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { ThemeProvider, ToastProvider } from '~/components/external'
+import type { ReactNode } from 'react'
 import '../i18n' // inicializa i18next
 
-const AllProviders = ({ children }) => (
+function withRouter(ui: ReactNode) {
+  const router = createMemoryRouter([{ path: '*', element: ui }], {
+    initialEntries: ['/'],
+  })
+  return <RouterProvider router={router} />
+}
+
+function createTestQueryClient() {
+  return new QueryClient({
+    defaultOptions: {
+      queries: { retry: false },
+      mutations: { retry: false },
+    },
+  })
+}
+
+const AllProviders = ({ children }: { children: ReactNode }) => (
   <ThemeProvider theme="bees">
     <ToastProvider>
-      <MemoryRouter>{children}</MemoryRouter>
+      <QueryClientProvider client={createTestQueryClient()}>
+        {withRouter(children)}
+      </QueryClientProvider>
     </ToastProvider>
   </ThemeProvider>
 )
 
-const customRender = (ui, options?: RenderOptions) =>
-  render(ui, { wrapper: AllProviders, ...options })
+const customRender = (ui: ReactNode, options?: RenderOptions) =>
+  render(ui, { wrapper: ({ children }) => <AllProviders>{children}</AllProviders>, ...options })
 
 export * from '@testing-library/react'
 export { customRender as render }
 ```
+
+Para testes que precisam testar navegação ou rotas específicas, usar `createMemoryRouter` diretamente
+com o router real da app (importar de `~/router`) e `initialEntries` para controlar a rota inicial.
 
 ### Mirage em testes
 
@@ -148,6 +172,7 @@ O CI não pode usar `vsts-npm-auth` interativo. Usar:
 - [Source: epics.md Epic 1 — Story 1.8]
 - [Source: prd.md §4.8 FR-16]
 - [Source: .claude/rules/mirage-rule.md — reuso em testes]
+- [Source: docs/development-guide.md — setup local, variáveis de ambiente, autenticação registry]
 
 ## Dev Agent Record
 

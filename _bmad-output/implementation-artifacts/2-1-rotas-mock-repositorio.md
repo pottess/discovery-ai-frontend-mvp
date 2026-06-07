@@ -35,27 +35,32 @@ Para que as telas do Epic 2 consumam dados realistas.
 ## Tasks / Subtasks
 
 - [ ] **Task 1 — Models e factories Mirage (AC: 1, 2, 5)**
-  - [ ] Declarar models em `makeServer`: `product`, `discovery`, `run`, `persona`, `stakeholder`.
-  - [ ] Criar `src/mocks/factories/`:
-    - `productFactory.ts` — gera Product com faker, incluindo variante `artifacts` string[] e objeto.
-    - `discoveryFactory.ts` — gera Discovery com diferentes status.
-    - `audienceFactory.ts` — gera Persona e Stakeholder.
-  - [ ] Seeds: 5+ produtos, 5+ discoveries, 2+ personas, 2+ stakeholders por produto de exemplo.
+  - [ ] Adicionar models em `src/mocks/models/index.ts`: `product`, `discovery`, `run`, `persona`, `stakeholder`.
+  - [ ] Criar factories em `src/mocks/factories/` — arquivos em kebab-case:
+    - `product.ts` — gera Product com faker, incluindo variante `artifacts` string[] e objeto.
+    - `discovery.ts` — gera Discovery com diferentes status.
+    - `audience.ts` — gera Persona e Stakeholder.
+  - [ ] Atualizar `src/mocks/factories/index.ts` re-exportando todos os factories.
+  - [ ] Seeds em `src/mocks/seeds.ts`: 5+ produtos, 5+ discoveries, 2+ personas, 2+ stakeholders por produto.
 
-- [ ] **Task 2 — Rotas CRUD para collections (AC: 1, 3, 4)**
-  - [ ] Implementar em `makeServer().routes()`:
+- [ ] **Task 2 — Rotas CRUD em arquivos por recurso (AC: 1, 3, 4)**
+  - [ ] Criar `src/mocks/routes/products.ts` com `registerProductRoutes(server)`:
     - `GET /api/local/products` → lista paginável
     - `GET /api/local/products/:id` → detalhe (404 se não existir)
+  - [ ] Criar `src/mocks/routes/discoveries.ts` com `registerDiscoveryListRoutes(server)`:
     - `GET /api/local/discoveries` → lista
     - `GET /api/local/created-discoveries` → lista dos criados
+  - [ ] Criar `src/mocks/routes/audience.ts` com `registerAudienceRoutes(server)`:
     - `GET /api/local/product-audience-by-product/:productId` → { personas, stakeholders }
-    - `POST /api/local/product-audience-by-product/:productId/persona` → cria persona
-    - `PUT /api/local/product-audience-by-product/:productId/persona/:id` → atualiza
+    - `POST /api/local/product-audience-by-product/:productId/persona`
+    - `PUT /api/local/product-audience-by-product/:productId/persona/:id`
     - `DELETE /api/local/product-audience-by-product/:productId/persona/:id`
     - Mesmos verbos para stakeholder
+  - [ ] Criar `src/mocks/routes/favorites.ts` com `registerFavoritesRoutes(server)`:
     - `GET/PUT /api/local/product-favorites-by-user/:profileId`
     - `GET/PUT /api/local/favorite-discovery-ids`
     - `GET /api/local/research-activity-users`
+  - [ ] Registrar todos em `src/mocks/routes/index.ts` via `registerRoutes(server)`.
 
 - [ ] **Task 3 — Services HTTP correspondentes (AC: 1)**
   - [ ] Criar/atualizar `src/services/http/products.ts`, `discoveries.ts`, `audience.ts`, `favorites.ts`.
@@ -110,11 +115,17 @@ referência primária para shapes e status codes.
 
 ### File List
 
-- `src/mocks/server.ts` (update)
-- `src/mocks/seeds.ts` (update)
-- `src/mocks/factories/productFactory.ts`
-- `src/mocks/factories/discoveryFactory.ts`
-- `src/mocks/factories/audienceFactory.ts`
+- `src/mocks/models/index.ts` (update — product, discovery, run, persona, stakeholder)
+- `src/mocks/factories/product.ts`
+- `src/mocks/factories/discovery.ts`
+- `src/mocks/factories/audience.ts`
+- `src/mocks/factories/index.ts` (update)
+- `src/mocks/seeds.ts` (update — 5+ produtos e discoveries)
+- `src/mocks/routes/products.ts`
+- `src/mocks/routes/discoveries.ts`
+- `src/mocks/routes/audience.ts`
+- `src/mocks/routes/favorites.ts`
+- `src/mocks/routes/index.ts` (update)
 - `src/services/http/products.ts`
 - `src/services/http/audience.ts`
 - `src/services/http/favorites.ts`

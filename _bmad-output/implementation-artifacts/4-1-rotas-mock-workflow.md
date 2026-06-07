@@ -35,21 +35,21 @@ Para que o Cockpit reflita o workflow de agentes.
 
 ## Tasks / Subtasks
 
-- [ ] **Task 1 — Completar máquina de estados (AC: 1, 6)**
-  - [ ] Expandir `MockAgentRun` model para cobrir todos os 5 gates + COMPLETED.
-  - [ ] `POST /api/discovery/resume` com tabela de transições completa.
+- [ ] **Task 1 — Expandir `src/mocks/routes/discovery.ts` — máquina de estados completa (AC: 1, 6)**
+  - [ ] Expandir `MockAgentRun` model (`src/mocks/models/index.ts`) para cobrir todos os 5 gates + COMPLETED.
+  - [ ] Atualizar `POST /api/discovery/resume` em `routes/discovery.ts` com tabela de transições completa.
   - [ ] Rejeitar resume em COMPLETED com 400.
 
-- [ ] **Task 2 — Rota de evidence (AC: 2)**
+- [ ] **Task 2 — Rota de evidence em `routes/discovery.ts` (AC: 2)**
   - [ ] `POST /api/discovery/:runId/evidence` (multipart ou JSON):
     - Valida estado = `EVIDENCE_UPLOAD_PENDING`.
     - Transiciona para `INSIGHT_REVIEW_PENDING`.
     - Persiste referência do arquivo no mock.
 
-- [ ] **Task 3 — Rotas de artifacts e outputs (AC: 3, 4)**
+- [ ] **Task 3 — Rotas de artifacts e outputs em `routes/discovery.ts` (AC: 3, 4)**
   - [ ] `GET /api/discovery/runs/:runId/artifacts` → array de `ArtifactObject`.
   - [ ] `GET /api/discovery/outputs?run_id=X` → 7 outputs estruturados.
-  - [ ] Seeds com dados realistas para os 7 outputs.
+  - [ ] Seeds em `src/mocks/seeds.ts` com dados realistas para os 7 outputs.
 
 - [ ] **Task 4 — 404 e testes (AC: 5 + DoD infra)**
   - [ ] 404 em `run_id` inexistente em todos os endpoints.
@@ -68,6 +68,15 @@ Consultar o documento para shapes exatos. Esperados:
 - Relatório final
 - Recomendações
 
+Ver também `docs/architecture-backend.md` — descreve os 20 agentes CrewAI e seus outputs de task.
+Seeds em `mocks/seeds.ts` devem refletir a estrutura real dos outputs dos agentes (não inventar campos).
+
+### Payload de gates e state machine (de `docs/frontend-mvp-contract.md`)
+
+`frontend-mvp-contract.md` define o contrato exato do state machine: payloads de request/response
+para cada gate humano, campos obrigatórios em `/resume` e `/outputs`. Consultar antes de implementar
+Task 1 e Task 3 — o `api-contracts-frontend.md` é mais genérico; o contract doc tem os detalhes.
+
 ### Transições completas
 
 ```
@@ -83,6 +92,8 @@ COMPLETED --resume--> 400 (rejeitado)
 - [Source: epics.md Epic 4 — Story 4.1]
 - [Source: docs/api-contracts-frontend.md — outputs, evidence, runs/artifacts]
 - [Source: docs/data-models-frontend.md — MockAgentRun, AgentState]
+- [Source: docs/frontend-mvp-contract.md — state machine exata, payloads de gate, resume/outputs]
+- [Source: docs/architecture-backend.md — estrutura dos 20 agentes CrewAI, outputs de task para seeds]
 - [Source: .claude/rules/mirage-rule.md]
 
 ## Dev Agent Record
@@ -95,7 +106,9 @@ COMPLETED --resume--> 400 (rejeitado)
 
 ### File List
 
-- `src/mocks/server.ts` (update — rotas evidence/artifacts/outputs)
-- `src/mocks/factories/agentRunFactory.ts` (update)
+- `src/mocks/models/index.ts` (update — estados completos de MockAgentRun)
+- `src/mocks/factories/agent-run.ts` (update)
+- `src/mocks/routes/discovery.ts` (update — evidence/artifacts/outputs/resume completo)
+- `src/mocks/seeds.ts` (update — 7 outputs estruturados)
 - `src/services/http/discovery.ts` (update)
 - `src/mocks/routes.test.ts` (update)
